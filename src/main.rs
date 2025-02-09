@@ -15,33 +15,35 @@ use rand::Rng;
 
 #[derive(Copy, Clone)]
 struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
 }
 implement_vertex!(Vertex, position);
 
 #[derive(Copy, Clone)]
 struct Circle {
-    centre: [f32; 2],
+    centre: [f32; 3],
     radius: f32,
     verticies: [Vertex; 3],
 }
 
 impl Circle {
-    fn new(centre: [f32; 2], radius: f32) -> Self {
+    fn new(centre: [f32; 3], radius: f32) -> Self {
         let verticies = [
             Vertex {
-                position: [centre[0], centre[1] + radius],
+                position: [centre[0], centre[1] + radius, centre[2]],
             },
             Vertex {
                 position: [
                     centre[0] + radius * f32::sqrt(3.0) * 0.5,
                     centre[1] - 0.5 * radius,
+                    centre[2],
                 ],
             },
             Vertex {
                 position: [
                     centre[0] - radius * f32::sqrt(3.0) * 0.5,
                     centre[1] - 0.5 * radius,
+                    centre[2],
                 ],
             },
         ];
@@ -56,8 +58,12 @@ impl Circle {
     fn random() -> Self {
         let mut rng = rand::rng();
         Self::new(
-            [rng.random_range(-2.0..2.0), rng.random_range(-1.0..1.0)],
-            rng.random_range(0.01..0.02),
+            [
+                rng.random_range(-1.0..1.0),
+                rng.random_range(-1.0..1.0),
+                rng.random_range(0.1..1.0),
+            ],
+            rng.random_range(0.001..0.002),
         )
     }
 }
@@ -93,7 +99,7 @@ fn main() {
 
     let mut circles = Vec::with_capacity(1000);
 
-    for _ in 0..1_000 {
+    for _ in 0..1_000_000 {
         circles.push(Circle::random());
     }
     let verticies: Vec<Vertex> = circles.iter().flat_map(|s| s.verticies).collect();
@@ -104,17 +110,14 @@ fn main() {
     let vertex_shader_src = r#"
         #version 330
 
-        in vec2 position;
+        in vec3 position;
         uniform float x_off;
         uniform mat4 matrix;       // new
         uniform mat4 perspective;       // new
-        out vec4 vertexCoord;
-
+        out float colours;
         void main() {
-            vec2 pos = position;
-            pos.x += x_off;
-            gl_Position = perspective*matrix*vec4(pos.x, pos.y , 0.01, 0.5);
-            vertexCoord = gl_Position;
+            gl_Position = perspective*matrix*vec4(position.xyz, 1.0);
+            colours = position.z;
         }
     "#;
 
@@ -127,22 +130,24 @@ fn main() {
         out float radius;
         out vec4 centre;
         out vec4 fragCoord;
+        in float colours[];
+        out float colour;
 
         void main() {   
 
             centre =  (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position)/3.0 ; 
             radius = (gl_in[0].gl_Position.y - centre.y)/2;
-
             gl_Position = gl_in[0].gl_Position;
             fragCoord =  gl_Position;
-
+            colour = colours[0];
             EmitVertex();
             gl_Position = gl_in[1].gl_Position;
             fragCoord = gl_Position;
-
+            colour = colours[1];
             EmitVertex();
             gl_Position = gl_in[2].gl_Position;
             fragCoord = gl_Position;
+            colour = colours[2];
             EmitVertex();
             
             EndPrimitive();
@@ -158,7 +163,7 @@ fn main() {
         in float radius;
         out vec4 FragColor;
         uniform vec2 resolution;
-
+        in float colour;
         void main() {
             vec4 f = fragCoord;
             vec4 c = centre;
@@ -169,7 +174,7 @@ fn main() {
             if ( distance(f.xy,c.xy) > radius ){
                 discard;
             } else {
-                FragColor = vec4(1.0,1.0,1.0,1.0);
+                FragColor = vec4(1.0-colour,1.0,colour,1.0);
             }
         }
     "#;
@@ -191,7 +196,7 @@ fn main() {
         ..Default::default()
     };
 
-    let mut zoom = 10.0;
+    let mut zoom = 1.0;
     // this avoids a lot of boiler plate.
     #[warn(deprecated)]
     let _ = event_loop.run(move |event, window_target| {
@@ -211,9 +216,9 @@ fn main() {
                         let aspect_ratio = height as f32 / width as f32;
 
                         let fov: f32 = 3.141592 / 3.0;
-                        let zfar = 1024.0;
-                        let znear = 0.1;
-                        let f = 1.0 / (fov / 2.0).tan();
+                        let zfar = 8.0;
+                        let znear = 0.01;
+                        let f = 1.0 / (fov / 3.0).tan();
 
                         [
                             [f *   aspect_ratio   ,    0.0,              0.0              ,   0.0],
@@ -241,8 +246,8 @@ fn main() {
                     if let glium::winit::event::ElementState::Released = kin.state {
                         if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = (1.0 as f32).max(zoom/2.0),
-                                glium::winit::keyboard::KeyCode::BracketRight => zoom = (10000 as f32).min(zoom*2.0),
+                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = (0.01 as f32).max(zoom/2.0),
+                                glium::winit::keyboard::KeyCode::BracketRight => zoom = (4 as f32).min(zoom*2.0),
                                 _ => todo!(),
                             }
                         }
