@@ -34,14 +34,14 @@ impl Circle {
             },
             Vertex {
                 position: [
-                    centre[0] + radius * f32::sqrt(3.0) * 0.5,
+                    centre[0] - radius * f32::sqrt(3.0) * 0.5,
                     centre[1] - 0.5 * radius,
                     centre[2],
                 ],
             },
             Vertex {
                 position: [
-                    centre[0] - radius * f32::sqrt(3.0) * 0.5,
+                    centre[0] + radius * f32::sqrt(3.0) * 0.5,
                     centre[1] - 0.5 * radius,
                     centre[2],
                 ],
@@ -61,7 +61,7 @@ impl Circle {
             [
                 rng.random_range(-1.0..1.0),
                 rng.random_range(-1.0..1.0),
-                rng.random_range(0.1..1.0),
+                rng.random_range(0.1..0.8),
             ],
             rng.random_range(0.001..0.002),
         )
@@ -114,9 +114,13 @@ fn main() {
         uniform float x_off;
         uniform mat4 matrix;       // new
         uniform mat4 perspective;       // new
+        uniform vec2 xy_off;       // new
+
         out float colours;
         void main() {
-            gl_Position = perspective*matrix*vec4(position.xyz, 1.0);
+            vec3 pos = position;
+            pos.xy = pos.xy + xy_off;
+            gl_Position = perspective*matrix*vec4(pos.xyz, 1.0);
             colours = position.z;
         }
     "#;
@@ -193,10 +197,14 @@ fn main() {
             write: true,
             ..Default::default()
         },
+        backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
         ..Default::default()
     };
 
     let mut zoom = 1.0;
+    let mut pos_x = 0.0;
+    let mut pos_y = 0.0;
+
     // this avoids a lot of boiler plate.
     #[warn(deprecated)]
     let _ = event_loop.run(move |event, window_target| {
@@ -232,11 +240,11 @@ fn main() {
                         [1.0, 0.0, 0.0, 0.0],
                         [0.0, 1.0, 0.0, 0.0],
                         [0.0, 0.0, 1.0, 0.0],
-                        [0.0, 0.0, zoom, 1.0f32] // . . zoom .
+                        [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
                     ];
 
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-                    target.draw(&vertex_buffer, &indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32]},
+                    target.draw(&vertex_buffer, &indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
                             &params).unwrap();
                     target.finish().unwrap();
                 },
@@ -248,7 +256,18 @@ fn main() {
                             match key_code {
                                 glium::winit::keyboard::KeyCode::BracketLeft => zoom = (0.01 as f32).max(zoom/2.0),
                                 glium::winit::keyboard::KeyCode::BracketRight => zoom = (4 as f32).min(zoom*2.0),
-                                _ => todo!(),
+                                _ => {},
+                            }
+                        }
+                    }
+                    if let glium::winit::event::ElementState::Pressed  = kin.state {
+                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
+                            match key_code {
+                                glium::winit::keyboard::KeyCode::KeyS => pos_y = (1.0 as f32).min(pos_y + 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0 as f32).max(pos_y - 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyA => pos_x = (1.0 as f32).min(pos_x + 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0 as f32).max(pos_x - 0.1*zoom),
+                            _ => {},
                             }
                         }
                     }
