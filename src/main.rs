@@ -1,283 +1,30 @@
-#[macro_use]
-extern crate glium;
+use std::{os::macos::raw::stat, sync::mpsc::{channel, sync_channel}, thread, time::Duration};
 
-use std::cmp::max;
-
-use glium::{
-    winit::{
-        event::{Event, WindowEvent},
-        event_loop::EventLoop,
-    },
-    Surface,
-};
 use log::info;
-use rand::Rng;
-
-#[derive(Copy, Clone)]
-struct Vertex {
-    position: [f32; 3],
-}
-implement_vertex!(Vertex, position);
-
-#[derive(Copy, Clone)]
-struct Circle {
-    centre: [f32; 3],
-    radius: f32,
-    verticies: [Vertex; 3],
-}
-
-impl Circle {
-    fn new(centre: [f32; 3], radius: f32) -> Self {
-        let verticies = [
-            Vertex {
-                position: [centre[0], centre[1] + radius, centre[2]],
-            },
-            Vertex {
-                position: [
-                    centre[0] - radius * f32::sqrt(3.0) * 0.5,
-                    centre[1] - 0.5 * radius,
-                    centre[2],
-                ],
-            },
-            Vertex {
-                position: [
-                    centre[0] + radius * f32::sqrt(3.0) * 0.5,
-                    centre[1] - 0.5 * radius,
-                    centre[2],
-                ],
-            },
-        ];
-
-        Self {
-            centre: centre,
-            radius: radius,
-            verticies: verticies,
-        }
-    }
-
-    fn random() -> Self {
-        let mut rng = rand::rng();
-        Self::new(
-            [
-                rng.random_range(-1.0..1.0),
-                rng.random_range(-1.0..1.0),
-                rng.random_range(0.1..0.8),
-            ],
-            rng.random_range(0.001..0.002),
-        )
-    }
-}
-
-enum UniverseEdge {
-    Infinite,
-    WrapAround,
-}
-struct UniverseConfiguration {
-    size: [f32; 2],
-    edge_mode: UniverseEdge,
-}
-
-/*
-Coordinate systems
-------------------
-    Universe -> Physical units (from UOM)
-    universe aspect ratio -> universe.x/universe.y
-    Window size -> pixels
-    Window aspect ratio -> window.x/window.y
-    OpenGL Vertexes -> [-1, 1]
-
-    Aim: remove all the calculations which involve the window size etc.
-    https://glium.github.io/glium/book/tuto-10-perspective.html
-*/
-
+use physim::{render::{self, renderer}, stars::Star, UniverseConfiguration};
 fn main() {
     env_logger::init();
-    let event_loop = EventLoop::builder().build().expect("event loop building");
-    let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-        .with_title("PhySim Renderer")
-        .build(&event_loop);
 
-    let mut circles = Vec::with_capacity(1000);
+
+    let config = UniverseConfiguration {size_x: 2.0, size_y: 1.0, size_z: 0.0};
+    let mut state = Vec::with_capacity(1000);
 
     for _ in 0..1_000_000 {
-        circles.push(Circle::random());
+        state.push(Star::random());
     }
-    let verticies: Vec<Vertex> = circles.iter().flat_map(|s| s.verticies).collect();
 
-    let vertex_buffer = glium::VertexBuffer::new(&display, &verticies).unwrap();
-    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+    let (sender, receiver) = sync_channel(10);
 
-    let vertex_shader_src = r#"
-        #version 330
-
-        in vec3 position;
-        uniform float x_off;
-        uniform mat4 matrix;       // new
-        uniform mat4 perspective;       // new
-        uniform vec2 xy_off;       // new
-
-        out float colours;
-        void main() {
-            vec3 pos = position;
-            pos.xy = pos.xy + xy_off;
-            gl_Position = perspective*matrix*vec4(pos.xyz, 1.0);
-            colours = position.z;
+    thread::spawn(move || {
+        for i in 0..1000 {
+            let new_state: Vec<Star> = state.iter().map(|x| { x.update() }).collect();
+            // let new_state = state.clone();
+            sender.send(new_state).unwrap();
+            //thread::sleep(Duration::from_millis(100));
+            println!("Generated new state {i}");
         }
-    "#;
-
-    let geometry_shader_src = r#"
-        #version 330
-
-        layout (triangles) in;
-        layout(triangle_strip, max_vertices = 3) out; 
-        uniform mat4 perspective;       // new
-        out float radius;
-        out vec4 centre;
-        out vec4 fragCoord;
-        in float colours[];
-        out float colour;
-
-        void main() {   
-
-            centre =  (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position)/3.0 ; 
-            radius = (gl_in[0].gl_Position.y - centre.y)/2;
-            gl_Position = gl_in[0].gl_Position;
-            fragCoord =  gl_Position;
-            colour = colours[0];
-            EmitVertex();
-            gl_Position = gl_in[1].gl_Position;
-            fragCoord = gl_Position;
-            colour = colours[1];
-            EmitVertex();
-            gl_Position = gl_in[2].gl_Position;
-            fragCoord = gl_Position;
-            colour = colours[2];
-            EmitVertex();
-            
-            EndPrimitive();
-        } 
-    "#;
-
-    let fragment_shader_src = r#"
-        #version 330
-
-        // in vec2 fragCoord;
-        in vec4 centre;
-        in vec4 fragCoord;
-        in float radius;
-        out vec4 FragColor;
-        uniform vec2 resolution;
-        in float colour;
-        void main() {
-            vec4 f = fragCoord;
-            vec4 c = centre;
-            f.x *= resolution[0]/resolution[1];
-            c.x *= resolution[0]/resolution[1];
-
-
-            if ( distance(f.xy,c.xy) > radius ){
-                discard;
-            } else {
-                FragColor = vec4(1.0-colour,1.0,colour,1.0);
-            }
-        }
-    "#;
-
-    let program = glium::Program::from_source(
-        &display,
-        vertex_shader_src,
-        fragment_shader_src,
-        Some(geometry_shader_src),
-    )
-    .unwrap();
-
-    let params = glium::DrawParameters {
-        depth: glium::Depth {
-            test: glium::draw_parameters::DepthTest::IfLess,
-            write: true,
-            ..Default::default()
-        },
-        backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
-        ..Default::default()
-    };
-
-    let mut zoom = 1.0;
-    let mut pos_x = 0.0;
-    let mut pos_y = 0.0;
-
-    // this avoids a lot of boiler plate.
-    #[warn(deprecated)]
-    let _ = event_loop.run(move |event, window_target| {
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => window_target.exit(),
-                WindowEvent::Resized(window_size) => {
-                    display.resize(window_size.into());
-                },
-                WindowEvent::RedrawRequested => {
-                    let window_size = display.get_framebuffer_dimensions();
-
-                    let mut target = display.draw();
-
-                    let perspective = {
-                        let (width, height) = target.get_dimensions();
-                        let aspect_ratio = height as f32 / width as f32;
-
-                        let fov: f32 = 3.141592 / 3.0;
-                        let zfar = 8.0;
-                        let znear = 0.01;
-                        let f = 1.0 / (fov / 3.0).tan();
-
-                        [
-                            [f *   aspect_ratio   ,    0.0,              0.0              ,   0.0],
-                            [         0.0         ,     f ,              0.0              ,   0.0],
-                            [         0.0         ,    0.0,  (zfar+znear)/(zfar-znear)    ,   1.0],
-                            [         0.0         ,    0.0, -(2.0*zfar*znear)/(zfar-znear),   0.0],
-                        ]
-                    };
-
-                    let matrix = [
-                        [1.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0],
-                        [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
-                    ];
-
-                    target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-                    target.draw(&vertex_buffer, &indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
-                            &params).unwrap();
-                    target.finish().unwrap();
-                },
-                WindowEvent::KeyboardInput {
-                    device_id, event: kin, is_synthetic: _
-                } => {
-                    if let glium::winit::event::ElementState::Released = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
-                            match key_code {
-                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = (0.01 as f32).max(zoom/2.0),
-                                glium::winit::keyboard::KeyCode::BracketRight => zoom = (4 as f32).min(zoom*2.0),
-                                _ => {},
-                            }
-                        }
-                    }
-                    if let glium::winit::event::ElementState::Pressed  = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
-                            match key_code {
-                                glium::winit::keyboard::KeyCode::KeyS => pos_y = (1.0 as f32).min(pos_y + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0 as f32).max(pos_y - 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyA => pos_x = (1.0 as f32).min(pos_x + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0 as f32).max(pos_x - 0.1*zoom),
-                            _ => {},
-                            }
-                        }
-                    }
-                },
-                    _ => (),
-                },
-                Event::AboutToWait => {
-                    window.request_redraw();
-                },
-            _ => (),
-        };
     });
+
+    renderer(&config, receiver);
+    info!("Finished");
 }
