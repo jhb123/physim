@@ -1,4 +1,4 @@
-use std::{sync::{mpsc::Receiver, Mutex}, thread};
+use std::{f32::consts::PI, sync::mpsc::Receiver};
 
 use glium::{
     winit::{
@@ -101,7 +101,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                         let (width, height) = target.get_dimensions();
                         let aspect_ratio = height as f32 / width as f32;
 
-                        let fov: f32 = 3.141592 / 3.0;
+                        let fov: f32 = PI / 3.0;
                         let zfar = 8.0;
                         let znear = 0.01;
                         let f = 1.0 / (fov / 3.0).tan();
@@ -123,7 +123,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
 
                     info!("Mapped to verticies");
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-                    target.draw(&vertex_buffer, &indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
+                    target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
                             &params).unwrap();
                     target.finish().unwrap();
                 },
@@ -133,8 +133,8 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     if let glium::winit::event::ElementState::Released = kin.state {
                         if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = (0.01 as f32).max(zoom/2.0),
-                                glium::winit::keyboard::KeyCode::BracketRight => zoom = (4 as f32).min(zoom*2.0),
+                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = 0.01_f32.max(zoom/2.0),
+                                glium::winit::keyboard::KeyCode::BracketRight => zoom = 4_f32.min(zoom*2.0),
                                 _ => {},
                             }
                         }
@@ -142,10 +142,10 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     if let glium::winit::event::ElementState::Pressed  = kin.state {
                         if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::KeyS => pos_y = (1.0 as f32).min(pos_y + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0 as f32).max(pos_y - 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyA => pos_x = (1.0 as f32).min(pos_x + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0 as f32).max(pos_x - 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyS => pos_y = 1.0_f32.min(pos_y + 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0_f32).max(pos_y - 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyA => pos_x = 1.0_f32.min(pos_x + 0.1*zoom),
+                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0_f32).max(pos_x - 0.1*zoom),
                             _ => {},
                             }
                         }

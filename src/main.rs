@@ -1,7 +1,7 @@
-use std::{os::macos::raw::stat, sync::mpsc::{channel, sync_channel}, thread, time::Duration};
+use std::{sync::mpsc::sync_channel, thread};
 
 use log::info;
-use physim::{render::{self, renderer}, stars::Star, UniverseConfiguration};
+use physim::{render::{renderer}, stars::Star, UniverseConfiguration};
 fn main() {
     env_logger::init();
 
@@ -13,15 +13,14 @@ fn main() {
         state.push(Star::random());
     }
 
-    let (sender, receiver) = sync_channel(10);
+    let (sender, receiver) = sync_channel(100);
 
     thread::spawn(move || {
-        for i in 0..1000 {
+        for _ in 0..1000 {
             let new_state: Vec<Star> = state.iter().map(|x| { x.update() }).collect();
             // let new_state = state.clone();
             sender.send(new_state).unwrap();
             //thread::sleep(Duration::from_millis(100));
-            println!("Generated new state {i}");
         }
     });
 
