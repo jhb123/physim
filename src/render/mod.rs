@@ -7,7 +7,7 @@ use glium::{
     },
     Surface,
 };
-use log::info;
+use log::{debug, info};
 
 use crate::{stars::Star, UniverseConfiguration};
 
@@ -27,13 +27,11 @@ impl Vertex {
 
 implement_vertex!(Vertex, position);
 
-
 pub trait Renderable {
     fn verticies(&self) -> Vec<Vertex>;
 }
 
 pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>) {
-
     // Receiver<T>
 
     let event_loop = EventLoop::builder().build().expect("event loop building");
@@ -42,10 +40,20 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
         .build(&event_loop);
 
     // let mut verticies: Vec<Vertex> =  Vec::with_capacity(2000000);// state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
-    let mut verticies: Vec<Vertex>  = state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
+    let mut verticies: Vec<Vertex> = state_recv
+        .recv()
+        .unwrap()
+        .iter()
+        .flat_map(|s| s.verticies())
+        .collect();
     info!("Obtained new state");
 
-    let vertex_buffer = glium::VertexBuffer::dynamic(&display, &verticies).unwrap();
+    let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
+    vertex_buffer
+        .slice(0..verticies.len())
+        .unwrap()
+        .write(&verticies);
+
     let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
     let vertex_shader_src = include_str!("shader.vert");
@@ -74,13 +82,9 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
     let mut pos_x = 0.0;
     let mut pos_y = 0.0;
 
-
     // thread::spawn(move || {
-        // *verticies.lock().unwrap() = new_state;
+    // *verticies.lock().unwrap() = new_state;
     // });
-
-
-
 
     // this avoids a lot of boiler plate.
     #[warn(deprecated)]
@@ -92,7 +96,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     display.resize(window_size.into());
                 },
                 WindowEvent::RedrawRequested => {
-                    info!("Redraw requested event");
+                    debug!("Redraw requested event");
                     let window_size = display.get_framebuffer_dimensions();
 
                     let mut target = display.draw();
@@ -121,7 +125,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                         [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
                     ];
 
-                    info!("Mapped to verticies");
+                    debug!("Mapped to verticies");
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
                     target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
                             &params).unwrap();
@@ -158,13 +162,11 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
                     
                     vertex_buffer.invalidate();
-                    vertex_buffer.write(&verticies);
-
+                    info!("vb={}, v={}",&verticies.len(), vertex_buffer.len());
+                    vertex_buffer.slice(0..verticies.len()).unwrap().write(&verticies);
                     window.request_redraw();
                 },
             _ => (),
         };
     });
-
-
 }

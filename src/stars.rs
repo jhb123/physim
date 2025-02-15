@@ -1,7 +1,10 @@
-use crate::render::{Renderable, Vertex};
+use crate::{
+    octree::simple::Entity,
+    render::{Renderable, Vertex},
+};
 use rand::Rng;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Star {
     x: f32,
     y: f32,
@@ -10,17 +13,17 @@ pub struct Star {
 }
 
 impl Star {
-    fn new(x:f32, y:f32,z: f32,radius:f32) -> Self {
-        Self {x,y,z,radius}
+    pub fn new(x: f32, y: f32, z: f32, radius: f32) -> Self {
+        Self { x, y, z, radius }
     }
 
     pub fn random() -> Self {
         let mut rng = rand::rng();
         Self::new(
-               rng.random_range(-1.0..1.0),
-                rng.random_range(-1.0..1.0),
-               rng.random_range(0.1..0.8),
-             rng.random_range(0.001..0.002),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(0.1..0.8),
+            rng.random_range(0.001..0.002),
         )
     }
 
@@ -30,8 +33,27 @@ impl Star {
             x: self.x + rng.random_range(-0.01..0.01),
             y: self.y + rng.random_range(-0.01..0.01),
             z: self.z + rng.random_range(-0.01..0.01),
-            radius: self.radius
+            radius: self.radius,
         }
+    }
+}
+
+impl Entity for Star {
+    fn get_mass(&self) -> f32 {
+        return 0.02; //self.radius; // obviously nonsense but keep it simple for now.
+    }
+
+    fn get_centre(&self) -> [f32; 3] {
+        return [self.x, self.y, self.z];
+    }
+
+    fn fake(centre: [f32; 3], mass: f32) -> Self {
+        Self {
+            x: centre[0],
+            y: centre[1],
+            z: centre[2],
+            radius: 0.02_f32.max(mass),
+        } // shh I know about r^3
     }
 }
 
