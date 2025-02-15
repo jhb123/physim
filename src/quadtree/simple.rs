@@ -2,7 +2,7 @@ use std::mem;
 
 use log::{info, warn};
 
-type Link<T> = Box<OctreeNode<T>>;
+type Link<T> = Box<QuadreeNode<T>>;
 
 pub trait Entity {
     fn get_mass(&self) -> f32;
@@ -11,15 +11,15 @@ pub trait Entity {
 }
 
 #[derive(Default, Debug)]
-pub struct Octree<T>
+pub struct Quadree<T>
 where
     T: Entity,
 {
-    root: OctreeNode<T>,
+    root: QuadreeNode<T>,
 }
 
 #[derive(Default, Debug)]
-struct OctreeNode<T>
+struct QuadreeNode<T>
 where
     T: Entity,
 {
@@ -28,16 +28,16 @@ where
     extent: f32,
     fake_entity: T,
     stuff: Vec<T>,
-    children: [Option<Link<T>>; 8],
-    octant_centres: [[f32; 3]; 8],
+    children: [Option<Link<T>>; 4],
+    quad_centres: [[f32; 3]; 4],
 }
 
-impl<T> Octree<T>
+impl<T> Quadree<T>
 where
     T: Entity + Default,
 {
     pub fn new(depth: usize, centre: [f32; 3], extent: f32) -> Self {
-        let root = OctreeNode::<T>::new(depth,centre,extent);
+        let root = QuadreeNode::<T>::new(depth,centre,extent);
         Self { root: root }
     }
 
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<T> OctreeNode<T>
+impl<T> QuadreeNode<T>
 where
     T: Entity + Default,
 {
@@ -64,48 +64,26 @@ where
         temp.depth = depth;
         temp.centre = centre;
         temp.extent = extent; // single sided/ analagous to radius
-
-        temp.octant_centres[0] = [
+        temp.quad_centres[0] = [
             temp.centre[0] - temp.extent,
             temp.centre[1] - temp.extent,
-            temp.centre[2] - temp.extent,
+            temp.centre[2],
         ];
-        temp.octant_centres[1] = [
+        temp.quad_centres[1] = [
             temp.centre[0] + temp.extent,
             temp.centre[1] - temp.extent,
-            temp.centre[2] - temp.extent,
+            temp.centre[2],
         ];
-        temp.octant_centres[2] = [
+        temp.quad_centres[2] = [
             temp.centre[0] - temp.extent,
             temp.centre[1] + temp.extent,
-            temp.centre[2] - temp.extent,
+            temp.centre[2],
         ];
-        temp.octant_centres[3] = [
+        temp.quad_centres[3] = [
             temp.centre[0] + temp.extent,
             temp.centre[1] + temp.extent,
-            temp.centre[2] - temp.extent,
+            temp.centre[2],
         ];
-        temp.octant_centres[4] = [
-            temp.centre[0] - temp.extent,
-            temp.centre[1] - temp.extent,
-            temp.centre[2] + temp.extent,
-        ];
-        temp.octant_centres[5] = [
-            temp.centre[0] + temp.extent,
-            temp.centre[1] - temp.extent,
-            temp.centre[2] + temp.extent,
-        ];
-        temp.octant_centres[6] = [
-            temp.centre[0] - temp.extent,
-            temp.centre[1] + temp.extent,
-            temp.centre[2] + temp.extent,
-        ];
-        temp.octant_centres[7] = [
-            temp.centre[0] + temp.extent,
-            temp.centre[1] + temp.extent,
-            temp.centre[2] + temp.extent,
-        ];
-
         return temp;
     }
 
@@ -126,9 +104,9 @@ where
                     node.as_mut().push(item);
                 }
                 None => {
-                    let mut new_node = Box::new(OctreeNode::<T>::new(
+                    let mut new_node = Box::new(QuadreeNode::<T>::new(
                         self.depth - 1,
-                        self.octant_centres[idx],
+                        self.quad_centres[idx],
                         self.extent / 2.0,
                     ));
                     new_node.push(item);
@@ -140,14 +118,10 @@ where
 
     fn get_octant_id(&self, item_pos: [f32; 3]) -> usize {
         let idx = match item_pos {
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => 0,
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => 1,
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z <= self.centre[2] => 2,
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z <= self.centre[2] => 3,
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z > self.centre[2] => 4,
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z > self.centre[2] => 5,
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z > self.centre[2] => 6,
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z > self.centre[2] => 7,
+            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] => 0,
+            [x, y, z] if x > self.centre[0] && y <= self.centre[1] => 1,
+            [x, y, z] if x <= self.centre[0] && y > self.centre[1] => 2,
+            [x, y, z] if x > self.centre[0] && y > self.centre[1] => 3,
             _ => unreachable!(),
         };
         idx
@@ -158,8 +132,8 @@ where
             self.stuff.iter().map(|f| f).collect()
         } else {
             let idx = self.get_octant_id(pos);
-            warn!("Octant {}", idx);
-            let fakes: Vec<&T> = self.children[0..8]
+            warn!("Quadant {}", idx);
+            let fakes: Vec<&T> = self.children[0..4]
                 .iter()
                 .enumerate()
                 .filter_map(|(i, node)| {
@@ -190,8 +164,8 @@ where
             return vec![self.centre];
         } else {
             let mut centres = vec![];
-            centres.extend(self.octant_centres.iter());
-            for i in 0..8 {
+            centres.extend(self.quad_centres.iter());
+            for i in 0..4 {
                 if let Some(node) = self.children[i].as_ref() {
                     centres.extend(node.get_centres().iter());
                 }
@@ -201,12 +175,12 @@ where
     }
 }
 
-// impl<T> Drop for OctreeNode<T> where T: Entity {
+// impl<T> Drop for QuadreeNode<T> where T: Entity {
 //     fn drop(&mut self) {
 
-//         for i in 0..8 {
+//         for i in 0..4 {
 //             let mut cur_link = self.children[i].take();
-//             for j in 0..8 {
+//             for j in 0..4 {
 //                 while let Some(mut boxed_node) = cur_link {
 //                     cur_link = boxed_node.children[j].take();
 //                 }

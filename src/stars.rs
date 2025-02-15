@@ -1,5 +1,4 @@
 use crate::{
-    octree::simple::Entity,
     render::{Renderable, Vertex},
 };
 use rand::Rng;
@@ -38,7 +37,26 @@ impl Star {
     }
 }
 
-impl Entity for Star {
+impl crate::octree::simple::Entity for Star {
+    fn get_mass(&self) -> f32 {
+        return 0.02; //self.radius; // obviously nonsense but keep it simple for now.
+    }
+
+    fn get_centre(&self) -> [f32; 3] {
+        return [self.x, self.y, self.z];
+    }
+
+    fn fake(centre: [f32; 3], mass: f32) -> Self {
+        Self {
+            x: centre[0],
+            y: centre[1],
+            z: centre[2],
+            radius: 0.02_f32.max(mass),
+        } // shh I know about r^3
+    }
+}
+
+impl crate::quadtree::simple::Entity for Star {
     fn get_mass(&self) -> f32 {
         return 0.02; //self.radius; // obviously nonsense but keep it simple for now.
     }

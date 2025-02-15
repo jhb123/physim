@@ -1,14 +1,14 @@
 use std::{sync::mpsc::sync_channel, thread};
 
 use log::{error, info};
-use physim::{octree::simple::Octree, render::renderer, stars::Star, UniverseConfiguration};
+use physim::{octree::simple::Octree, quadtree::simple::Quadree, render::renderer, stars::Star, UniverseConfiguration};
 fn main() {
     env_logger::init();
 
     let config = UniverseConfiguration {
-        size_x: 1.5,
-        size_y: 1.5,
-        size_z: 1.5,
+        size_x: 2.0,
+        size_y: 1.0,
+        size_z: 1.0,
     };
 
     let mut state = Vec::with_capacity(1_000_000);
@@ -25,7 +25,7 @@ fn main() {
             let new_state: Vec<Star> = state.iter().map(|x| x.update()).collect();
 
             // 8**5 = 32k,
-            let mut tree = Octree::new(5, [0.0, 0.0, 0.4], 1.0);
+            let mut tree = Octree::new(3, [0.0, 0.0, 0.5], 0.5);
             for i in new_state.iter() {
                 tree.push(*i)
             }

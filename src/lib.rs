@@ -2,6 +2,7 @@
 extern crate glium;
 
 pub mod octree;
+pub mod quadtree;
 pub mod render;
 pub mod stars;
 
