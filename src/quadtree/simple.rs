@@ -41,9 +41,22 @@ where
         self.root.get(pos)
     }
 
+    pub fn get_real(&self, pos: [f32; 3]) -> Vec<&T> {
+        self.root.get_real(pos)
+    }
+
+    pub fn get_fakes(&self, pos: [f32; 3]) -> Vec<&T> {
+        self.root.get_fakes(pos)
+    }
+
     pub fn get_centres(&self) -> Vec<[f32; 3]> {
         self.root.get_centres()
     }
+
+    pub fn get_leaf_centres(&self) -> Vec<[f32; 3]> {
+        self.root.get_leaf_centres()
+    }
+
 }
 
 impl<T> QuadreeNode<T>
@@ -120,6 +133,20 @@ where
         }
     }
 
+    fn get_real(&self, pos: [f32; 3]) -> Vec<&T> {
+        if self.depth == 0 {
+            self.stuff.iter().collect()
+        } else {
+            let idx = self.get_octant_id(pos);
+            match self.children[idx].as_ref() {
+                Some(node) => {
+                    node.get_real(pos)
+                }
+                None => vec![],
+            }
+        }
+    }
+
     fn get(&self, pos: [f32; 3]) -> Vec<&T> {
         if self.depth == 0 {
             self.stuff.iter().collect()
@@ -149,10 +176,10 @@ where
     }
 
     fn get_centres(&self) -> Vec<[f32; 3]> {
+        let mut centres = vec![self.centre];
         if self.depth == 0 {
-            vec![self.centre]
+            centres
         } else {
-            let mut centres = vec![self.centre];
             centres.extend(self.quad_centres.iter());
             for i in 0..4 {
                 if let Some(node) = self.children[i].as_ref() {
@@ -160,6 +187,41 @@ where
                 }
             }
             centres
+        }
+    }
+
+    fn get_leaf_centres(&self) -> Vec<[f32; 3]> {
+        if self.depth == 0 {
+            vec![self.centre]
+        } else {
+            let mut centres = vec![];
+            for i in 0..4 {
+                if let Some(node) = self.children[i].as_ref() {
+                    centres.extend(node.get_leaf_centres().iter());
+                }
+            }
+            centres
+        }
+    }
+
+    fn get_fakes(&self, pos: [f32; 3]) -> Vec<&T> {
+        if self.depth == 0 {
+           vec![]
+        } else {
+            let idx = self.get_octant_id(pos);
+            let mut fakes: Vec<&T> = vec![];
+            self.children[0..4]
+                .iter()
+                .enumerate()
+                .for_each(|(i, node)| {
+                    if i == idx {
+                        node.as_ref().map(|node| fakes.extend(node.get_fakes(pos)));
+                    } else {
+                        node.as_ref().map(|node| fakes.push(&node.fake_entity));
+                    }
+                });            
+        
+            fakes
         }
     }
 }
@@ -181,7 +243,81 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::stars::Star;
+
+    use super::Quadree;
+
 
     #[test]
-    fn test() {}
+    fn test_leaf_centres() {
+        let mut stars = Vec::with_capacity(10000);
+        for _ in 0..10_000 {
+            stars.push(Star::random());
+        }
+        let mut tree = Quadree::new(1, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_leaf_centres().len(), 4);
+
+        let mut tree = Quadree::new(2, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_leaf_centres().len(), 16);
+
+
+        let mut tree = Quadree::new(4, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_leaf_centres().len(), 256);
+    }
+
+    #[test]
+    fn test_get_fakes() {
+        let mut stars = Vec::with_capacity(10000);
+        for _ in 0..10_000 {
+            stars.push(Star::random());
+        }
+        let mut tree = Quadree::new(1, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_fakes([0.0, 0.0, 0.0]).len(), 3);
+
+        let mut tree = Quadree::new(2, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_fakes([0.0, 0.0, 0.0]).len(), 3*2);
+
+        let mut tree = Quadree::new(5, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+        assert_eq!(tree.get_fakes([0.0, 0.0, 0.0]).len(), 3*5);
+    }
+
+    #[test]
+    fn test_get_real() {
+        let len = 10_000;
+        let mut stars = Vec::with_capacity(len);
+        for _ in 0..len {
+            stars.push(Star::random());
+        }
+        let mut tree = Quadree::new(5, [0.0, 0.0, 0.0], 0.5);
+        for star in stars.iter() {
+            tree.push(*star);
+        }
+
+        let centres = tree.get_leaf_centres();
+        // println!("{:?}",tree.get_only_real([0.2,0.2,0.2]));
+        let mut remade_stars: Vec<&Star> = vec![];
+        for centre in centres {
+            remade_stars.extend(tree.get_real(centre));
+        }
+        assert_eq!(remade_stars.len(), len)
+    }
+
 }

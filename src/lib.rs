@@ -1,3 +1,5 @@
+use render::Renderable;
+
 #[macro_use]
 extern crate glium;
 
@@ -17,4 +19,5 @@ pub trait Entity {
     fn get_mass(&self) -> f32;
     fn get_centre(&self) -> [f32; 3];
     fn fake(centre: [f32; 3], mass: f32) -> Self;
+    fn inside(a: &Self,b: &Self) -> bool;
 }
