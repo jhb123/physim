@@ -6,10 +6,6 @@ pub mod quadtree;
 pub mod render;
 pub mod stars;
 
-enum UniverseEdge {
-    Infinite,
-    WrapAround,
-}
 pub struct UniverseConfiguration {
     pub size_x: f32,
     pub size_y: f32,
@@ -17,9 +13,8 @@ pub struct UniverseConfiguration {
     // edge_mode: UniverseEdge,
 }
 
-// trait Entity {
-//     fn new_normalised(config: UniverseConfiguration, ... ) -> Self {
-//         f = config.factors;
-//         Self { p1/f.1 ... }
-//     }
-// }
+pub trait Entity {
+    fn get_mass(&self) -> f32;
+    fn get_centre(&self) -> [f32; 3];
+    fn fake(centre: [f32; 3], mass: f32) -> Self;
+}

@@ -1,7 +1,9 @@
 use std::{sync::mpsc::sync_channel, thread};
 
 use log::{error, info};
-use physim::{octree::simple::Octree, quadtree::simple::Quadree, render::renderer, stars::Star, UniverseConfiguration};
+use physim::{octree::simple::Octree, render::renderer, stars::Star, UniverseConfiguration};
+
+#[allow(unused_assignments)]
 fn main() {
     env_logger::init();
 
@@ -25,11 +27,11 @@ fn main() {
             let new_state: Vec<Star> = state.iter().map(|x| x.update()).collect();
 
             // 8**5 = 32k,
-            let mut tree = Octree::new(3, [0.0, 0.0, 0.5], 0.5);
+            let mut tree = Octree::new(5, [0.0, 0.0, 0.5], 0.5);
             for i in new_state.iter() {
                 tree.push(*i)
             }
-
+            // ex = tree.get([0.0,0.0,0.5]).iter().map(|x| **x).collect();
             let centres = tree.get_centres();
             for c in centres {
                 ex = tree.get(c).iter().map(|x| **x).collect();
@@ -42,8 +44,8 @@ fn main() {
             }
 
             // let new_state = state.clone();
-
-            sender.send(new_state).unwrap();
+            // sender.send(ex);
+            // sender.send(new_state).unwrap();
             //thread::sleep(Duration::from_millis(100));
         }
     });

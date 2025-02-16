@@ -87,7 +87,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
     // });
 
     // this avoids a lot of boiler plate.
-    #[warn(deprecated)]
+    #[allow(deprecated)]
     let _ = event_loop.run(move |event, window_target| {
         match event {
             Event::WindowEvent { event, .. } => match event {
@@ -132,7 +132,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     target.finish().unwrap();
                 },
                 WindowEvent::KeyboardInput {
-                    device_id, event: kin, is_synthetic: _
+                    device_id: _, event: kin, is_synthetic: _
                 } => {
                     if let glium::winit::event::ElementState::Released = kin.state {
                         if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
@@ -160,7 +160,6 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                 Event::AboutToWait => {
                     verticies.clear();
                     verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
-                    
                     vertex_buffer.invalidate();
                     info!("vb={}, v={}",&verticies.len(), vertex_buffer.len());
                     vertex_buffer.slice(0..verticies.len()).unwrap().write(&verticies);

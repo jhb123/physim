@@ -1,14 +1,6 @@
-use std::mem;
-
-use log::{info, warn};
+use crate::Entity;
 
 type Link<T> = Box<QuadreeNode<T>>;
-
-pub trait Entity {
-    fn get_mass(&self) -> f32;
-    fn get_centre(&self) -> [f32; 3];
-    fn fake(centre: [f32; 3], mass: f32) -> Self;
-}
 
 #[derive(Default, Debug)]
 pub struct Quadree<T>
@@ -37,8 +29,8 @@ where
     T: Entity + Default,
 {
     pub fn new(depth: usize, centre: [f32; 3], extent: f32) -> Self {
-        let root = QuadreeNode::<T>::new(depth,centre,extent);
-        Self { root: root }
+        let root = QuadreeNode::<T>::new(depth, centre, extent);
+        Self { root }
     }
 
     pub fn push(&mut self, item: T) {
@@ -60,31 +52,33 @@ where
 {
     fn new(depth: usize, centre: [f32; 3], extent: f32) -> Self {
         // todo! put an actual implementation here
-        let mut temp = Self::default();
-        temp.depth = depth;
-        temp.centre = centre;
-        temp.extent = extent; // single sided/ analagous to radius
-        temp.quad_centres[0] = [
-            temp.centre[0] - temp.extent,
-            temp.centre[1] - temp.extent,
-            temp.centre[2],
+        let mut node = Self {
+            depth,
+            centre,
+            extent,
+            ..Default::default()
+        };
+        node.quad_centres[0] = [
+            node.centre[0] - node.extent,
+            node.centre[1] - node.extent,
+            node.centre[2],
         ];
-        temp.quad_centres[1] = [
-            temp.centre[0] + temp.extent,
-            temp.centre[1] - temp.extent,
-            temp.centre[2],
+        node.quad_centres[1] = [
+            node.centre[0] + node.extent,
+            node.centre[1] - node.extent,
+            node.centre[2],
         ];
-        temp.quad_centres[2] = [
-            temp.centre[0] - temp.extent,
-            temp.centre[1] + temp.extent,
-            temp.centre[2],
+        node.quad_centres[2] = [
+            node.centre[0] - node.extent,
+            node.centre[1] + node.extent,
+            node.centre[2],
         ];
-        temp.quad_centres[3] = [
-            temp.centre[0] + temp.extent,
-            temp.centre[1] + temp.extent,
-            temp.centre[2],
+        node.quad_centres[3] = [
+            node.centre[0] + node.extent,
+            node.centre[1] + node.extent,
+            node.centre[2],
         ];
-        return temp;
+        node
     }
 
     fn push(&mut self, item: T) {
@@ -117,22 +111,20 @@ where
     }
 
     fn get_octant_id(&self, item_pos: [f32; 3]) -> usize {
-        let idx = match item_pos {
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] => 0,
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] => 1,
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] => 2,
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] => 3,
+        match item_pos {
+            [x, y, _] if x <= self.centre[0] && y <= self.centre[1] => 0,
+            [x, y, _] if x > self.centre[0] && y <= self.centre[1] => 1,
+            [x, y, _] if x <= self.centre[0] && y > self.centre[1] => 2,
+            [x, y, _] if x > self.centre[0] && y > self.centre[1] => 3,
             _ => unreachable!(),
-        };
-        idx
+        }
     }
 
     fn get(&self, pos: [f32; 3]) -> Vec<&T> {
         if self.depth == 0 {
-            self.stuff.iter().map(|f| f).collect()
+            self.stuff.iter().collect()
         } else {
             let idx = self.get_octant_id(pos);
-            warn!("Quadant {}", idx);
             let fakes: Vec<&T> = self.children[0..4]
                 .iter()
                 .enumerate()
@@ -140,10 +132,7 @@ where
                     if i == idx {
                         None
                     } else {
-                        match node {
-                            Some(node) => Some(&node.fake_entity),
-                            None => None,
-                        }
+                        node.as_ref().map(|node| &node.fake_entity)
                     }
                 })
                 .collect();
@@ -151,7 +140,7 @@ where
             match self.children[idx].as_ref() {
                 Some(node) => {
                     let mut f = node.get(pos);
-                    f.extend(fakes.into_iter());
+                    f.extend(fakes);
                     f
                 }
                 None => fakes,
@@ -161,16 +150,16 @@ where
 
     fn get_centres(&self) -> Vec<[f32; 3]> {
         if self.depth == 0 {
-            return vec![self.centre];
+            vec![self.centre]
         } else {
-            let mut centres = vec![];
+            let mut centres = vec![self.centre];
             centres.extend(self.quad_centres.iter());
             for i in 0..4 {
                 if let Some(node) = self.children[i].as_ref() {
                     centres.extend(node.get_centres().iter());
                 }
             }
-            return centres;
+            centres
         }
     }
 }
