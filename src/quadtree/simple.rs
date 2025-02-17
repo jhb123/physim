@@ -57,6 +57,10 @@ where
         self.root.get_leaf_centres()
     }
 
+    pub fn get_layer(&self,pos: [f32;3]) -> Vec<Option<&T>> {
+        self.root.get_layer(pos)
+    }
+
 }
 
 impl<T> QuadreeNode<T>
@@ -69,6 +73,7 @@ where
             depth,
             centre,
             extent,
+            fake_entity: T::fake(centre, 0.0),
             ..Default::default()
         };
         node.quad_centres[0] = [
@@ -95,7 +100,8 @@ where
     }
 
     fn push(&mut self, item: T) {
-        self.fake_entity = T::fake(self.centre, self.fake_entity.get_mass() + item.get_mass());
+        let centre_of_mass = self.fake_entity.centre_of_mass(&item);
+        self.fake_entity = T::fake(centre_of_mass , self.fake_entity.get_mass()+item.get_mass());
 
         if self.depth == 0 {
             self.stuff.push(item);
@@ -103,7 +109,6 @@ where
             // do categorisation of which octree based on entity coordinates
             // and extents.
             let item_pos = item.get_centre();
-
             let idx = self.get_octant_id(item_pos);
 
             match self.children[idx].as_mut() {
@@ -129,7 +134,9 @@ where
             [x, y, _] if x > self.centre[0] && y <= self.centre[1] => 1,
             [x, y, _] if x <= self.centre[0] && y > self.centre[1] => 2,
             [x, y, _] if x > self.centre[0] && y > self.centre[1] => 3,
-            _ => unreachable!(),
+            _ => {
+                unreachable!()
+            },
         }
     }
 
@@ -222,6 +229,30 @@ where
                 });            
         
             fakes
+        }
+    }
+
+    fn get_layer(&self, pos: [f32; 3]) -> Vec<Option<&T>> {
+        let mut fakes = Vec::with_capacity(self.depth*(self.depth+1)*((2*self.depth+1)) );
+        if self.depth == 0 {
+            return fakes;
+        };
+        if self.depth == 1 {
+            let skip_idx = self.get_octant_id(pos);
+            for i in 0..4 {
+                if i == skip_idx {
+                    continue;
+                }
+                fakes.push( self.children[i].as_ref().map(|node| &node.fake_entity ));
+            }
+            return fakes
+        } else {
+            for i in 0..4 {
+                if let Some(nodes) = self.children[i].as_ref().map(|node| node.get_layer(pos) ) {
+                    fakes.extend(nodes);
+                }
+            }
+            return fakes;
         }
     }
 }

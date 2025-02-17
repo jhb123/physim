@@ -119,11 +119,28 @@ impl Star {
 }
 
 impl Entity for Star {
+
+    fn centre_of_mass(&self, other: &Self) -> [f32;3] {
+        let ma = self.get_mass();
+        let ra = self.get_centre();
+        let mb = other.get_mass();
+        let rb = other.get_centre();
+        [
+            (ma*ra[0] + mb*rb[0])/(ma+mb),
+            (ma*ra[1] + mb*rb[1])/(ma+mb),
+            (ma*ra[2] + mb*rb[2])/(ma+mb),
+        ]
+    }
+
     fn get_mass(&self) -> f32 {
         self.mass // this is not real physics.
     }
 
     fn get_centre(&self) -> [f32; 3] {
+        // assert!(self.x.is_normal()) ;
+        // assert!(self.y.is_normal()) ;
+        // assert!(self.z.is_normal()) ;
+
         [self.x, self.y, self.z]
     }
 
