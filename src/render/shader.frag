@@ -17,6 +17,6 @@ void main() {
     if ( distance(f.xy,c.xy) > radius ){
         discard;
     } else {
-        FragColor = vec4(1.0-colour,1.0,colour,1.0);
+        FragColor = vec4(1.0-colour,1.0,colour,0.5);
     }
 }

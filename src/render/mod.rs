@@ -69,6 +69,7 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
     .unwrap();
 
     let params = glium::DrawParameters {
+        blend: glium::Blend::alpha_blending(),
         depth: glium::Depth {
             test: glium::draw_parameters::DepthTest::IfLess,
             write: true,
