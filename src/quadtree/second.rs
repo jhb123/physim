@@ -61,8 +61,8 @@ where
     }
 
     fn push(&mut self, item: T, count: usize, arena: &'a Bump) {
-        if count > 32 {
-            panic!("Recursion too deep")
+        if count > 64 {
+            panic!("Recursion too deep {:?}", item.get_centre())
         };
         match self.entity.as_ref() {
             None => {
@@ -70,15 +70,18 @@ where
                 self.entity.replace(item);
             }
             Some(current_elem) => {
-                // this doesn't reliably
-                // if current_elem.get_centre().iter().zip(item.get_centre().iter()).all(|(a,b)| f32::abs(a-b) < 0.000001)  {
-                //     let fake_elem = T::fake(
-                //         item.get_centre(),
-                //         current_elem.get_mass() + item.get_mass(),
-                //     );
-                //     self.entity.replace(fake_elem);
-                //     return;
-                // }
+                if self.children.iter().all(|x| x.is_none())
+                    && current_elem
+                        .get_centre()
+                        .iter()
+                        .zip(item.get_centre().iter())
+                        .all(|(a, b)| f32::abs(a - b) < 0.001)
+                {
+                    let fake_elem =
+                        T::fake(item.get_centre(), current_elem.get_mass() + item.get_mass());
+                    self.entity.replace(fake_elem);
+                    return;
+                }
 
                 // replace the current entity with a new one. take the current one and put it into a child
                 let centre_of_mass = current_elem.centre_of_mass(&item);
