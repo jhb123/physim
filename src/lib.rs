@@ -18,7 +18,7 @@ pub struct UniverseConfiguration {
 pub trait Entity {
     fn get_mass(&self) -> f32;
     fn get_centre(&self) -> [f32; 3];
-    fn centre_of_mass(&self, other: &Self) -> [f32;3];
+    fn centre_of_mass(&self, other: &Self) -> [f32; 3];
     fn fake(centre: [f32; 3], mass: f32) -> Self;
-    fn inside(a: &Self,b: &Self) -> bool;
+    fn inside(a: &Self, b: &Self) -> bool;
 }
