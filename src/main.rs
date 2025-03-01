@@ -1,13 +1,10 @@
-use std::{num::ParseIntError, os::macos::raw::stat, sync::mpsc::sync_channel, thread, time::Instant, vec};
+use std::{sync::mpsc::sync_channel, thread, time::Instant};
 
-use bumpalo::Bump;
-use log::{error, info};
+use log::info;
 use physim::{
-    octree::simple::Octree,
-    quadtree::second::QuadTree,
     render::renderer,
     stars::Star,
-    Entity, UniverseConfiguration,
+    UniverseConfiguration,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -22,8 +19,8 @@ fn main() {
         size_z: 1.0,
     };
 
-    let mut state = Vec::with_capacity(1_000_0);
-    let mut new_state: Vec<Star> = Vec::with_capacity(1_000_0);
+    let mut state = Vec::with_capacity(10_000);
+    let mut new_state: Vec<Star> = Vec::with_capacity(10_000);
     let mut rng = ChaCha8Rng::seed_from_u64(0);
 
     for _ in 0..1_000 {
@@ -59,7 +56,7 @@ fn main() {
     info!("Finished");
 }
 
-fn simple_simulation(state: &Vec<Star>, new_state: &mut Vec<Star>, dt: f32) {
+fn simple_simulation(state: &[Star], new_state: &mut Vec<Star>, dt: f32) {
     for (i, star_a) in state.iter().enumerate() {
         let mut f = [0.0; 3];
         for (j, star_b) in state.iter().enumerate() {

@@ -34,7 +34,7 @@ where
     }
 
     pub fn push(&mut self, item: T) {
-        self.root.push(item, 0, &self.arena);
+        self.root.push(item, 0, self.arena);
     }
 
     pub fn get_leaves(&self) -> Vec<T> {
@@ -57,7 +57,7 @@ where
     }
 
     fn push(&mut self, item: T, count: usize, arena: &'a Bump) {
-        // if count > 32 {panic!()};
+        if count > 32 {panic!("Recursion too deep")};
         match self.entity.as_ref() {
             None => {
                 // if there is nothing in the node, put an entity in it.
@@ -116,15 +116,13 @@ where
 
     fn get_leaves(&self) -> Vec<T> {
         if self.children.iter().all(|x| x.is_none()){ 
-            return vec![self.entity.unwrap()]
+            vec![self.entity.unwrap()]
         } else {
             let mut elems = vec![];
-            for child in self.children.iter() {
-                if let Some(child) = child {
-                    elems.extend(child.get_leaves())
-                }
+            for child in self.children.iter().flatten() {
+                elems.extend(child.get_leaves())
             }
-            return elems;
+            elems
         }
     }
 

@@ -2,7 +2,7 @@ use crate::{
     render::{Renderable, Vertex},
     Entity,
 };
-use rand::{Rng, SeedableRng};
+use rand::Rng;
 use rand_chacha::ChaCha8Rng;
 
 const G: f32 = 1.0; // m3⋅kg−1⋅s−2
@@ -36,7 +36,7 @@ impl Star {
             y,
             z,
             mass,
-            radius: radius,
+            radius,
             ..Default::default()
         }
     }
@@ -96,8 +96,6 @@ impl Star {
         let vx = self.vx + a[0] * dt;
         let vy = self.vy + a[1] * dt;
         let vz = self.vz + a[2] * dt;
-
-        let k = 0.5 * m * vx.powi(2) + 0.5 * m * vy.powi(2) + 0.5 * m * vz.powi(2);
 
         Self {
             x,
@@ -183,7 +181,7 @@ impl Entity for Star {
             y: centre[1],
             z: centre[2],
             radius: 0.0, // hm
-            mass: mass,
+            mass,
             ..Default::default()
         }
     }
