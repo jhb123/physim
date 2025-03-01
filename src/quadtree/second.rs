@@ -1,37 +1,40 @@
+use bumpalo::{boxed, Bump};
+
 use crate::Entity;
 
-type Link<T> = Box<QuadTreeNode<T>>;
+type Link<'a, T> = boxed::Box<'a, QuadTreeNode<'a, T>>;
 
-#[derive(Default, Debug)]
-pub struct QuadTree<T>
+#[derive(Debug)]
+pub struct QuadTree<'a, T>
 where
     T: Entity,
 {
-    root: QuadTreeNode<T>,
+    root: QuadTreeNode<'a, T>,
+    arena: &'a Bump
 }
 
 #[derive(Default, Debug)]
-struct QuadTreeNode<T>
+struct QuadTreeNode<'a, T>
 where
     T: Entity,
 {
     centre: [f32; 3],
     extent: f32,
     entity: Option<T>,
-    children: [Option<Link<T>>; 4],
+    children: [Option<Link<'a, T>>; 4],
 }
 
-impl<T> QuadTree<T>
+impl<'a, T> QuadTree<'a, T>
 where
-    T: Entity + Default + Copy + std::fmt::Debug,
+    T: Entity + Default + Copy,
 {
-    pub fn new(centre: [f32; 3], extent: f32) -> Self {
+    pub fn new(centre: [f32; 3], extent: f32, arena: &'a Bump) -> Self {
         let root = QuadTreeNode::<T>::new(centre, extent);
-        Self { root }
+        Self { root, arena }
     }
 
     pub fn push(&mut self, item: T) {
-        self.root.push(item, 0);
+        self.root.push(item, 0, &self.arena);
     }
 
     pub fn get_leaves(&self) -> Vec<T> {
@@ -39,9 +42,9 @@ where
     }
 }
 
-impl<T> QuadTreeNode<T>
+impl<'a, T> QuadTreeNode<'a, T>
 where
-    T: Entity + Default + Copy + std::fmt::Debug,
+    T: Entity + Default + Copy,
 {
     fn new(centre: [f32; 3], extent: f32) -> Self {
         // todo! put an actual implementation here
@@ -53,7 +56,8 @@ where
         }
     }
 
-    fn push(&mut self, item: T, count: usize) {
+    fn push(&mut self, item: T, count: usize, arena: &'a Bump) {
+        // if count > 32 {panic!()};
         match self.entity.as_ref() {
             None => {
                 // if there is nothing in the node, put an entity in it.
@@ -81,10 +85,11 @@ where
                 if self.children.iter().all(|x| x.is_none()){
                     let item_pos = current_elem.get_centre();
                     let idx = self.get_octant_id(item_pos);
-                    let mut new_node = Box::new(QuadTreeNode::<T>::new(
+                    // let mut new_node = Box::new_in(QuadTreeNode::<T>, arena);
+                    let mut new_node = boxed::Box::new_in(QuadTreeNode::<T>::new(
                         self.get_octant_id_centre(current_elem.get_centre()),
                         self.extent / 2.0,
-                    ));
+                    ), arena);
                     new_node.entity.replace(current_elem);
                     self.children[idx] = Some(new_node);
                 }
@@ -94,13 +99,13 @@ where
                 let idx = self.get_octant_id(item_pos);
                 match self.children[idx].as_mut() {
                     Some(node) => {
-                        node.as_mut().push(item, count + 1);
+                        node.as_mut().push(item, count + 1, arena);
                     }
                     None => {
-                        let mut new_node = Box::new(QuadTreeNode::<T>::new(
+                        let mut new_node = boxed::Box::new_in(QuadTreeNode::<T>::new(
                             self.get_octant_id_centre(item.get_centre()),
                             self.extent / 2.0,
-                        ));
+                        ), arena);
                         new_node.entity.replace(item);
                         self.children[idx] = Some(new_node);
                     }
