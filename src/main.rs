@@ -32,13 +32,13 @@ fn main() {
 
 
     // Add a super heavy star
-    // state.push(Star::new2(0.0,0.0, 0.4, 100.0, 0.5));
+    state.push(Star::new2(0.0,0.0, 0.4, 100.0, 0.3));
     // state.push(Star::new(0.0,0.5, 0.4, 0.05));
 
     let (sender, receiver) = sync_channel(10);
 
     thread::spawn(move || {
-        let dt = 0.01;
+        let dt = 0.001;
         for _ in 0..10000 {
             let start = Instant::now();
 
@@ -75,8 +75,3 @@ fn simple_simulation(state: &Vec<Star>, new_state: &mut Vec<Star>, dt: f32) {
     }
 }
 
-fn advanced_simulation(state: &Vec<Star>, new_state: &mut Vec<Star>, dt: f32) {
-
-    // read current state and push things to the newstate.
-    todo!();
-}
