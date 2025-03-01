@@ -10,7 +10,7 @@ where
     T: Entity,
 {
     root: QuadTreeNode<'a, T>,
-    arena: &'a Bump
+    arena: &'a Bump,
 }
 
 #[derive(Default, Debug)]
@@ -40,6 +40,10 @@ where
     pub fn get_leaves(&self) -> Vec<T> {
         self.root.get_leaves()
     }
+
+    pub fn get_leaves_with_resolution(&self, location: [f32; 3], bh_factor: f32) -> Vec<T> {
+        self.root.get_leaves_with_resolution(location, bh_factor)
+    }
 }
 
 impl<'a, T> QuadTreeNode<'a, T>
@@ -57,14 +61,15 @@ where
     }
 
     fn push(&mut self, item: T, count: usize, arena: &'a Bump) {
-        if count > 32 {panic!("Recursion too deep")};
+        if count > 32 {
+            panic!("Recursion too deep")
+        };
         match self.entity.as_ref() {
             None => {
                 // if there is nothing in the node, put an entity in it.
                 self.entity.replace(item);
             }
             Some(current_elem) => {
-                
                 // this doesn't reliably
                 // if current_elem.get_centre().iter().zip(item.get_centre().iter()).all(|(a,b)| f32::abs(a-b) < 0.000001)  {
                 //     let fake_elem = T::fake(
@@ -82,18 +87,21 @@ where
 
                 // if this node has no children, the current element is a "real" on and should be added
                 // to the corresponding child node
-                if self.children.iter().all(|x| x.is_none()){
+                if self.children.iter().all(|x| x.is_none()) {
                     let item_pos = current_elem.get_centre();
                     let idx = self.get_octant_id(item_pos);
                     // let mut new_node = Box::new_in(QuadTreeNode::<T>, arena);
-                    let mut new_node = boxed::Box::new_in(QuadTreeNode::<T>::new(
-                        self.get_octant_id_centre(current_elem.get_centre()),
-                        self.extent / 2.0,
-                    ), arena);
+                    let mut new_node = boxed::Box::new_in(
+                        QuadTreeNode::<T>::new(
+                            self.get_octant_id_centre(current_elem.get_centre()),
+                            self.extent / 2.0,
+                        ),
+                        arena,
+                    );
                     new_node.entity.replace(current_elem);
                     self.children[idx] = Some(new_node);
                 }
-                
+
                 // insert the new element
                 let item_pos = item.get_centre();
                 let idx = self.get_octant_id(item_pos);
@@ -102,25 +110,49 @@ where
                         node.as_mut().push(item, count + 1, arena);
                     }
                     None => {
-                        let mut new_node = boxed::Box::new_in(QuadTreeNode::<T>::new(
-                            self.get_octant_id_centre(item.get_centre()),
-                            self.extent / 2.0,
-                        ), arena);
+                        let mut new_node = boxed::Box::new_in(
+                            QuadTreeNode::<T>::new(
+                                self.get_octant_id_centre(item.get_centre()),
+                                self.extent / 2.0,
+                            ),
+                            arena,
+                        );
                         new_node.entity.replace(item);
                         self.children[idx] = Some(new_node);
                     }
                 }
-           }
+            }
         }
     }
 
     fn get_leaves(&self) -> Vec<T> {
-        if self.children.iter().all(|x| x.is_none()){ 
+        if self.children.iter().all(|x| x.is_none()) {
             vec![self.entity.unwrap()]
         } else {
             let mut elems = vec![];
             for child in self.children.iter().flatten() {
                 elems.extend(child.get_leaves())
+            }
+            elems
+        }
+    }
+
+    fn get_leaves_with_resolution(&self, location: [f32; 3], bh_factor: f32) -> Vec<T> {
+        if let Some(e) = self.entity {
+            let r = (location[0] - self.centre[0]).powi(2)
+                + (location[1] - self.centre[1]).powi(2)
+                + (location[2] - self.centre[2]).powi(2).sqrt();
+            if r / self.extent < bh_factor {
+                return vec![e];
+            }
+        }
+
+        if self.children.iter().all(|x| x.is_none()) {
+            vec![self.entity.unwrap()]
+        } else {
+            let mut elems = vec![];
+            for child in self.children.iter().flatten() {
+                elems.extend(child.get_leaves_with_resolution(location, bh_factor))
             }
             elems
         }
@@ -179,14 +211,13 @@ mod tests {
     use super::QuadTree;
 
     fn push_benchmarks(num_entities: usize, b: &mut Bencher) {
-        
         let mut state = Vec::with_capacity(num_entities);
         let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         for _ in 0..num_entities {
             state.push(Star::random(&mut rng));
         }
-        
+
         b.iter(|| {
             let arena = Bump::new();
             {
@@ -197,7 +228,6 @@ mod tests {
             }
             drop(arena);
         });
-
     }
 
     #[bench]

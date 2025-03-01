@@ -42,14 +42,13 @@ impl Star {
     }
 
     pub fn random(rng: &mut ChaCha8Rng) -> Self {
-
         let x: f32 = rng.random_range(-1.0..1.0);
         let y: f32 = rng.random_range(-1.0..1.0);
         let z: f32 = rng.random_range(-0.45..0.55);
 
         // let n = (x.powi(2) + y.powi(2)).powf(0.5);
-        let vx: f32 = -(y)*10.0;
-        let vy: f32 = x*10.0;
+        let vx: f32 = -(y) * 10.0;
+        let vy: f32 = x * 10.0;
 
         // let vy: f32 = 0.05*(x)/n;
 
@@ -146,18 +145,18 @@ impl Star {
     }
 }
 
-// could implement this so 
+// could implement this so
 impl Entity for Star {
     fn centre_of_mass(&self, other: &Self) -> [f32; 3] {
         let total_mass = self.mass + other.mass;
 
         let inv_total_mass = 1.0 / total_mass;
-    
-    [
-        (self.mass * self.x + other.mass * other.x) * inv_total_mass,
-        (self.mass * self.y + other.mass * other.y) * inv_total_mass,
-        (self.mass * self.z + other.mass * other.z) * inv_total_mass,
-    ]
+
+        [
+            (self.mass * self.x + other.mass * other.x) * inv_total_mass,
+            (self.mass * self.y + other.mass * other.y) * inv_total_mass,
+            (self.mass * self.z + other.mass * other.z) * inv_total_mass,
+        ]
     }
 
     fn get_mass(&self) -> f32 {
