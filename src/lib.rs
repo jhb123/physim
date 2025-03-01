@@ -1,3 +1,5 @@
+#![feature(test)]
+
 use render::Renderable;
 
 #[macro_use]

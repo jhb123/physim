@@ -169,27 +169,61 @@ where
     }
 }
 
-// impl<T> Drop for QuadreeNode<T> where T: Entity {
-//     fn drop(&mut self) {
-
-//         for i in 0..4 {
-//             let mut cur_link = self.children[i].take();
-//             for j in 0..4 {
-//                 while let Some(mut boxed_node) = cur_link {
-//                     cur_link = boxed_node.children[j].take();
-//                 }
-//             }
-//         }
-//         // mem::swap(self.children)
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
+    extern crate test;
     use crate::stars::Star;
+    use bumpalo::Bump;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+    use test::Bencher;
 
     use super::QuadTree;
 
-    #[test]
-    fn test() {}
+    fn push_benchmarks(num_entities: usize, b: &mut Bencher) {
+        
+        let mut state = Vec::with_capacity(num_entities);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+
+        for _ in 0..num_entities {
+            state.push(Star::random(&mut rng));
+        }
+        
+        b.iter(|| {
+            let arena = Bump::new();
+            {
+                let mut tree: QuadTree<'_, Star> = QuadTree::new([0.0; 3], 1.0, &arena);
+                for star in state.iter() {
+                    tree.push(*star);
+                }
+            }
+            drop(arena);
+        });
+
+    }
+
+    #[bench]
+    fn psuh_100(b: &mut Bencher) {
+        push_benchmarks(100, b);
+    }
+
+    #[bench]
+    fn push_1000(b: &mut Bencher) {
+        push_benchmarks(1_000, b);
+    }
+
+    #[bench]
+    fn push_10_000(b: &mut Bencher) {
+        push_benchmarks(10_000, b);
+    }
+
+    #[bench]
+    fn push_100_000(b: &mut Bencher) {
+        push_benchmarks(100_000, b);
+    }
+
+    #[bench]
+    fn push_1_000_000(b: &mut Bencher) {
+        push_benchmarks(1_000_000, b);
+    }
 }

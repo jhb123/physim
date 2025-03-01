@@ -1050,6 +1050,7 @@ dependencies = [
  "glium",
  "log",
  "rand",
+ "rand_chacha",
 ]
 
 [[package]]

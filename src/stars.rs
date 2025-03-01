@@ -2,8 +2,8 @@ use crate::{
     render::{Renderable, Vertex},
     Entity,
 };
-use log::info;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const G: f32 = 1.0; // m3⋅kg−1⋅s−2
 
@@ -41,14 +41,12 @@ impl Star {
         }
     }
 
-    pub fn random() -> Self {
-        let mut rng = rand::rng();
+    pub fn random(rng: &mut ChaCha8Rng) -> Self {
 
         let x: f32 = rng.random_range(-1.0..1.0);
         let y: f32 = rng.random_range(-1.0..1.0);
         let z: f32 = rng.random_range(0.45..0.55);
 
-        let theta = (y / x).atan();
         // let n = (x.powi(2) + y.powi(2)).powf(0.5);
         let vx: f32 = -(y);
         let vy: f32 = x;
@@ -150,20 +148,18 @@ impl Star {
     }
 }
 
+// could implement this so 
 impl Entity for Star {
     fn centre_of_mass(&self, other: &Self) -> [f32; 3] {
-        let ma = self.get_mass();
-        let ra = self.get_centre();
-        let mb = other.get_mass();
-        let rb = other.get_centre();
-        if ((ma * ra[0] + mb * rb[0]) / (ma + mb)).is_nan() {
-            panic!("ma={ma}, mb={mb}, {} {}", ra[0], rb[0])
-        }
-        [
-            (ma * ra[0] + mb * rb[0]) / (ma + mb),
-            (ma * ra[1] + mb * rb[1]) / (ma + mb),
-            (ma * ra[2] + mb * rb[2]) / (ma + mb),
-        ]
+        let total_mass = self.mass + other.mass;
+
+        let inv_total_mass = 1.0 / total_mass;
+    
+    [
+        (self.mass * self.x + other.mass * other.x) * inv_total_mass,
+        (self.mass * self.y + other.mass * other.y) * inv_total_mass,
+        (self.mass * self.z + other.mass * other.z) * inv_total_mass,
+    ]
     }
 
     fn get_mass(&self) -> f32 {
