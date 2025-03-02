@@ -44,11 +44,11 @@ impl Star {
     pub fn random(rng: &mut ChaCha8Rng) -> Self {
         let x: f32 = rng.random_range(-1.0..1.0);
         let y: f32 = rng.random_range(-1.0..1.0);
-        let z: f32 = rng.random_range(-0.45..0.55);
+        let z: f32 = rng.random_range(0.0..1.0);
 
         // let n = (x.powi(2) + y.powi(2)).powf(0.5);
-        let vx: f32 = -(y) * 10.0;
-        let vy: f32 = x * 10.0;
+        let vx: f32 = -(y) * 300.0;
+        let vy: f32 = x * 300.0;
 
         // let vy: f32 = 0.05*(x)/n;
 
@@ -115,8 +115,9 @@ impl Star {
         // }
         let ac = self.get_centre();
         let bc = other.get_centre();
+        let easing_factor = 0.5;
 
-        let r = [bc[0] - ac[0], bc[1] - ac[1], bc[2] - ac[2]];
+        let r = [(bc[0] - ac[0]).abs() + easing_factor, (bc[1] - ac[1]).abs() + easing_factor, (bc[2] - ac[2]).abs() + easing_factor];
         let signs = [
             if ac[0] < bc[0] { 1.0 } else { -1.0 },
             if ac[1] < bc[1] { 1.0 } else { -1.0 },
@@ -126,21 +127,9 @@ impl Star {
         let am = self.mass;
         let bm = other.mass;
         [
-            if r[0].abs() > 1.0 {
-                signs[0] * G * am * bm / (r[0].powi(2))
-            } else {
-                signs[0] * G * am * bm / (1.0_f32.powi(2))
-            },
-            if r[1].abs() > 1.0 {
-                signs[1] * G * am * bm / (r[1].powi(2))
-            } else {
-                signs[1] * G * am * bm / (1.0_f32.powi(2))
-            },
-            if r[2].abs() > 1.0 {
-                signs[2] * G * am * bm / (r[2].powi(2))
-            } else {
-                signs[2] * G * am * bm / (1.0_f32.powi(2))
-            },
+                signs[0] * G * am * bm / (r[0].powi(2)),
+                signs[1] * G * am * bm / (r[1].powi(2)),
+                signs[2] * G * am * bm / (r[2].powi(2)),
         ]
     }
 }
