@@ -1,13 +1,13 @@
-use bumpalo::{boxed, Bump};
+use bumpalo::{Bump, boxed};
 
-use crate::Entity;
+use crate::Star;
 
 type Link<'a, T> = boxed::Box<'a, QuadTreeNode<'a, T>>;
 
 #[derive(Debug)]
 pub struct QuadTree<'a, T>
 where
-    T: Entity,
+    T: Star,
 {
     root: QuadTreeNode<'a, T>,
     arena: &'a Bump,
@@ -16,7 +16,7 @@ where
 #[derive(Default, Debug)]
 struct QuadTreeNode<'a, T>
 where
-    T: Entity,
+    T: Star,
 {
     centre: [f32; 3],
     extent: f32,
@@ -26,7 +26,7 @@ where
 
 impl<'a, T> QuadTree<'a, T>
 where
-    T: Entity + Default + Copy,
+    T: Star + Default + Copy,
 {
     pub fn new(centre: [f32; 3], extent: f32, arena: &'a Bump) -> Self {
         let root = QuadTreeNode::<T>::new(centre, extent);
@@ -37,6 +37,7 @@ where
         self.root.push(item, 0, self.arena);
     }
 
+    #[allow(dead_code)]
     pub fn get_leaves(&self) -> Vec<T> {
         self.root.get_leaves()
     }
@@ -48,7 +49,7 @@ where
 
 impl<'a, T> QuadTreeNode<'a, T>
 where
-    T: Entity + Default + Copy,
+    T: Star + Default + Copy,
 {
     fn new(centre: [f32; 3], extent: f32) -> Self {
         // todo! put an actual implementation here
@@ -205,10 +206,9 @@ where
 #[cfg(test)]
 mod tests {
     extern crate test;
-    use crate::stars::Star;
     use bumpalo::Bump;
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
+    use physim_core::Entity;
+    use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
     use test::Bencher;
 
     use super::QuadTree;
@@ -218,13 +218,13 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         for _ in 0..num_entities {
-            state.push(Star::random(&mut rng));
+            state.push(Entity::random(&mut rng));
         }
 
         b.iter(|| {
             let arena = Bump::new();
             {
-                let mut tree: QuadTree<'_, Star> = QuadTree::new([0.0; 3], 1.0, &arena);
+                let mut tree: QuadTree<'_, Entity> = QuadTree::new([0.0; 3], 1.0, &arena);
                 for star in state.iter() {
                     tree.push(*star);
                 }

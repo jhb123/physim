@@ -1,0 +1,23 @@
+[package]
+name = "astro"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+bumpalo = {version="3.17.0",features=["boxed"]}
+physim-core = { path = "../physim-core" }
+physim_attribute = { path = "../physim_attribute" }
+serde_json = "1.0.140"
+rand_chacha = "0.9.0"
+
+[profile.release]
+debug = false
+opt-level = 3
+lto = true
+panic = "abort"
+strip = "debuginfo"

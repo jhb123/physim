@@ -1,20 +1,49 @@
-use std::{f32::consts::PI, sync::mpsc::Receiver};
+#![feature(str_from_raw_parts)]
+use std::ffi::CString;
+use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
 use glium::{
+    Surface, implement_vertex, uniform,
     winit::{
         event::{Event, WindowEvent},
         event_loop::EventLoop,
     },
-    Surface,
 };
-use log::{debug, info};
+use physim_attribute::render_element;
+use physim_core::{
+    ElementInfo, ElementKind, Entity, RenderElement, RenderElementCreator, UniverseConfiguration,
+    register_plugin,
+};
+use serde_json::Value;
 
-use crate::{stars::Star, UniverseConfiguration};
+register_plugin!("glrender");
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 3],
+}
+
+trait Renderable {
+    fn verticies(&self) -> Vec<Vertex>;
+}
+
+impl Renderable for Entity {
+    fn verticies(&self) -> Vec<Vertex> {
+        vec![
+            Vertex::new(self.x, self.y + self.radius, self.z),
+            Vertex::new(
+                self.x - self.radius * f32::sqrt(3.0) * 0.5,
+                self.y - 0.5 * self.radius,
+                self.z,
+            ),
+            Vertex::new(
+                self.x + self.radius * f32::sqrt(3.0) * 0.5,
+                self.y - 0.5 * self.radius,
+                self.z,
+            ),
+        ]
+    }
 }
 
 impl Vertex {
@@ -27,68 +56,73 @@ impl Vertex {
 
 implement_vertex!(Vertex, position);
 
-pub trait Renderable {
-    fn verticies(&self) -> Vec<Vertex>;
+#[render_element("glrender")]
+pub struct GLRenderElement {}
+
+impl RenderElementCreator for GLRenderElement {
+    fn create_element(_properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
+        Box::new(GLRenderElement {})
+    }
 }
 
-pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>) {
-    // Receiver<T>
+impl RenderElement for GLRenderElement {
+    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+        // Receiver<T>
 
-    let event_loop = EventLoop::builder().build().expect("event loop building");
-    let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-        .with_title("PhySim Renderer")
-        .build(&event_loop);
+        // let mut verticies: Vec<Vertex> =  Vec::with_capacity(2000000);// state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
+        let mut verticies: Vec<Vertex> = state_recv
+            .recv()
+            .unwrap()
+            .iter()
+            .flat_map(|s| s.verticies())
+            .collect();
 
-    // let mut verticies: Vec<Vertex> =  Vec::with_capacity(2000000);// state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
-    let mut verticies: Vec<Vertex> = state_recv
-        .recv()
-        .unwrap()
-        .iter()
-        .flat_map(|s| s.verticies())
-        .collect();
-    info!("Obtained new state");
+        let event_loop = EventLoop::builder().build().expect("event loop building");
+        let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+            .with_title("PhySim Renderer")
+            .build(&event_loop);
 
-    let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
-    vertex_buffer
-        .slice(0..verticies.len())
-        .unwrap()
-        .write(&verticies);
+        let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
+        vertex_buffer
+            .slice(0..verticies.len())
+            .unwrap()
+            .write(&verticies);
 
-    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-    let vertex_shader_src = include_str!("shader.vert");
-    let geometry_shader_src = include_str!("shader.geom");
-    let fragment_shader_src = include_str!("shader.frag");
+        let vertex_shader_src = include_str!("shader.vert");
+        let geometry_shader_src = include_str!("shader.geom");
+        let fragment_shader_src = include_str!("shader.frag");
 
-    let program = glium::Program::from_source(
-        &display,
-        vertex_shader_src,
-        fragment_shader_src,
-        Some(geometry_shader_src),
-    )
-    .unwrap();
+        let program = glium::Program::from_source(
+            &display,
+            vertex_shader_src,
+            fragment_shader_src,
+            Some(geometry_shader_src),
+        )
+        .unwrap();
 
-    let params = glium::DrawParameters {
-        blend: glium::Blend::alpha_blending(),
-        depth: glium::Depth {
-            test: glium::draw_parameters::DepthTest::IfLess,
-            write: true,
+        let params = glium::DrawParameters {
+            blend: glium::Blend::alpha_blending(),
+            depth: glium::Depth {
+                test: glium::draw_parameters::DepthTest::IfLess,
+                write: true,
+                ..Default::default()
+            },
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
             ..Default::default()
-        },
-        backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
-        ..Default::default()
-    };
+        };
 
-    let mut zoom = config.size_x.max(config.size_y);
-    let mut pos_x = 0.0;
-    let mut pos_y = 0.0;
+        let mut zoom = config.size_x.max(config.size_y);
+        let mut pos_x = 0.0;
+        let mut pos_y = 0.0;
 
-    // thread::spawn(move || {
-    // *verticies.lock().unwrap() = new_state;
-    // });
+        // thread::spawn(move || {
+        // *verticies.lock().unwrap() = new_state;
+        // });
 
-    // this avoids a lot of boiler plate.
-    #[allow(deprecated)]
+        // this avoids a lot of boiler plate.
+        #[allow(deprecated)]
     let _ = event_loop.run(move |event, window_target| {
         match event {
             Event::WindowEvent { event, .. } => match event {
@@ -97,7 +131,6 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     display.resize(window_size.into());
                 },
                 WindowEvent::RedrawRequested => {
-                    debug!("Redraw requested event");
                     let window_size = display.get_framebuffer_dimensions();
 
                     let mut target = display.draw();
@@ -126,7 +159,6 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                         [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
                     ];
 
-                    debug!("Mapped to verticies");
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
                     target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
                             &params).unwrap();
@@ -162,11 +194,11 @@ pub fn renderer(config: &UniverseConfiguration, state_recv: Receiver<Vec<Star>>)
                     verticies.clear();
                     verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
                     vertex_buffer.invalidate();
-                    info!("vb={}, v={}",&verticies.len(), vertex_buffer.len());
                     vertex_buffer.slice(0..verticies.len()).unwrap().write(&verticies);
                     window.request_redraw();
                 },
             _ => (),
         };
     });
+    }
 }
