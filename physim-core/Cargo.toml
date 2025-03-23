@@ -1,0 +1,28 @@
+[package]
+name = "physim-core"
+version = "0.1.0"
+edition = "2021"
+default-run = "physcan"
+license.workspace = true
+authors.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+env_logger = "0.11.6"
+libloading = "0.8.6"
+log = "0.4.25"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
+serde_json = "1.0.140"
+yansi = "1.0.1"
+
+
+[[bin]]
+name = "physcan"
+path = "src/scanner.rs"
+
+[[bin]]
+name = "physim"
+path = "src/main.rs"

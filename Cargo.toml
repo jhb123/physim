@@ -1,17 +1,10 @@
-[package]
-name = "physim"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [ "astro","physim-core","glrender", "physim_attribute"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bumpalo = {version="3.17.0",features=["boxed"]}
-env_logger = "0.11.6"
-glium = "0.36.0"
-log = "0.4.25"
-rand = "0.9.0"
-rand_chacha = "0.9.0"
+[workspace.package]
+authors = ["Joseph Briggs <jhbriggs@gmail.com>"]
+license = "MIT"
 
 [profile.release]
 debug = true
