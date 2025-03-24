@@ -15,5 +15,11 @@ The aim is to make a program the functions similar to gstreamer.
 - Events which can affect the simulation e.g. create new entities on click, terminate the simulation gracefully.
 - Be highly performant.
 
+## Creating videos with the stdout element
+Note, CLI program a WIP.
+```
+cargo run -r --bin physim | ffmpeg -y -f rawvideo -pixel_format bgra -video_size 1920x1080 -framerate 60 -i pipe:0  -c:v libx265 -preset fast -crf 23 -pix_fmt yuv420p output.mp4
+```
+
 ## Licence
 MIT.
