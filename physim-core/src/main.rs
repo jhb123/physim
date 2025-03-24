@@ -87,7 +87,7 @@ fn main() {
             element.transform(&state, &mut new_state, dt);
             // new_state.resize(state.len(), Entity::default());
             state = new_state.clone();
-            println!(
+            info!(
                 "Updated state in {} ms. Sending state of len {}",
                 start.elapsed().as_millis(),
                 state.len()
@@ -101,7 +101,7 @@ fn main() {
     let path = "/Users/josephbriggs/repos/physim/target/release/libglrender.dylib";
 
     let mut render_element =
-        physim_core::RenderElementHandler::load(path, "glrender", properties).unwrap();
+        physim_core::RenderElementHandler::load(path, "stdout", properties).unwrap();
     render_element.render(config, renderer_receiver);
 
     // renderer(&config, renderer_receiver);
