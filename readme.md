@@ -20,6 +20,15 @@ Note, CLI program a WIP.
 ```
 cargo run -r --bin physim | ffmpeg -y -f rawvideo -pixel_format bgra -video_size 1920x1080 -framerate 60 -i pipe:0  -c:v libx265 -preset fast -crf 23 -pix_fmt yuv420p output.mp4
 ```
+## State management
+- elements should  have properties.
+- when you want to use an element, you should need to lock it and be safe to read its state.
+- setting state should be somehow generic.
+- stretch goal: add macro to derive documentation.
+```
+let e = element.lock()
+e.set_props(hashmap)
+```
 
 ## Licence
 MIT.

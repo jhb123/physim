@@ -5,6 +5,7 @@ members = [ "astro","physim-core","glrender", "physim_attribute"]
 [workspace.package]
 authors = ["Joseph Briggs <jhbriggs@gmail.com>"]
 license = "MIT"
+repository = "https://github.com/jhb123/physim"
 
 [profile.release]
 debug = true

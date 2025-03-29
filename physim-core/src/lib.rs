@@ -5,14 +5,18 @@
 use libloading::Library;
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;
+use serde::Serialize;
 use serde_json::{self, Value};
 use std::{
     collections::HashMap,
     env,
+    error::Error,
     path::Path,
+    str::FromStr,
     sync::{
         atomic::{AtomicPtr, Ordering},
         mpsc::Receiver,
+        Mutex,
     },
 };
 use yansi::Paint;
@@ -28,16 +32,19 @@ pub enum ElementKind {
 // set by library authors, determined at compile time
 #[derive(Debug)]
 #[repr(C)]
-pub struct ElementInfo {
+pub struct ElementMeta {
     kind: ElementKind,
     name: String,
     plugin: String,
     version: String,
     license: String,
     author: String,
+    blurb: String,
+    repo: String,
 }
 
-impl ElementInfo {
+impl ElementMeta {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         kind: ElementKind,
         name: &str,
@@ -45,6 +52,8 @@ impl ElementInfo {
         version: &str,
         license: &str,
         author: &str,
+        blurb: &str,
+        repo: &str,
     ) -> Self {
         Self {
             kind,
@@ -53,12 +62,17 @@ impl ElementInfo {
             version: version.to_string(),
             license: license.to_string(),
             author: author.to_string(),
+            blurb: blurb.to_string(),
+            repo: repo.to_string(),
         }
     }
 }
 pub trait TransformElement {
     fn new(properties: HashMap<String, Value>) -> Self;
     fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], dt: f32);
+    fn set_properties(&mut self, properties: HashMap<String, Value>);
+    fn get_property(&mut self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&mut self) -> HashMap<String, String>;
 }
 
 #[repr(C)]
@@ -67,6 +81,11 @@ pub struct TransformElementAPI {
     pub transform:
         unsafe extern "C" fn(*mut std::ffi::c_void, *const Entity, usize, *mut Entity, usize, f32),
     pub destroy: unsafe extern "C" fn(*mut std::ffi::c_void),
+    pub set_properties: unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char),
+    pub get_property:
+        unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char) -> *mut std::ffi::c_char,
+    pub get_property_descriptions:
+        unsafe extern "C" fn(*mut std::ffi::c_void) -> *mut std::ffi::c_char,
 }
 
 pub struct TransformElementHandler {
@@ -80,7 +99,7 @@ impl TransformElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Mutex<Self>, Box<dyn std::error::Error>> {
         unsafe {
             let api_fn_name = format!("{name}_get_api");
             let properties = match serde_json::to_string(&properties) {
@@ -94,13 +113,13 @@ impl TransformElementHandler {
             let (c, u, _l) = properties.into_raw_parts();
             let instance = ((*api).init)(c, u);
             if instance.is_null() {
-                return Err("Could not initialise element".into());
+                return Err("Could not create_entities element".into());
             }
-            Ok(Self {
+            Ok(Mutex::new(Self {
                 api: &*api,
                 instance: AtomicPtr::new(instance),
                 _lib: lib,
-            })
+            }))
         }
     }
 
@@ -129,6 +148,40 @@ impl TransformElementHandler {
     }
 }
 
+impl ElementConfigurationHandler for TransformElementHandler {
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        // covert hashmap into something else?
+        let json = serde_json::to_string(&new_props).unwrap();
+        let json = std::ffi::CString::new(json).unwrap().into_raw(); // danger!
+
+        unsafe { (self.api.set_properties)(self.instance.load(Ordering::Relaxed), json) }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
+        let prop_ptr = std::ffi::CString::new(prop).unwrap().into_raw(); // danger!
+        let value =
+            unsafe { (self.api.get_property)(self.instance.load(Ordering::Relaxed), prop_ptr) };
+        if value.is_null() {
+            return Err(format!("{prop} is not a property").into());
+        }
+        let value = unsafe { std::ffi::CString::from_raw(value) };
+        let v = value.to_str().map_err(Box::new)?;
+        Ok(Value::from_str(v).map_err(Box::new)?)
+    }
+
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
+        let value =
+            unsafe { (self.api.get_property_descriptions)(self.instance.load(Ordering::Relaxed)) };
+        if value.is_null() {
+            todo!()
+            // return Err(format!("{prop} is not a property").into());
+        }
+        let value = unsafe { std::ffi::CString::from_raw(value) };
+        let v = value.to_str().map_err(Box::new)?;
+        Ok(serde_json::from_str(v).map_err(Box::new)?)
+    }
+}
+
 impl Drop for TransformElementHandler {
     fn drop(&mut self) {
         self.destroy();
@@ -140,6 +193,9 @@ pub trait RenderElementCreator {
 
 pub trait RenderElement {
     fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>);
+    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
 pub struct RenderElementHandler {
     instance: Box<dyn RenderElement>,
@@ -168,12 +224,29 @@ impl RenderElementHandler {
     }
 }
 
+impl ElementConfigurationHandler for RenderElementHandler {
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        self.instance.set_properties(new_props);
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
+        self.instance.get_property(prop)
+    }
+
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
+        self.instance.get_property_descriptions()
+    }
+}
+
 pub trait InitialStateElementCreator {
     fn create_element(properties: HashMap<String, Value>) -> Box<dyn InitialStateElement>;
 }
 
 pub trait InitialStateElement {
-    fn initialise(&self) -> Vec<Entity>;
+    fn create_entities(&self) -> Vec<Entity>;
+    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
 pub struct InitialStateElementHandler {
     instance: Box<dyn InitialStateElement>,
@@ -198,9 +271,29 @@ impl InitialStateElementHandler {
         }
     }
 
-    pub fn initialise(&mut self) -> Vec<Entity> {
-        self.instance.initialise()
+    pub fn create_entities(&mut self) -> Vec<Entity> {
+        self.instance.create_entities()
     }
+}
+
+impl ElementConfigurationHandler for InitialStateElementHandler {
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        self.instance.set_properties(new_props);
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
+        self.instance.get_property(prop)
+    }
+
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
+        self.instance.get_property_descriptions()
+    }
+}
+
+pub trait ElementConfigurationHandler {
+    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
 
 #[repr(C)]
@@ -211,7 +304,7 @@ pub struct UniverseConfiguration {
     // edge_mode: UniverseEdge,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, Serialize)]
 #[repr(C)]
 pub struct Entity {
     pub x: f32,
@@ -306,15 +399,17 @@ macro_rules! register_plugin {
 // determined at run time
 #[derive(Debug)]
 pub struct RegisteredElement {
-    element_info: ElementInfo,
+    element_info: ElementMeta,
     lib_path: String,
+    properties: HashMap<String, String>,
 }
 
 impl RegisteredElement {
-    fn new(element_info: ElementInfo, lib_path: &str) -> Self {
+    fn new(element_info: ElementMeta, lib_path: &str, properties: HashMap<String, String>) -> Self {
         RegisteredElement {
             element_info,
             lib_path: lib_path.to_string(),
+            properties,
         }
     }
 
@@ -346,22 +441,27 @@ impl RegisteredElement {
     }
 
     pub fn print_element_info_verbose(&self) {
+        println!("{}", "Overview".bold().underline().bright_blue());
+        println!("{:>10} - {}", "Name".bold(), self.element_info.name.green());
         println!(
-            "{}: {}",
-            "About".bold().bright().underline().green().linger(),
-            self.element_info.name.resetting()
+            "{:>10} - {}",
+            "Blurb".bold(),
+            self.element_info.blurb.green()
         );
-        println!(
-            "Loaded from the {} plugin located in {}",
-            self.element_info.plugin.green(),
-            self.lib_path.green()
-        );
-        println!();
         println!(
             "{:>10} - {:#?}",
             "Kind".bold(),
             self.element_info.kind.green()
         );
+        if !self.properties.is_empty() {
+            println!();
+            println!("{}", "Properties".underline().bold().bright_blue());
+        }
+        for (key, desc) in self.properties.iter() {
+            println!("{:>10} - {}", key.bold(), desc.green());
+        }
+        println!();
+        println!("{}", "Meta data".underline().bold().bright_blue());
         println!(
             "{:>10} - {}",
             "Authors".bold(),
@@ -377,7 +477,17 @@ impl RegisteredElement {
             "Version".bold(),
             self.element_info.version.green()
         );
+        println!(
+            "{:>10} - {}",
+            "Repository".bold(),
+            self.element_info.repo.green()
+        );
         println!();
+        println!(
+            "Loaded from the {} plugin located in {}",
+            self.element_info.plugin.green(),
+            self.lib_path.green()
+        );
     }
 }
 
@@ -412,14 +522,49 @@ pub fn discover() -> Vec<RegisteredElement> {
                             for el in els.split(",") {
                                 let register_element =
                                         lib.get::<libloading::Symbol<
-                                            unsafe extern "C" fn() -> ElementInfo,
+                                            unsafe extern "C" fn() -> ElementMeta,
                                         >>(
                                             format!("{el}_register").as_bytes()
                                         )
                                         .unwrap();
                                 let element_info = register_element();
+                                let properties = match element_info.kind {
+                                    ElementKind::Initialiser => {
+                                        let el: InitialStateElementHandler =
+                                            InitialStateElementHandler::load(
+                                                &lib_path,
+                                                &element_info.name,
+                                                HashMap::new(),
+                                            )
+                                            .unwrap();
+                                        el.get_property_descriptions().unwrap()
+                                    }
+                                    ElementKind::Transform => {
+                                        let el = TransformElementHandler::load(
+                                            &lib_path,
+                                            &element_info.name,
+                                            HashMap::new(),
+                                        )
+                                        .unwrap();
+                                        let el = el.lock().unwrap();
+                                        el.get_property_descriptions().unwrap()
+                                    }
+                                    ElementKind::Render => {
+                                        let el = RenderElementHandler::load(
+                                            &lib_path,
+                                            &element_info.name,
+                                            HashMap::new(),
+                                        )
+                                        .unwrap();
+                                        el.get_property_descriptions().unwrap()
+                                    }
+                                };
 
-                                elements.push(RegisteredElement::new(element_info, &lib_path));
+                                elements.push(RegisteredElement::new(
+                                    element_info,
+                                    &lib_path,
+                                    properties,
+                                ));
                             }
                         }
                     };
