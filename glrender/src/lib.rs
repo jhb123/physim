@@ -12,8 +12,7 @@ use glium::{
 };
 use physim_attribute::render_element;
 use physim_core::{
-    ElementInfo, ElementKind, Entity, RenderElement, RenderElementCreator, UniverseConfiguration,
-    register_plugin,
+    Entity, RenderElement, RenderElementCreator, UniverseConfiguration, register_plugin,
 };
 use serde_json::Value;
 
@@ -57,12 +56,16 @@ impl Vertex {
 
 implement_vertex!(Vertex, position);
 
-#[render_element("glrender")]
-pub struct GLRenderElement {}
+#[render_element(name = "glrender", blurb = "Render simulation to a window")]
+pub struct GLRenderElement {
+    resolution: (u64, u64),
+}
 
 impl RenderElementCreator for GLRenderElement {
     fn create_element(_properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
-        Box::new(GLRenderElement {})
+        Box::new(GLRenderElement {
+            resolution: (1920, 1080),
+        })
     }
 }
 
@@ -202,14 +205,48 @@ impl RenderElement for GLRenderElement {
         };
     });
     }
+
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
+            match resolution {
+                "1080p" => self.resolution = (1920, 1080),
+                "720p" => self.resolution = (1280, 720),
+                "4k" => self.resolution = (3840, 2160),
+                _ => self.resolution = (1920, 1080),
+            }
+        }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([(
+            "resolution".to_string(),
+            "choices of 4k, 1080p and 720p".to_string(),
+        )]))
+    }
 }
 
-#[render_element("stdout")]
-pub struct StdOutRender {}
+#[render_element(
+    name = "stdout",
+    blurb = "Render simulation to stdout for further processing by video software"
+)]
+pub struct StdOutRender {
+    resolution: (u64, u64),
+}
 
 impl RenderElementCreator for StdOutRender {
     fn create_element(_properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
-        Box::new(StdOutRender {})
+        Box::new(StdOutRender {
+            resolution: (1920, 1080),
+        })
     }
 }
 
@@ -314,6 +351,7 @@ impl RenderElement for StdOutRender {
             target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
                             &params).unwrap();
             target.finish().unwrap();
+            #[allow(clippy::type_complexity)]
             let pixels: Result<Vec<Vec<(u8, u8, u8, u8)>>, _> = display.read_front_buffer();
             let pixels: Vec<u8> = pixels
                 .unwrap()
@@ -328,5 +366,32 @@ impl RenderElement for StdOutRender {
                 .expect("Failed to write to stdout");
             handle.flush().expect("Failed to flush stdout");
         }
+    }
+
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
+            match resolution {
+                "1080p" => self.resolution = (1920, 1080),
+                "720p" => self.resolution = (1280, 720),
+                "4k" => self.resolution = (3840, 2160),
+                _ => self.resolution = (1920, 1080),
+            }
+        }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([(
+            "resolution".to_string(),
+            "choices of 4k, 1080p and 720p".to_string(),
+        )]))
     }
 }

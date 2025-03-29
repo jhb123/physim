@@ -2,13 +2,20 @@ use std::collections::HashMap;
 
 use bumpalo::Bump;
 use physim_attribute::transform_element;
-use physim_core::{ElementInfo, ElementKind, Entity, TransformElement, TransformElementAPI};
+use physim_core::{ElementKind, ElementMeta, Entity, TransformElement, TransformElementAPI};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::{Star, quadtree::QuadTree};
 
-#[transform_element("astro")]
-pub struct AstroElement {}
+#[transform_element(
+    name = "astro",
+    blurb = "Compute approximate gravitational forces with the Barnes-Hut algorithm"
+)]
+#[derive(Serialize)]
+pub struct AstroElement {
+    theta: f32,
+}
 
 impl TransformElement for AstroElement {
     fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], dt: f32) {
@@ -28,7 +35,7 @@ impl TransformElement for AstroElement {
         for (i, star_a) in state.iter().enumerate() {
             let mut f = [0.0; 3];
 
-            let star_bs = tree.get_leaves_with_resolution(star_a.get_centre(), 100.0);
+            let star_bs = tree.get_leaves_with_resolution(star_a.get_centre(), self.theta);
             for star_b in star_bs.iter() {
                 if star_a.get_centre() == star_b.get_centre() {
                     continue;
@@ -43,11 +50,35 @@ impl TransformElement for AstroElement {
     }
 
     fn new(_properties: HashMap<String, Value>) -> Self {
-        AstroElement {}
+        AstroElement { theta: 100.0 }
+    }
+
+    fn set_properties(&mut self, properties: HashMap<String, Value>) {
+        if let Some(theta) = properties.get("theta").and_then(|theta| theta.as_f64()) {
+            self.theta = theta as f32
+        }
+    }
+
+    fn get_property(&mut self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "theta" => Ok(serde_json::json!(self.theta)),
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(&mut self) -> HashMap<String, String> {
+        HashMap::from([(
+            String::from("theta"),
+            String::from(
+                "Barnes-Hut parameter. Increase for speed, decrease for accuracy. Default=100.0",
+            ),
+        )])
     }
 }
 
-#[transform_element("simple_astro")]
+// impl Configurable for
+
+#[transform_element(name = "simple_astro", blurb = "Compute exact gravitational forces")]
 pub struct SimpleAstroElement {}
 
 impl TransformElement for SimpleAstroElement {
@@ -71,10 +102,20 @@ impl TransformElement for SimpleAstroElement {
     fn new(_properties: HashMap<String, Value>) -> Self {
         SimpleAstroElement {}
     }
+
+    fn set_properties(&mut self, _properties: HashMap<String, Value>) {}
+
+    fn get_property(&mut self, _prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        Err("No property".into())
+    }
+
+    fn get_property_descriptions(&mut self) -> HashMap<String, String> {
+        HashMap::new()
+    }
 }
 
 #[allow(dead_code)]
-#[transform_element("debug")]
+#[transform_element(name = "debug", blurb = "Pass through data with no effect")]
 pub struct DebugTransform {
     state: u64,
 }
@@ -93,5 +134,22 @@ impl TransformElement for DebugTransform {
                 .and_then(|x| x.as_u64())
                 .unwrap_or_default(),
         }
+    }
+
+    fn set_properties(&mut self, properties: HashMap<String, Value>) {
+        if let Some(state) = properties.get("state").and_then(|state| state.as_u64()) {
+            self.state = state
+        }
+    }
+
+    fn get_property(&mut self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "state" => Ok(Value::Number(self.state.into())),
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(&mut self) -> HashMap<String, String> {
+        HashMap::new()
     }
 }

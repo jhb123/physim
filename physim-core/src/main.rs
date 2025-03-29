@@ -40,9 +40,9 @@ fn main() {
     };
 
     // prepare the initial condition
-    let mut state = cube_maker.initialise();
-    let s1 = star_maker1.initialise();
-    let s2 = star_maker2.initialise();
+    let mut state = cube_maker.create_entities();
+    let s1 = star_maker1.create_entities();
+    let s2 = star_maker2.create_entities();
 
     state.extend(s1);
     state.extend(s2);
@@ -82,17 +82,18 @@ fn main() {
             // if let Ok(data) = simulation_receiver.try_recv() {
             //     state.extend(data);
             // }
-
-            // new_state.clear();
-            element.transform(&state, &mut new_state, dt);
-            // new_state.resize(state.len(), Entity::default());
-            state = new_state.clone();
-            info!(
-                "Updated state in {} ms. Sending state of len {}",
-                start.elapsed().as_millis(),
-                state.len()
-            );
-            simulation_sender.send(new_state.clone()).unwrap();
+            if let Ok(element) = element.lock() {
+                // new_state.clear();
+                element.transform(&state, &mut new_state, dt);
+                // new_state.resize(state.len(), Entity::default());
+                state = new_state.clone();
+                info!(
+                    "Updated state in {} ms. Sending state of len {}",
+                    start.elapsed().as_millis(),
+                    state.len()
+                );
+                simulation_sender.send(new_state.clone()).unwrap();
+            }
         }
     });
 
@@ -101,7 +102,7 @@ fn main() {
     let path = "/Users/josephbriggs/repos/physim/target/release/libglrender.dylib";
 
     let mut render_element =
-        physim_core::RenderElementHandler::load(path, "stdout", properties).unwrap();
+        physim_core::RenderElementHandler::load(path, "glrender", properties).unwrap();
     render_element.render(config, renderer_receiver);
 
     // renderer(&config, renderer_receiver);
