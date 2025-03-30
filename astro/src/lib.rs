@@ -2,6 +2,7 @@
 #![feature(str_from_raw_parts)]
 #![feature(vec_into_raw_parts)]
 mod initialisers;
+mod octree;
 mod quadtree;
 mod transformers;
 
@@ -10,7 +11,7 @@ use std::ffi::CString;
 use physim_core::{Entity, register_plugin};
 
 // static ELEMENTS: &str = "astro,simple_astro,debug";
-register_plugin!("astro", "simple_astro", "debug", "cube", "star");
+register_plugin!("astro", "astro2", "simple_astro", "debug", "cube", "star");
 
 const G: f32 = 1.0;
 
