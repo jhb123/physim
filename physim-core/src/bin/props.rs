@@ -1,11 +1,13 @@
-use physim_core::ElementConfigurationHandler;
+use physim_core::plugin::initialiser::ElementConfigurationHandler;
 
 fn main() {
     let path = "/Users/josephbriggs/repos/physim/target/release/libastro.dylib";
     // physim_core::discover()
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::TransformElementHandler::load(path, "debug", properties).unwrap();
+    let element =
+        physim_core::plugin::transform::TransformElementHandler::load(path, "debug", properties)
+            .unwrap();
 
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
@@ -24,7 +26,9 @@ fn main() {
     //
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::TransformElementHandler::load(path, "astro", properties).unwrap();
+    let element =
+        physim_core::plugin::transform::TransformElementHandler::load(path, "astro", properties)
+            .unwrap();
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
@@ -43,7 +47,10 @@ fn main() {
     //
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::InitialStateElementHandler::load(path, "cube", properties).unwrap();
+    let element = physim_core::plugin::initialiser::InitialStateElementHandler::load(
+        path, "cube", properties,
+    )
+    .unwrap();
     let properties = serde_json::json!({ "n": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
@@ -63,7 +70,9 @@ fn main() {
     let path = "/Users/josephbriggs/repos/physim/target/release/libglrender.dylib";
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::RenderElementHandler::load(path, "glrender", properties).unwrap();
+    let element =
+        physim_core::plugin::render::RenderElementHandler::load(path, "glrender", properties)
+            .unwrap();
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
@@ -81,7 +90,9 @@ fn main() {
 
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::RenderElementHandler::load(path, "stdout", properties).unwrap();
+    let element =
+        physim_core::plugin::render::RenderElementHandler::load(path, "stdout", properties)
+            .unwrap();
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
@@ -96,7 +107,4 @@ fn main() {
     println!("{:?}", p);
 
     println!("{:?}", el.get_property_descriptions());
-
-
-
 }

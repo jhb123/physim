@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use physim_attribute::initialise_state_element;
-use physim_core::{Entity, InitialStateElement, InitialStateElementCreator};
+use physim_core::{
+    Entity,
+    plugin::initialiser::{InitialStateElement, InitialStateElementCreator},
+};
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 use serde_json::Value;
 

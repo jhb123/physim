@@ -1,6 +1,6 @@
 use std::env;
 
-use physim_core::{discover, get_plugin_dir};
+use physim_core::{plugin::discover, plugin::get_plugin_dir};
 use yansi::Paint;
 
 fn main() {
