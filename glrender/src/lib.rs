@@ -11,9 +11,8 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
-use physim_core::{
-    Entity, RenderElement, RenderElementCreator, UniverseConfiguration, register_plugin,
-};
+use physim_core::plugin::render::{RenderElement, RenderElementCreator};
+use physim_core::{Entity, UniverseConfiguration, register_plugin};
 use serde_json::Value;
 
 register_plugin!("glrender,stdout");

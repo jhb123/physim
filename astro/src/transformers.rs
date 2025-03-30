@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bumpalo::Bump;
 use physim_attribute::transform_element;
-use physim_core::{ElementKind, ElementMeta, Entity, TransformElement, TransformElementAPI};
+use physim_core::{Entity, plugin::transform::TransformElement};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -49,8 +49,13 @@ impl TransformElement for AstroElement {
         }
     }
 
-    fn new(_properties: HashMap<String, Value>) -> Self {
-        AstroElement { theta: 100.0 }
+    fn new(properties: HashMap<String, Value>) -> Self {
+        let theta = properties
+            .get("theta")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32;
+
+        AstroElement { theta }
     }
 
     fn set_properties(&mut self, properties: HashMap<String, Value>) {
@@ -70,7 +75,7 @@ impl TransformElement for AstroElement {
         HashMap::from([(
             String::from("theta"),
             String::from(
-                "Barnes-Hut parameter. Increase for speed, decrease for accuracy. Default=100.0",
+                "Barnes-Hut parameter. Increase for speed, decrease for accuracy. Default=1.0",
             ),
         )])
     }

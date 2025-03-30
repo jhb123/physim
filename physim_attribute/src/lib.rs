@@ -79,8 +79,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #api_fn() -> *const TransformElementAPI {
-            Box::into_raw(Box::new(TransformElementAPI {
+        pub extern "C" fn #api_fn() -> *const ::physim_core::plugin::transform::TransformElementAPI {
+            Box::into_raw(Box::new(::physim_core::plugin::transform::TransformElementAPI {
                 init: #init_fn,
                 transform: #transform_fn,
                 destroy: #destroy_fn,
@@ -91,9 +91,9 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ElementMeta {
-            ElementMeta::new(
-                ElementKind::Transform,
+        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
+            ::physim_core::plugin::ElementMeta::new(
+                ::physim_core::plugin::ElementKind::Transform,
                 #el_name,
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),
@@ -184,14 +184,14 @@ pub fn render_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         #ast
 
         #[unsafe(no_mangle)]
-        fn #create_element(properties: HashMap<String, Value>) -> Box<dyn ::physim_core::RenderElement> {
+        fn #create_element(properties: HashMap<String, Value>) -> Box<dyn ::physim_core::plugin::render::RenderElement> {
             #name::create_element(properties)
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::ElementMeta {
-            ::physim_core::ElementMeta::new(
-                ::physim_core::ElementKind::Render,
+        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
+            ::physim_core::plugin::ElementMeta::new(
+                ::physim_core::plugin::ElementKind::Render,
                 #el_name,
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),
@@ -248,7 +248,7 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
         #ast
 
         #[unsafe(no_mangle)]
-        fn #create_element(properties: HashMap<String, Value>) -> Box<dyn ::physim_core::InitialStateElement> {
+        fn #create_element(properties: HashMap<String, Value>) -> Box<dyn ::physim_core::plugin::initialiser::InitialStateElement> {
             #name::create_element(properties)
         }
 
@@ -268,9 +268,9 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
         // }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::ElementMeta {
-            ::physim_core::ElementMeta::new(
-                ::physim_core::ElementKind::Initialiser,
+        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
+            ::physim_core::plugin::ElementMeta::new(
+                ::physim_core::plugin::ElementKind::Initialiser,
                 #el_name,
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),
