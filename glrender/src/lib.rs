@@ -58,20 +58,34 @@ implement_vertex!(Vertex, position);
 #[render_element(name = "glrender", blurb = "Render simulation to a window")]
 pub struct GLRenderElement {
     resolution: (u64, u64),
+    zoom: f32,
 }
 
 impl RenderElementCreator for GLRenderElement {
-    fn create_element(_properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
-        Box::new(GLRenderElement {
-            resolution: (1920, 1080),
-        })
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
+        let resolution = properties
+            .get("resolution")
+            .and_then(|theta| theta.as_str())
+            .map(|s| match s {
+                "1080p" => (1920, 1080),
+                "720p" => (1280, 720),
+                "4k" => (3840, 2160),
+                _ => (1920, 1080),
+            })
+            .unwrap_or((1920, 1080));
+
+        let zoom = properties
+            .get("zoom")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32;
+
+        Box::new(GLRenderElement { resolution, zoom })
     }
 }
 
 impl RenderElement for GLRenderElement {
     fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
         // Receiver<T>
-
         // let mut verticies: Vec<Vertex> =  Vec::with_capacity(2000000);// state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
         let mut verticies: Vec<Vertex> = state_recv
             .recv()
@@ -83,6 +97,7 @@ impl RenderElement for GLRenderElement {
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
+            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
             .build(&event_loop);
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
@@ -116,7 +131,7 @@ impl RenderElement for GLRenderElement {
             ..Default::default()
         };
 
-        let mut zoom = config.size_x.max(config.size_y);
+        let mut zoom = config.size_x.max(config.size_y) * self.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
 
@@ -214,11 +229,15 @@ impl RenderElement for GLRenderElement {
                 _ => self.resolution = (1920, 1080),
             }
         }
+        if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
+            self.zoom = zoom as f32
+        }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         match prop {
             "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(self.zoom)),
             _ => Err("No property".into()),
         }
     }
@@ -226,10 +245,16 @@ impl RenderElement for GLRenderElement {
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-        Ok(HashMap::from([(
-            "resolution".to_string(),
-            "choices of 4k, 1080p and 720p".to_string(),
-        )]))
+        Ok(HashMap::from([
+            (
+                "resolution".to_string(),
+                "Choices of 4k, 1080p and 720p".to_string(),
+            ),
+            (
+                "zoom".to_string(),
+                "Camera zoom (1.0 is default)".to_string(),
+            ),
+        ]))
     }
 }
 
@@ -239,13 +264,28 @@ impl RenderElement for GLRenderElement {
 )]
 pub struct StdOutRender {
     resolution: (u64, u64),
+    zoom: f32,
 }
 
 impl RenderElementCreator for StdOutRender {
-    fn create_element(_properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
-        Box::new(StdOutRender {
-            resolution: (1920, 1080),
-        })
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
+        let resolution = properties
+            .get("resolution")
+            .and_then(|theta| theta.as_str())
+            .map(|s| match s {
+                "1080p" => (1920, 1080),
+                "720p" => (1280, 720),
+                "4k" => (3840, 2160),
+                _ => (1920, 1080),
+            })
+            .unwrap_or((1920, 1080));
+
+        let zoom = properties
+            .get("zoom")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32;
+
+        Box::new(StdOutRender { resolution, zoom })
     }
 }
 
@@ -261,7 +301,7 @@ impl RenderElement for StdOutRender {
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
-            .with_inner_size(1920, 1080)
+            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
             .build(&event_loop);
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
@@ -295,7 +335,7 @@ impl RenderElement for StdOutRender {
             ..Default::default()
         };
 
-        let zoom = config.size_x.max(config.size_y);
+        let zoom = config.size_x.max(config.size_y) * self.zoom;
         let pos_x: f32 = 0.0;
         let pos_y: f32 = 0.0;
 
@@ -376,11 +416,15 @@ impl RenderElement for StdOutRender {
                 _ => self.resolution = (1920, 1080),
             }
         }
+        if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
+            self.zoom = zoom as f32
+        }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         match prop {
             "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(self.zoom)),
             _ => Err("No property".into()),
         }
     }
@@ -388,9 +432,15 @@ impl RenderElement for StdOutRender {
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-        Ok(HashMap::from([(
-            "resolution".to_string(),
-            "choices of 4k, 1080p and 720p".to_string(),
-        )]))
+        Ok(HashMap::from([
+            (
+                "resolution".to_string(),
+                "Choices of 4k, 1080p and 720p".to_string(),
+            ),
+            (
+                "zoom".to_string(),
+                "Camera zoom (1.0 is default)".to_string(),
+            ),
+        ]))
     }
 }

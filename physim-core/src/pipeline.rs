@@ -97,8 +97,7 @@ impl Pipeline {
                         } else if let Ok(val) = serde_json::Value::from_str(x.1.trim()) {
                             props.insert(x.0.trim().to_string(), val);
                         } else {
-                            warn!("Cannot parse {:?} to a value", x);
-                            return Err("Could not parse element properties");
+                            props.insert(x.0.trim().to_string(), Value::String(x.1.to_string()));
                         }
                     } else {
                         warn!("Element description missing: {name} {:?}", part);

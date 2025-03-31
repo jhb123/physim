@@ -56,23 +56,38 @@ impl Entity {
         let y: f32 = rng.random_range(-1.0..1.0);
         let z: f32 = rng.random_range(0.0..1.0);
 
-        // let n = (x.powi(2) + y.powi(2)).powf(0.5);
-        let vx: f32 = -(y) * 300.0;
-        let vy: f32 = x * 300.0;
-
-        // let vy: f32 = 0.05*(x)/n;
-
         Self {
             x,
             y,
             z,
-            vx,
-            vy,
+            vx: 0.0,
+            vy: 0.0,
             vz: 0.0,
             mass: 0.005,
             radius: 0.02,
         }
     }
+
+    // pub fn random_spin(rng: &mut ChaCha8Rng, spin: f32) -> Self{
+    //     let x: f32 = rng.random_range(-1.0..1.0);
+    //     let y: f32 = rng.random_range(-1.0..1.0);
+    //     let z: f32 = rng.random_range(0.0..1.0);
+
+    //     let vx: f32 = -(y) * 300.0;
+    //     let vy: f32 = x * 300.0;
+
+    //     Self {
+    //         x,
+    //         y,
+    //         z,
+    //         vx,
+    //         vy,
+    //         vz: 0.0,
+    //         mass: 0.005,
+    //         radius: 0.02,
+    //     }
+
+    // }
 
     pub fn jitter_position(&self) -> Self {
         let mut rng = rand::rng();

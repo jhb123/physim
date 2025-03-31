@@ -17,6 +17,8 @@ pub struct RandomCube {
     n: u64,
     seed: u64,
     spin: f64,
+    centre: [f32; 3],
+    size: f32,
 }
 
 impl InitialStateElementCreator for RandomCube {
@@ -26,9 +28,37 @@ impl InitialStateElementCreator for RandomCube {
             .and_then(|v| v.as_u64())
             .unwrap_or(100_000);
         let seed = properties.get("seed").and_then(|v| v.as_u64()).unwrap_or(0);
-        let spin = properties.get("s").and_then(|v| v.as_f64()).unwrap_or(0.0);
-
-        Box::new(Self { n, seed, spin })
+        let spin = properties
+            .get("spin")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let size = properties
+            .get("size")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32;
+        let centre = properties
+            .get("centre")
+            .and_then(|v| {
+                let coords = v.as_array()?;
+                if coords.len() != 3 {
+                    None
+                } else {
+                    let coords: Vec<f32> = coords
+                        .iter()
+                        .flat_map(|x| x.as_f64())
+                        .map(|x| x as f32)
+                        .collect();
+                    Some([coords[0], coords[1], coords[2]])
+                }
+            })
+            .unwrap_or([0.0_f32; 3]);
+        Box::new(Self {
+            n,
+            seed,
+            spin,
+            centre,
+            size,
+        })
     }
 }
 
@@ -37,7 +67,19 @@ impl InitialStateElement for RandomCube {
         let mut rng = ChaCha8Rng::seed_from_u64(self.seed);
         let mut state = Vec::with_capacity(self.n as usize);
         for _ in 0..self.n {
-            state.push(Entity::random(&mut rng));
+            let mut e = Entity::random(&mut rng);
+            e.x *= self.size;
+            e.y *= self.size;
+            e.z *= self.size;
+
+            e.vx = e.y * self.spin as f32;
+            e.vy = -e.x * self.spin as f32;
+
+            e.x += self.centre[0];
+            e.y += self.centre[1];
+            e.z += self.centre[2];
+
+            state.push(e);
         }
         state
     }
@@ -52,6 +94,24 @@ impl InitialStateElement for RandomCube {
         if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
             self.seed = seed
         }
+        if let Some(size) = new_props.get("size").and_then(|size| size.as_f64()) {
+            self.size = size as f32
+        }
+        if let Some(centre) = new_props.get("centre").and_then(|v| {
+            let coords = v.as_array()?;
+            if coords.len() != 3 {
+                None
+            } else {
+                let coords: Vec<f32> = coords
+                    .iter()
+                    .flat_map(|x| x.as_f64())
+                    .map(|x| x as f32)
+                    .collect();
+                Some([coords[0], coords[1], coords[2]])
+            }
+        }) {
+            self.centre = centre
+        }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -59,6 +119,8 @@ impl InitialStateElement for RandomCube {
             "n" => Ok(serde_json::json!(self.n)),
             "seed" => Ok(serde_json::json!(self.seed)),
             "spin" => Ok(serde_json::json!(self.spin)),
+            "size" => Ok(serde_json::json!(self.spin)),
+            "centre" => Ok(serde_json::json!(self.spin)),
             _ => Err("No property".into()),
         }
     }
@@ -70,6 +132,11 @@ impl InitialStateElement for RandomCube {
             ("n".to_string(), "Number of stars".to_string()),
             ("seed".to_string(), "Random seed".to_string()),
             ("spin".to_string(), "Spin factor v = (r*s)".to_string()),
+            ("size".to_string(), "side length of cube".to_string()),
+            (
+                "centre".to_string(),
+                "Centre (specify in CLI with \\[x,y,z\\])".to_string(),
+            ),
         ]))
     }
 }
