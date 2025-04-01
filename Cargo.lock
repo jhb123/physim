@@ -546,6 +546,7 @@ name = "glrender"
 version = "0.1.0"
 dependencies = [
  "glium",
+ "log",
  "physim-core",
  "physim_attribute",
  "serde_json",

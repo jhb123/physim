@@ -21,7 +21,7 @@ pub trait Star {
     fn centre_of_mass(&self, other: &Self) -> [f32; 3];
     fn fake(centre: [f32; 3], mass: f32) -> Self;
     fn inside(a: &Self, b: &Self) -> bool;
-    fn newtons_law_of_universal_gravitation(&self, other: &Self) -> [f32; 3];
+    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3];
     fn suvat(&self, dt: f32, f: [f32; 3]) -> Self;
 }
 
@@ -71,14 +71,13 @@ impl Star for Entity {
             && ((a.z - b.z).abs() < a.radius / 2.0 || (a.z - b.z).abs() < b.radius / 2.0)
     }
 
-    fn newtons_law_of_universal_gravitation(&self, other: &Self) -> [f32; 3] {
+    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3] {
         // if Self::inside(&self, other) {
         //     info!("within");
         //     return [0.0,0.0,0.0]
         // }
         let ac = self.get_centre();
         let bc = other.get_centre();
-        let easing_factor = 0.2;
 
         let r_norm =
             ((ac[0] - bc[0]).powi(2) + (ac[1] - bc[1]).powi(2) + (ac[2] - bc[2]).powi(2)).powf(0.5);
