@@ -21,6 +21,7 @@ pub struct Pipeline {
     initialisers: Vec<InitialStateElementHandler>,
     transforms: Mutex<TransformElementHandler>,
     render: RenderElementHandler,
+    timestep: f32,
 }
 
 impl Pipeline {
@@ -44,7 +45,7 @@ impl Pipeline {
         let (simulation_sender, renderer_receiver) = mpsc::sync_channel(10);
 
         thread::spawn(move || {
-            let dt = 0.00001;
+            let dt = self.timestep;
             for _ in 0..10000 {
                 let start = Instant::now();
                 if let Ok(element) = self.transforms.lock() {
@@ -172,6 +173,7 @@ impl PipelineBuilder {
                 initialisers: self.initialisers,
                 transforms: self.transforms.expect("Checked just above"),
                 render: self.render.expect("Checked just above"),
+                timestep: 0.000001,
             })
         }
     }

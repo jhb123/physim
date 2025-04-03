@@ -46,7 +46,7 @@ impl TransformElement for AstroElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.suvat(dt, f);
+            new_state[i] = star_a.verlet(dt, f);
         }
     }
 
@@ -144,7 +144,7 @@ impl TransformElement for AstroOctreeElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.suvat(dt, f);
+            new_state[i] = star_a.verlet(dt, f);
         }
     }
 
@@ -225,7 +225,7 @@ impl TransformElement for SimpleAstroElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.suvat(dt, f);
+            new_state[i] = star_a.verlet(dt, f);
         }
     }
 

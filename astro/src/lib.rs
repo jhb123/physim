@@ -8,7 +8,7 @@ mod transformers;
 
 use std::ffi::CString;
 
-use physim_core::{Entity, register_plugin};
+use physim_core::{Entity, EntityState, register_plugin};
 
 // static ELEMENTS: &str = "astro,simple_astro,debug";
 register_plugin!("astro", "astro2", "simple_astro", "debug", "cube", "star");
@@ -22,7 +22,8 @@ pub trait Star {
     fn fake(centre: [f32; 3], mass: f32) -> Self;
     fn inside(a: &Self, b: &Self) -> bool;
     fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3];
-    fn suvat(&self, dt: f32, f: [f32; 3]) -> Self;
+    fn euler(&self, dt: f32, f: [f32; 3]) -> Self;
+    fn verlet(&self, dt: f32, f: [f32; 3]) -> Self;
 }
 
 // could implement this so
@@ -33,9 +34,9 @@ impl Star for Entity {
         let inv_total_mass = 1.0 / total_mass;
 
         [
-            (self.mass * self.x + other.mass * other.x) * inv_total_mass,
-            (self.mass * self.y + other.mass * other.y) * inv_total_mass,
-            (self.mass * self.z + other.mass * other.z) * inv_total_mass,
+            (self.mass * self.state.x + other.mass * other.state.x) * inv_total_mass,
+            (self.mass * self.state.y + other.mass * other.state.y) * inv_total_mass,
+            (self.mass * self.state.z + other.mass * other.state.z) * inv_total_mass,
         ]
     }
 
@@ -44,11 +45,11 @@ impl Star for Entity {
     }
 
     fn get_centre(&self) -> [f32; 3] {
-        // assert!(self.x.is_normal()) ;
-        // assert!(self.y.is_normal()) ;
-        // assert!(self.z.is_normal()) ;
+        // assert!(self.state.x.is_normal()) ;
+        // assert!(self.state.y.is_normal()) ;
+        // assert!(self.state.z.is_normal()) ;
 
-        [self.x, self.y, self.z]
+        [self.state.x, self.state.y, self.state.z]
     }
 
     fn fake(centre: [f32; 3], mass: f32) -> Self {
@@ -56,9 +57,12 @@ impl Star for Entity {
             panic!()
         }
         Self {
-            x: centre[0],
-            y: centre[1],
-            z: centre[2],
+            state: EntityState {
+                x: centre[0],
+                y: centre[1],
+                z: centre[2],
+                ..Default::default()
+            },
             radius: 0.0, // hm
             mass,
             ..Default::default()
@@ -66,9 +70,12 @@ impl Star for Entity {
     }
 
     fn inside(a: &Self, b: &Self) -> bool {
-        ((a.x - b.x).abs() < a.radius / 2.0 || (a.x - b.x).abs() < b.radius / 2.0)
-            && ((a.y - b.y).abs() < a.radius / 2.0 || (a.y - b.y).abs() < b.radius / 2.0)
-            && ((a.z - b.z).abs() < a.radius / 2.0 || (a.z - b.z).abs() < b.radius / 2.0)
+        ((a.state.x - b.state.x).abs() < a.radius / 2.0
+            || (a.state.x - b.state.x).abs() < b.radius / 2.0)
+            && ((a.state.y - b.state.y).abs() < a.radius / 2.0
+                || (a.state.y - b.state.y).abs() < b.radius / 2.0)
+            && ((a.state.z - b.state.z).abs() < a.radius / 2.0
+                || (a.state.z - b.state.z).abs() < b.radius / 2.0)
     }
 
     fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3] {
@@ -102,29 +109,74 @@ impl Star for Entity {
         ]
     }
 
-    fn suvat(&self, dt: f32, f: [f32; 3]) -> Self {
+    fn euler(&self, dt: f32, f: [f32; 3]) -> Self {
         let m = self.get_mass();
         // f = ma
         let a = [f[0] / m, f[1] / m, f[2] / m];
         // S = s0 + ut + 1/2 a t^2
-        let x = self.x + self.vx * dt + 0.5 * a[0] * (dt.powi(2));
-        let y = self.y + self.vy * dt + 0.5 * a[1] * (dt.powi(2));
-        let z = self.z + self.vz * dt + 0.5 * a[2] * (dt.powi(2));
+        let x = self.state.x + self.state.vx * dt + 0.5 * a[0] * (dt.powi(2));
+        let y = self.state.y + self.state.vy * dt + 0.5 * a[1] * (dt.powi(2));
+        let z = self.state.z + self.state.vz * dt + 0.5 * a[2] * (dt.powi(2));
 
         // v = v0 +
-        let vx = self.vx + a[0] * dt;
-        let vy = self.vy + a[1] * dt;
-        let vz = self.vz + a[2] * dt;
+        let vx = self.state.vx + a[0] * dt;
+        let vy = self.state.vy + a[1] * dt;
+        let vz = self.state.vz + a[2] * dt;
 
         Self {
-            x,
-            y,
-            z,
-            vx,
-            vy,
-            vz,
+            state: EntityState {
+                x,
+                y,
+                z,
+                vx,
+                vy,
+                vz,
+            },
             mass: self.mass,
             radius: self.radius,
+            ..Default::default()
+        }
+    }
+
+    fn verlet(&self, dt: f32, f: [f32; 3]) -> Self {
+        let m = self.get_mass();
+        // f = ma
+        let a = [f[0] / m, f[1] / m, f[2] / m];
+        // S = s0 + ut + 1/2 a t^2
+
+        let (x, y, z) = match self.prev_state {
+            Some(prev_state) => {
+                let x = 2_f32 * self.state.x - prev_state.x + a[0] * (dt.powi(2));
+                let y = 2_f32 * self.state.y - prev_state.y + a[1] * (dt.powi(2));
+                let z = 2_f32 * self.state.z - prev_state.z + a[2] * (dt.powi(2));
+                (x, y, z)
+            }
+            None => {
+                let x = self.state.x + self.state.vx * dt + 0.5 * a[0] * (dt.powi(2));
+                let y = self.state.y + self.state.vy * dt + 0.5 * a[1] * (dt.powi(2));
+                let z = self.state.z + self.state.vz * dt + 0.5 * a[2] * (dt.powi(2));
+                (x, y, z)
+            }
+        };
+
+        // v = v0 +
+        let vx = (x - self.state.x) / dt;
+        let vy = (y - self.state.y) / dt;
+        let vz = (z - self.state.z) / dt;
+
+        Self {
+            state: EntityState {
+                x,
+                y,
+                z,
+                vx,
+                vy,
+                vz,
+            },
+            prev_state: Some(self.state),
+            mass: self.mass,
+            radius: self.radius,
+            ..Default::default()
         }
     }
 }

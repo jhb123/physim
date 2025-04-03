@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
-    Entity,
+    Entity, EntityState,
     plugin::initialiser::{InitialStateElement, InitialStateElementCreator},
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
@@ -68,16 +68,16 @@ impl InitialStateElement for RandomCube {
         let mut state = Vec::with_capacity(self.n as usize);
         for _ in 0..self.n {
             let mut e = Entity::random(&mut rng);
-            e.x *= self.size;
-            e.y *= self.size;
-            e.z *= self.size;
+            e.state.x *= self.size;
+            e.state.y *= self.size;
+            e.state.z *= self.size;
 
-            e.vx = e.y * self.spin as f32;
-            e.vy = -e.x * self.spin as f32;
+            e.state.vx = e.state.y * self.spin as f32;
+            e.state.vy = -e.state.x * self.spin as f32;
 
-            e.x += self.centre[0];
-            e.y += self.centre[1];
-            e.z += self.centre[2];
+            e.state.x += self.centre[0];
+            e.state.y += self.centre[1];
+            e.state.z += self.centre[2];
 
             state.push(e);
         }
@@ -157,18 +157,21 @@ impl InitialStateElementCreator for SingleStar {
         }
 
         let entity = Entity {
-            x: get_f32(&properties, "x"),
-            y: get_f32(&properties, "y"),
-            z: get_f32(&properties, "z"),
-            vx: get_f32(&properties, "vx"),
-            vy: get_f32(&properties, "vy"),
-            vz: get_f32(&properties, "vz"),
+            state: EntityState {
+                x: get_f32(&properties, "x"),
+                y: get_f32(&properties, "y"),
+                z: get_f32(&properties, "z"),
+                vx: get_f32(&properties, "vx"),
+                vy: get_f32(&properties, "vy"),
+                vz: get_f32(&properties, "vz"),
+            },
             radius: properties
                 .get("radius")
                 .and_then(|v| v.as_f64())
                 .map(|v| v as f32)
                 .unwrap_or(0.1),
             mass: get_f32(&properties, "mass"),
+            ..Default::default()
         };
 
         Box::new(Self { entity })
@@ -182,22 +185,22 @@ impl InitialStateElement for SingleStar {
 
     fn set_properties(&mut self, new_props: HashMap<String, Value>) {
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            self.entity.x = val as f32
+            self.entity.state.x = val as f32
         }
         if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            self.entity.y = val as f32
+            self.entity.state.y = val as f32
         }
         if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            self.entity.z = val as f32
+            self.entity.state.z = val as f32
         }
         if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            self.entity.vx = val as f32
+            self.entity.state.vx = val as f32
         }
         if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            self.entity.vy = val as f32
+            self.entity.state.vy = val as f32
         }
         if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            self.entity.vz = val as f32
+            self.entity.state.vz = val as f32
         }
         if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
             self.entity.mass = val as f32
@@ -209,12 +212,12 @@ impl InitialStateElement for SingleStar {
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         match prop {
-            "x" => Ok(serde_json::json!(self.entity.x)),
-            "y" => Ok(serde_json::json!(self.entity.y)),
-            "z" => Ok(serde_json::json!(self.entity.z)),
-            "vx" => Ok(serde_json::json!(self.entity.vx)),
-            "vy" => Ok(serde_json::json!(self.entity.vy)),
-            "vz" => Ok(serde_json::json!(self.entity.vz)),
+            "x" => Ok(serde_json::json!(self.entity.state.x)),
+            "y" => Ok(serde_json::json!(self.entity.state.y)),
+            "z" => Ok(serde_json::json!(self.entity.state.z)),
+            "vx" => Ok(serde_json::json!(self.entity.state.vx)),
+            "vy" => Ok(serde_json::json!(self.entity.state.vy)),
+            "vz" => Ok(serde_json::json!(self.entity.state.vz)),
             "m" => Ok(serde_json::json!(self.entity.mass)),
             "r" => Ok(serde_json::json!(self.entity.radius)),
             _ => Err("No property".into()),
