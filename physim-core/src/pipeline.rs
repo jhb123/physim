@@ -1,12 +1,14 @@
 use std::{
     collections::HashMap,
+    error::Error,
     str::FromStr,
     sync::{mpsc, Mutex},
     thread,
     time::Instant,
 };
 
-use log::{info, warn};
+use log::info;
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
@@ -22,6 +24,7 @@ pub struct Pipeline {
     transforms: Mutex<TransformElementHandler>,
     render: RenderElementHandler,
     timestep: f32,
+    iterations: u64,
 }
 
 impl Pipeline {
@@ -46,7 +49,7 @@ impl Pipeline {
 
         thread::spawn(move || {
             let dt = self.timestep;
-            for _ in 0..10000 {
+            for _ in 0..self.iterations {
                 let start = Instant::now();
                 if let Ok(element) = self.transforms.lock() {
                     // new_state.clear();
@@ -65,7 +68,7 @@ impl Pipeline {
         self.render.render(config, renderer_receiver);
     }
 
-    pub fn new_from_description(pipeline_description: &str) -> Result<Self, &'static str> {
+    pub fn new_from_description(pipeline_description: &str) -> Result<Self, Box<dyn Error>> {
         info!("Parsing: {pipeline_description}");
         let element_descriptions: Vec<&str> = pipeline_description.split_terminator("!").collect();
 
@@ -77,9 +80,49 @@ impl Pipeline {
         builder.build()
     }
 
+    pub fn new_from_file(path: &str) -> Result<Pipeline, Box<dyn Error>> {
+        let toml_str =
+            std::fs::read_to_string(path).map_err(|_| format!("Could not read {path}"))?;
+        let config: PipelineConfig = toml::from_str(&toml_str).map_err(|e| {
+            // format!("{} {:?}", e.message(), e.span().and_then(|x| Some(toml_str[x]) ))
+            match e.span() {
+                Some(span) => {
+                    let ln_num = toml_str[0..span.start].chars().fold(1, |acc, x| {
+                        if x == '\n' {
+                            acc + 1
+                        } else {
+                            acc
+                        }
+                    });
+                    println!("{:?}", span.start);
+                    format!("Unexpected character on line {ln_num}: {}", &toml_str[span])
+                }
+                None => e.message().to_string(),
+            }
+        })?;
+        let mut builder = PipelineBuilder::new();
+
+        // let props = HashMap::from([("dt", serde_json::json!(config.global.dt),])
+        let props = HashMap::from([
+            ("dt".to_string(), serde_json::json!(config.global.dt)),
+            (
+                "iterations".to_string(),
+                serde_json::json!(config.global.iterations),
+            ),
+        ]);
+        builder = builder.add("global", props)?;
+
+        for (el_name, descriptions) in config.elements {
+            for props in descriptions {
+                builder = builder.add(&el_name, props)?;
+            }
+        }
+        builder.build()
+    }
+
     fn parse_element_description(
         element_description: &str,
-    ) -> Result<(String, HashMap<String, Value>), &'static str> {
+    ) -> Result<(String, HashMap<String, Value>), Box<dyn Error>> {
         let element_description = element_description.trim();
         match element_description.split_once(" ") {
             Some(desc_parts) => {
@@ -93,16 +136,18 @@ impl Pipeline {
                 for part in desc_parts {
                     if let Some(x) = part.split_once("=") {
                         if x.0.trim().is_empty() || x.1.trim().is_empty() {
-                            warn!("LHS or RHS is zero length in element description: {:?}", x);
-                            return Err("Could not parse element properties");
+                            return Err(
+                                format!("invalid element description: '{name} {part}'").into()
+                            );
                         } else if let Ok(val) = serde_json::Value::from_str(x.1.trim()) {
                             props.insert(x.0.trim().to_string(), val);
                         } else {
                             props.insert(x.0.trim().to_string(), Value::String(x.1.to_string()));
                         }
                     } else {
-                        warn!("Element description missing: {name} {:?}", part);
-                        return Err("Could not parse element properties");
+                        return Err(
+                            format!("Element description missing: {name} {:?}", part).into()
+                        );
                     }
                 }
                 Ok((name, props))
@@ -116,8 +161,9 @@ struct PipelineBuilder {
     initialisers: Vec<InitialStateElementHandler>,
     transforms: Option<Mutex<TransformElementHandler>>, // maybe will allow more than one of these one day
     render: Option<RenderElementHandler>,
-    element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of
-                                                    // elements
+    element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of elements
+    timestep: f32,
+    iterations: u64,
 }
 
 impl PipelineBuilder {
@@ -127,6 +173,8 @@ impl PipelineBuilder {
             transforms: None,
             render: None,
             element_db: discover_map(),
+            timestep: 0.000001,
+            iterations: 10000,
         }
     }
 
@@ -134,11 +182,21 @@ impl PipelineBuilder {
         mut self,
         el_name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, Box<dyn Error>> {
+        if el_name == "global" {
+            if let Some(x) = properties.get("dt").and_then(|x| x.as_f64()) {
+                self.timestep = x as f32;
+            }
+            if let Some(x) = properties.get("iterations").and_then(|x| x.as_u64()) {
+                self.iterations = x;
+            }
+            return Ok(self);
+        }
+
         let element_data = self
             .element_db
             .get(el_name)
-            .ok_or("Could not find element name")?;
+            .ok_or(format!("{el_name} is not a registered element"))?;
 
         match element_data.get_element_kind() {
             ElementKind::Initialiser => {
@@ -163,17 +221,18 @@ impl PipelineBuilder {
         Ok(self)
     }
 
-    pub fn build(self) -> Result<Pipeline, &'static str> {
+    pub fn build(self) -> Result<Pipeline, Box<dyn Error>> {
         if self.render.is_none() {
-            Err("No renderer defined in pipeline")
+            Err("No renderer defined in pipeline".into())
         } else if self.transforms.is_none() {
-            Err("No transforms defined in pipeline")
+            Err("No transforms defined in pipeline".into())
         } else {
             Ok(Pipeline {
                 initialisers: self.initialisers,
                 transforms: self.transforms.expect("Checked just above"),
                 render: self.render.expect("Checked just above"),
-                timestep: 0.000001,
+                timestep: self.timestep,
+                iterations: self.iterations,
             })
         }
     }
@@ -183,6 +242,18 @@ impl Default for PipelineBuilder {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Deserialize, Debug)]
+struct PipelineConfig {
+    global: GlobalOptions,
+    elements: HashMap<String, Vec<HashMap<String, Value>>>,
+}
+
+#[derive(Deserialize, Debug)]
+struct GlobalOptions {
+    dt: f32,
+    iterations: u64,
 }
 
 #[cfg(test)]
