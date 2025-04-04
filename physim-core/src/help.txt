@@ -1,0 +1,9 @@
+Craft a pipeline directly in the terminal using the following syntax:
+
+physim cube n=100000 seed=1 spin=1000 ! astro2 theta=1.5 e=0.5 ! star mass=100000.0 radius=0.1 z=0.5 x=0.2 y=0.2 ! star mass=100000.0 radius=0.1 z=0.5 x=-0.2 y=-0.2 ! glrender ! global dt=0.00001 iterations=10000 
+
+of load from a configuration file.
+
+-h  --help     show help
+-f  --file     path to pipeline toml file
+-v  --version  show physim version
