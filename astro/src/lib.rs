@@ -11,7 +11,15 @@ use std::ffi::CString;
 use physim_core::{Entity, EntityState, register_plugin};
 
 // static ELEMENTS: &str = "astro,simple_astro,debug";
-register_plugin!("astro", "astro2", "simple_astro", "debug", "cube", "star");
+register_plugin!(
+    "astro",
+    "astro2",
+    "simple_astro",
+    "debug",
+    "cube",
+    "star",
+    "plummer"
+);
 
 const G: f32 = 1.0;
 

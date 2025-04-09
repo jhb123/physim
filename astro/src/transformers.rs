@@ -133,7 +133,6 @@ impl TransformElement for AstroOctreeElement {
 
         for (i, star_a) in state.iter().enumerate() {
             let mut f = [0.0; 3];
-
             let star_bs = tree.get_leaves_with_resolution(star_a.get_centre(), self.theta);
             for star_b in star_bs.iter() {
                 if star_a.get_centre() == star_b.get_centre() {
