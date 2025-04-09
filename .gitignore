@@ -3,3 +3,4 @@ flamegraph.svg
 *.mp4
 *.mp3
 .env
+pipeline.toml

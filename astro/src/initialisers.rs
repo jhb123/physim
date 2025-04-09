@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use rand::Rng;
+use std::{collections::HashMap, f32::consts::PI};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
@@ -236,6 +237,200 @@ impl InitialStateElement for SingleStar {
             ("vz".to_string(), "velocity in z direction".to_string()),
             ("m".to_string(), "mass".to_string()),
             ("r".to_string(), "Radius (screen units)".to_string()),
+        ]))
+    }
+}
+
+#[initialise_state_element(
+    name = "plummer",
+    blurb = "Generate a galaxy where stars are distributed using a Plummer model."
+)]
+#[derive(Debug)]
+pub struct Plummer {
+    n: u64,
+    seed: u64,
+    mass: f64,
+    centre: [f32; 3],
+    initial_v: [f32; 3],
+    plummer_r: f32,
+    spin: f32,
+}
+
+impl InitialStateElementCreator for Plummer {
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn InitialStateElement> {
+        let n = properties
+            .get("n")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(100_000);
+        let seed = properties.get("seed").and_then(|v| v.as_u64()).unwrap_or(0);
+        let mass = properties
+            .get("mass")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let plummer_r = properties.get("a").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+        let centre = properties
+            .get("centre")
+            .and_then(|v| {
+                let coords = v.as_array()?;
+                if coords.len() != 3 {
+                    None
+                } else {
+                    let coords: Vec<f32> = coords
+                        .iter()
+                        .flat_map(|x| x.as_f64())
+                        .map(|x| x as f32)
+                        .collect();
+                    Some([coords[0], coords[1], coords[2]])
+                }
+            })
+            .unwrap_or([0.0_f32; 3]);
+
+        let initial_v = properties
+            .get("v")
+            .and_then(|v| {
+                let coords = v.as_array()?;
+                if coords.len() != 3 {
+                    None
+                } else {
+                    let coords: Vec<f32> = coords
+                        .iter()
+                        .flat_map(|x| x.as_f64())
+                        .map(|x| x as f32)
+                        .collect();
+                    Some([coords[0], coords[1], coords[2]])
+                }
+            })
+            .unwrap_or([0.0_f32; 3]);
+
+        let spin = properties
+            .get("spin")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
+
+        Box::new(Self {
+            n,
+            seed,
+            mass,
+            centre,
+            initial_v,
+            plummer_r,
+            spin,
+        })
+    }
+}
+
+impl InitialStateElement for Plummer {
+    fn create_entities(&self) -> Vec<Entity> {
+        let rng = ChaCha8Rng::seed_from_u64(self.seed);
+        let mut state = Vec::with_capacity(self.n as usize);
+
+        let cdf: Vec<f32> = rng.random_iter().take((self.n * 3) as usize).collect();
+        let m = (self.mass as f32) / (self.n as f32);
+        for c in cdf.chunks(3) {
+            let r = self.plummer_r * (c[0].powf(-2_f32 / 3_f32) - 1_f32).powf(0.5);
+            let theta = PI * c[2];
+            let phi = 2_f32 * PI * c[1];
+
+            let x = r * theta.sin() * phi.cos() + self.centre[0];
+            let y = r * theta.sin() * phi.sin() + self.centre[1];
+            let z = r * theta.cos() + self.centre[2];
+            let mut e = Entity::new2(x, y, z, m, 0.01);
+
+            let r2 = r.powi(2);
+            let a2 = self.plummer_r.powi(2);
+
+            let v_phi = self.spin * ((self.mass as f32) * r2 / (r2 + a2).powf(1.5)).sqrt();
+
+            let vx = -v_phi * phi.sin();
+            let vy = v_phi * phi.cos();
+            let vz = 0.0;
+
+            e.state.vx = vx + self.initial_v[0];
+            e.state.vy = vy + self.initial_v[1];
+            e.state.vz = vz + self.initial_v[2];
+            state.push(e);
+        }
+        state
+    }
+
+    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+        if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {
+            self.n = n
+        }
+        if let Some(m) = new_props.get("mass").and_then(|s| s.as_f64()) {
+            self.mass = m
+        }
+        if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
+            self.seed = seed
+        }
+        if let Some(a) = new_props.get("a").and_then(|a| a.as_f64()) {
+            self.plummer_r = a as f32
+        }
+        if let Some(centre) = new_props.get("centre").and_then(|v| {
+            let coords = v.as_array()?;
+            if coords.len() != 3 {
+                None
+            } else {
+                let coords: Vec<f32> = coords
+                    .iter()
+                    .flat_map(|x| x.as_f64())
+                    .map(|x| x as f32)
+                    .collect();
+                Some([coords[0], coords[1], coords[2]])
+            }
+        }) {
+            self.centre = centre
+        }
+        if let Some(initial_v) = new_props.get("v").and_then(|v| {
+            let coords = v.as_array()?;
+            if coords.len() != 3 {
+                None
+            } else {
+                let coords: Vec<f32> = coords
+                    .iter()
+                    .flat_map(|x| x.as_f64())
+                    .map(|x| x as f32)
+                    .collect();
+                Some([coords[0], coords[1], coords[2]])
+            }
+        }) {
+            self.initial_v = initial_v
+        }
+        if let Some(spin) = new_props.get("spin").and_then(|spin| spin.as_f64()) {
+            self.spin = spin as f32;
+        }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "n" => Ok(serde_json::json!(self.n)),
+            "seed" => Ok(serde_json::json!(self.seed)),
+            "spin" => Ok(serde_json::json!(self.spin)),
+            "a" => Ok(serde_json::json!(self.plummer_r)),
+            "mass" => Ok(serde_json::json!(self.mass)),
+            "centre" => Ok(serde_json::json!(self.centre)),
+            "v" => Ok(serde_json::json!(self.initial_v)),
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([
+            ("n".to_string(), "Number of stars".to_string()),
+            ("seed".to_string(), "Random seed".to_string()),
+            ("mass".to_string(), "Mass of Galaxy".to_string()),
+            ("spin".to_string(), "Spin factor".to_string()),
+            ("a".to_string(), "Plummer radius".to_string()),
+            (
+                "centre".to_string(),
+                "Centre (specify in CLI with \\[x,y,z\\])".to_string(),
+            ),
+            (
+                "v".to_string(),
+                "velocity (specify in CLI with \\[vx,vy,vz\\])".to_string(),
+            ),
         ]))
     }
 }

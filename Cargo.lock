@@ -157,6 +157,7 @@ dependencies = [
  "bumpalo",
  "physim-core",
  "physim_attribute",
+ "rand",
  "rand_chacha",
  "serde",
  "serde_json",
