@@ -21,6 +21,12 @@ register_plugin!("glrender,stdout");
 #[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 3],
+    velocity: [f32; 3],
+}
+
+enum RenderPipelineShader {
+    YellowBlue,
+    Velocity,
 }
 
 trait Renderable {
@@ -30,35 +36,60 @@ trait Renderable {
 impl Renderable for Entity {
     fn verticies(&self) -> Vec<Vertex> {
         vec![
-            Vertex::new(self.state.x, self.state.y + self.radius, self.state.z),
-            Vertex::new(
-                self.state.x - self.radius * f32::sqrt(3.0) * 0.5,
-                self.state.y - 0.5 * self.radius,
-                self.state.z,
-            ),
-            Vertex::new(
-                self.state.x + self.radius * f32::sqrt(3.0) * 0.5,
-                self.state.y - 0.5 * self.radius,
-                self.state.z,
-            ),
+            Vertex {
+                position: [self.state.x, self.state.y + self.radius, self.state.z],
+                velocity: [self.state.vx, self.state.vy, self.state.vx],
+            },
+            Vertex {
+                position: [
+                    self.state.x - self.radius * f32::sqrt(3.0) * 0.5,
+                    self.state.y - 0.5 * self.radius,
+                    self.state.z,
+                ],
+                velocity: [self.state.vx, self.state.vy, self.state.vx],
+            },
+            Vertex {
+                position: [
+                    self.state.x + self.radius * f32::sqrt(3.0) * 0.5,
+                    self.state.y - 0.5 * self.radius,
+                    self.state.z,
+                ],
+                velocity: [self.state.vx, self.state.vy, self.state.vx],
+            },
         ]
     }
 }
 
-impl Vertex {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            position: [x, y, z],
+impl RenderPipelineShader {
+    fn get_shader(&self) -> (&'static str, &'static str, &'static str) {
+        match self {
+            Self::YellowBlue => (
+                include_str!("yellowblue/shader.vert"),
+                include_str!("yellowblue/shader.geom"),
+                include_str!("yellowblue/shader.frag"),
+            ),
+            Self::Velocity => (
+                include_str!("velocity/shader.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
         }
     }
 }
 
-implement_vertex!(Vertex, position);
+impl Default for RenderPipelineShader {
+    fn default() -> Self {
+        Self::YellowBlue
+    }
+}
+
+implement_vertex!(Vertex, position, velocity);
 
 #[render_element(name = "glrender", blurb = "Render simulation to a window")]
 pub struct GLRenderElement {
     resolution: (u64, u64),
     zoom: f32,
+    shader: RenderPipelineShader,
 }
 
 impl RenderElementCreator for GLRenderElement {
@@ -79,26 +110,36 @@ impl RenderElementCreator for GLRenderElement {
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32;
 
-        Box::new(GLRenderElement { resolution, zoom })
+        let shader = properties
+            .get("shader")
+            .and_then(|s| s.as_str())
+            .unwrap_or_default();
+
+        let shader = match shader {
+            "yellowblue" => RenderPipelineShader::YellowBlue,
+            "velocity" => RenderPipelineShader::Velocity,
+            _ => RenderPipelineShader::default(),
+        };
+
+        Box::new(GLRenderElement {
+            resolution,
+            zoom,
+            shader,
+        })
     }
 }
 
 impl RenderElement for GLRenderElement {
     fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
-        // Receiver<T>
-        // let mut verticies: Vec<Vertex> =  Vec::with_capacity(2000000);// state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()).collect();
-        let mut verticies: Vec<Vertex> = state_recv
-            .recv()
-            .unwrap()
-            .iter()
-            .flat_map(|s| s.verticies())
-            .collect();
-
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
             .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
             .build(&event_loop);
+
+        let state = state_recv.recv().unwrap();
+
+        let mut verticies: Vec<Vertex> = state.iter().flat_map(|s| s.verticies()).collect();
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
         vertex_buffer
@@ -106,11 +147,11 @@ impl RenderElement for GLRenderElement {
             .unwrap()
             .write(&verticies);
 
-        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+        // vertex_buffer.write(verticies2);
 
-        let vertex_shader_src = include_str!("shader.vert");
-        let geometry_shader_src = include_str!("shader.geom");
-        let fragment_shader_src = include_str!("shader.frag");
+        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+        let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
+            self.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -141,7 +182,7 @@ impl RenderElement for GLRenderElement {
 
         // this avoids a lot of boiler plate.
         #[allow(deprecated)]
-    let _ = event_loop.run(move |event, window_target| {
+        let _ = event_loop.run(move |event, window_target| {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => window_target.exit(),
@@ -177,8 +218,10 @@ impl RenderElement for GLRenderElement {
                         [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
                     ];
 
+                    let uniforms = uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]};
+
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-                    target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
+                    target.draw(&vertex_buffer, indices, &program, &uniforms,
                             &params).unwrap();
                     target.finish().unwrap();
                 },
@@ -254,6 +297,7 @@ impl RenderElement for GLRenderElement {
                 "zoom".to_string(),
                 "Camera zoom (1.0 is default)".to_string(),
             ),
+            ("shader".to_string(), "velocity, yellowblue".to_string()),
         ]))
     }
 }
@@ -265,6 +309,7 @@ impl RenderElement for GLRenderElement {
 pub struct StdOutRender {
     resolution: (u64, u64),
     zoom: f32,
+    shader: RenderPipelineShader,
 }
 
 impl RenderElementCreator for StdOutRender {
@@ -285,7 +330,22 @@ impl RenderElementCreator for StdOutRender {
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32;
 
-        Box::new(StdOutRender { resolution, zoom })
+        let shader = properties
+            .get("shader")
+            .and_then(|s| s.as_str())
+            .unwrap_or_default();
+
+        let shader = match shader {
+            "yellowblue" => RenderPipelineShader::YellowBlue,
+            "velocity" => RenderPipelineShader::Velocity,
+            _ => RenderPipelineShader::default(),
+        };
+
+        Box::new(StdOutRender {
+            resolution,
+            zoom,
+            shader,
+        })
     }
 }
 
@@ -312,9 +372,8 @@ impl RenderElement for StdOutRender {
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-        let vertex_shader_src = include_str!("shader.vert");
-        let geometry_shader_src = include_str!("shader.geom");
-        let fragment_shader_src = include_str!("shader.frag");
+        let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
+            self.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -441,6 +500,7 @@ impl RenderElement for StdOutRender {
                 "zoom".to_string(),
                 "Camera zoom (1.0 is default)".to_string(),
             ),
+            ("shader".to_string(), "velocity, yellowblue".to_string()),
         ]))
     }
 }

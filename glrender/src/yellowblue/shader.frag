@@ -1,12 +1,14 @@
 #version 330
 
-// in vec2 fragCoord;
+uniform vec2 resolution;
+
 in vec4 centre;
 in vec4 fragCoord;
 in float radius;
-out vec4 FragColor;
-uniform vec2 resolution;
 in float colour;
+
+out vec4 FragColor;
+
 void main() {
     vec4 f = fragCoord;
     vec4 c = centre;

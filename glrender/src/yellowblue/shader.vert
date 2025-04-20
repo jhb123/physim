@@ -1,12 +1,15 @@
 #version 330
 
-in vec3 position;
 uniform float x_off;
-uniform mat4 matrix;       // new
-uniform mat4 perspective;       // new
-uniform vec2 xy_off;       // new
+uniform mat4 matrix;
+uniform mat4 perspective;
+uniform vec2 xy_off;
+
+in vec3 position;
+in vec3 velocity;
 
 out float colours;
+
 void main() {
     vec3 pos = position;
     pos.xy = pos.xy + xy_off;
