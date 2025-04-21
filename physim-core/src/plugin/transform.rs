@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::Entity;
 
-use super::initialiser::ElementConfigurationHandler;
+use super::generator::ElementConfigurationHandler;
 
 pub trait TransformElement {
     fn new(properties: HashMap<String, Value>) -> Self;

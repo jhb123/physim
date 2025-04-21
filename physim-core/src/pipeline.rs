@@ -13,14 +13,15 @@ use serde_json::Value;
 
 use crate::{
     plugin::{
-        discover_map, initialiser::InitialStateElementHandler, render::RenderElementHandler,
+        discover_map, generator::GeneratorElementHandler, render::RenderElementHandler,
         transform::TransformElementHandler, ElementKind, RegisteredElement,
     },
     Entity, UniverseConfiguration,
 };
 
 pub struct Pipeline {
-    initialisers: Vec<InitialStateElementHandler>,
+    initialisers: Vec<GeneratorElementHandler>,
+    synths: Option<Vec<GeneratorElementHandler>>,
     transforms: Mutex<TransformElementHandler>,
     render: RenderElementHandler,
     timestep: f32,
@@ -46,13 +47,18 @@ impl Pipeline {
         }
 
         let (simulation_sender, renderer_receiver) = mpsc::sync_channel(10);
-
         thread::spawn(move || {
             let dt = self.timestep;
             for _ in 0..self.iterations {
                 let start = Instant::now();
                 if let Ok(element) = self.transforms.lock() {
-                    // new_state.clear();
+
+                    self.synths.iter().for_each(|els| for el in els{
+                        let entities = el.create_entities();
+                        state.extend(entities.iter());
+                        new_state.extend(entities.iter());
+                    });
+
                     element.transform(&state, &mut new_state, dt);
                     state = new_state.clone();
                     info!(
@@ -158,7 +164,8 @@ impl Pipeline {
 }
 
 struct PipelineBuilder {
-    initialisers: Vec<InitialStateElementHandler>,
+    initialisers: Vec<GeneratorElementHandler>,
+    synths: Option<Vec<GeneratorElementHandler>>,
     transforms: Option<Mutex<TransformElementHandler>>, // maybe will allow more than one of these one day
     render: Option<RenderElementHandler>,
     element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of elements
@@ -170,6 +177,7 @@ impl PipelineBuilder {
     pub fn new() -> Self {
         PipelineBuilder {
             initialisers: vec![],
+            synths: None,
             transforms: None,
             render: None,
             element_db: discover_map(),
@@ -201,7 +209,7 @@ impl PipelineBuilder {
         match element_data.get_element_kind() {
             ElementKind::Initialiser => {
                 let element =
-                    InitialStateElementHandler::load(&element_data.lib_path, el_name, properties)
+                    GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
                         .map_err(|_| "Failed to load initialiser element")?;
                 self.initialisers.push(element);
             }
@@ -217,6 +225,19 @@ impl PipelineBuilder {
                         .map_err(|_| "Failed to load transform element")?;
                 self.render = Some(element);
             }
+            ElementKind::Synth => {
+                let element =
+                    GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
+                        .map_err(|_| "Failed to load synth element")?;
+                match self.synths.as_mut() {
+                    Some(els) => {
+                        els.push(element);
+                    }
+                    None => {
+                        self.synths.replace(vec![element]);
+                    }
+                }
+            }
         }
         Ok(self)
     }
@@ -229,6 +250,7 @@ impl PipelineBuilder {
         } else {
             Ok(Pipeline {
                 initialisers: self.initialisers,
+                synths: self.synths,
                 transforms: self.transforms.expect("Checked just above"),
                 render: self.render.expect("Checked just above"),
                 timestep: self.timestep,
