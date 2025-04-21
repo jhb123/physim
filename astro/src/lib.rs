@@ -1,12 +1,12 @@
 #![feature(test)]
 #![feature(str_from_raw_parts)]
 #![feature(vec_into_raw_parts)]
+#![feature(trait_alias)]
+
 mod initialisers;
 mod octree;
 mod quadtree;
 mod transformers;
-
-use std::ffi::CString;
 
 use physim_core::{Entity, EntityState, register_plugin};
 
@@ -15,7 +15,6 @@ register_plugin!(
     "astro",
     "astro2",
     "simple_astro",
-    "debug",
     "cube",
     "star",
     "plummer"

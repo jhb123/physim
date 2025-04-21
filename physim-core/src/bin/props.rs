@@ -1,4 +1,4 @@
-use physim_core::plugin::initialiser::ElementConfigurationHandler;
+use physim_core::plugin::generator::ElementConfigurationHandler;
 
 fn main() {
     let path = "/Users/josephbriggs/repos/physim/target/release/libastro.dylib";
@@ -47,10 +47,9 @@ fn main() {
     //
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element = physim_core::plugin::initialiser::InitialStateElementHandler::load(
-        path, "cube", properties,
-    )
-    .unwrap();
+    let element =
+        physim_core::plugin::generator::GeneratorElementHandler::load(path, "cube", properties)
+            .unwrap();
     let properties = serde_json::json!({ "n": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 

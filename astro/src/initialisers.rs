@@ -4,7 +4,7 @@ use std::{collections::HashMap, f32::consts::PI};
 use physim_attribute::initialise_state_element;
 use physim_core::{
     Entity, EntityState,
-    plugin::initialiser::{InitialStateElement, InitialStateElementCreator},
+    plugin::generator::{GeneratorElement, GeneratorElementCreator},
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 use serde_json::Value;
@@ -22,8 +22,8 @@ pub struct RandomCube {
     size: f32,
 }
 
-impl InitialStateElementCreator for RandomCube {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn InitialStateElement> {
+impl GeneratorElementCreator for RandomCube {
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
         let n = properties
             .get("n")
             .and_then(|v| v.as_u64())
@@ -63,7 +63,7 @@ impl InitialStateElementCreator for RandomCube {
     }
 }
 
-impl InitialStateElement for RandomCube {
+impl GeneratorElement for RandomCube {
     fn create_entities(&self) -> Vec<Entity> {
         let mut rng = ChaCha8Rng::seed_from_u64(self.seed);
         let mut state = Vec::with_capacity(self.n as usize);
@@ -147,8 +147,8 @@ pub struct SingleStar {
     entity: Entity,
 }
 
-impl InitialStateElementCreator for SingleStar {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn InitialStateElement> {
+impl GeneratorElementCreator for SingleStar {
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
         fn get_f32(properties: &HashMap<String, Value>, key: &str) -> f32 {
             properties
                 .get(key)
@@ -179,7 +179,7 @@ impl InitialStateElementCreator for SingleStar {
     }
 }
 
-impl InitialStateElement for SingleStar {
+impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
         vec![self.entity]
     }
@@ -256,8 +256,8 @@ pub struct Plummer {
     spin: f32,
 }
 
-impl InitialStateElementCreator for Plummer {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn InitialStateElement> {
+impl GeneratorElementCreator for Plummer {
+    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
         let n = properties
             .get("n")
             .and_then(|v| v.as_u64())
@@ -319,7 +319,7 @@ impl InitialStateElementCreator for Plummer {
     }
 }
 
-impl InitialStateElement for Plummer {
+impl GeneratorElement for Plummer {
     fn create_entities(&self) -> Vec<Entity> {
         let rng = ChaCha8Rng::seed_from_u64(self.seed);
         let mut state = Vec::with_capacity(self.n as usize);

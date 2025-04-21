@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::{Entity, UniverseConfiguration};
 
-use super::initialiser::ElementConfigurationHandler;
+use super::generator::ElementConfigurationHandler;
 
 pub trait RenderElementCreator {
     fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement>;

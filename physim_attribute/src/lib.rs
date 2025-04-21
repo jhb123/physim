@@ -243,12 +243,11 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
     let register_fn = format_ident!("{}_register", prefix);
 
     let g = quote! {
-        // ElementMeta, ElementKind, Entity, InitialStateElement, InitialStateElementCreator
         #[derive(::serde::Serialize)]
         #ast
 
         #[unsafe(no_mangle)]
-        fn #create_element(properties: HashMap<String, Value>) -> Box<dyn ::physim_core::plugin::initialiser::InitialStateElement> {
+        fn #create_element(properties: std::collections::HashMap<String, serde_json::Value>) -> Box<dyn ::physim_core::plugin::generator::GeneratorElement> {
             #name::create_element(properties)
         }
 
@@ -271,6 +270,84 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
         unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
             ::physim_core::plugin::ElementMeta::new(
                 ::physim_core::plugin::ElementKind::Initialiser,
+                #el_name,
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION"),
+                env!("CARGO_PKG_LICENSE"),
+                env!("CARGO_PKG_AUTHORS"),
+                #blurb,
+                env!("CARGO_PKG_REPOSITORY")
+            )
+        }
+    };
+    g.into()
+}
+
+#[proc_macro_attribute]
+pub fn synth_element(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(item as DeriveInput);
+
+    let mut prefix: Option<LitStr> = None;
+    let mut blurb: Option<LitStr> = None;
+
+    let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("name") {
+            prefix = meta.value()?.parse()?;
+            Ok(())
+        } else if meta.path.is_ident("blurb") {
+            blurb = meta.value()?.parse()?;
+            Ok(())
+        } else {
+            Err(meta.error("unsupported property"))
+        }
+    });
+
+    parse_macro_input!(attr with parser);
+
+    if prefix.is_none() {
+        panic!("Must specify a name")
+    }
+    if blurb.is_none() {
+        panic!("Must specify a blurb")
+    }
+
+    let el_name = prefix.clone().unwrap();
+    let blurb = blurb.unwrap();
+
+    let prefix = prefix.unwrap().value();
+
+    let name = &ast.ident;
+    let create_element = format_ident!("{}_create_element", prefix);
+    let register_fn = format_ident!("{}_register", prefix);
+
+    let g = quote! {
+        #[derive(::serde::Serialize)]
+        #ast
+
+        #[unsafe(no_mangle)]
+        fn #create_element(properties: std::collections::HashMap<String, serde_json::Value>) -> Box<dyn ::physim_core::plugin::generator::GeneratorElement> {
+            #name::create_element(properties)
+        }
+
+        // #[unsafe(no_mangle)]
+        // fn #set_property_fn(properties: HashMap<String, Value>) {
+        //     #name::set_properties(properties)
+        // }
+
+        // #[unsafe(no_mangle)]
+        // fn #get_property_fn(prop:&str) -> Result<Value, Box<dyn std::error::Error>> {
+        //     #name::get_property(prop)
+        // }
+
+        // #[unsafe(no_mangle)]
+        // fn #get_property_descriptions_fn() -> HashMap<String, String> {
+        //     #name::get_property_descriptions()
+        // }
+
+        #[unsafe(no_mangle)]
+        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
+            ::physim_core::plugin::ElementMeta::new(
+                ::physim_core::plugin::ElementKind::Synth,
                 #el_name,
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),

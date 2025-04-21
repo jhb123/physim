@@ -1,12 +1,13 @@
 use std::{collections::HashMap, env, path::Path};
 
-use initialiser::{ElementConfigurationHandler, InitialStateElementHandler};
+use generator::{ElementConfigurationHandler, GeneratorElementHandler};
 use render::RenderElementHandler;
 use transform::TransformElementHandler;
 use yansi::Paint;
 
-pub mod initialiser;
+pub mod generator;
 pub mod render;
+pub mod synth;
 pub mod transform;
 
 #[derive(Debug)]
@@ -15,6 +16,7 @@ pub enum ElementKind {
     Initialiser,
     Transform,
     Render,
+    Synth,
 }
 
 // set by library authors, determined at compile time
@@ -66,7 +68,7 @@ macro_rules! register_plugin {
             $(
                 elements.push($x);
             )*
-            CString::new(elements.join(",")).unwrap_or_default()
+            std::ffi::CString::new(elements.join(",")).unwrap_or_default()
         }
     };
 }
@@ -115,6 +117,12 @@ impl RegisteredElement {
                 self.element_info.plugin.bright_magenta(),
                 self.element_info.name.bold().bright_yellow(),
                 "renderer".yellow().dim()
+            ),
+            ElementKind::Synth => println!(
+                "{:>10}: {} {}",
+                self.element_info.plugin.bright_magenta(),
+                self.element_info.name.bold().bright_red(),
+                "synth".yellow().dim()
             ),
         }
     }
@@ -209,8 +217,8 @@ pub fn discover() -> Vec<RegisteredElement> {
                                 let element_info = register_element();
                                 let properties = match element_info.kind {
                                     ElementKind::Initialiser => {
-                                        let el: InitialStateElementHandler =
-                                            InitialStateElementHandler::load(
+                                        let el: GeneratorElementHandler =
+                                            GeneratorElementHandler::load(
                                                 &lib_path,
                                                 &element_info.name,
                                                 HashMap::new(),
@@ -230,6 +238,15 @@ pub fn discover() -> Vec<RegisteredElement> {
                                     }
                                     ElementKind::Render => {
                                         let el = RenderElementHandler::load(
+                                            &lib_path,
+                                            &element_info.name,
+                                            HashMap::new(),
+                                        )
+                                        .unwrap();
+                                        el.get_property_descriptions().unwrap()
+                                    }
+                                    ElementKind::Synth => {
+                                        let el = GeneratorElementHandler::load(
                                             &lib_path,
                                             &element_info.name,
                                             HashMap::new(),
