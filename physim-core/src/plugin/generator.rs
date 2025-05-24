@@ -30,7 +30,8 @@ impl GeneratorElementHandler {
             let lib = libloading::Library::new(path)?;
             type GetNewFnType = unsafe extern "Rust" fn(
                 properties: HashMap<String, Value>,
-            ) -> Box<dyn GeneratorElement + Send>;
+            )
+                -> Box<dyn GeneratorElement + Send>;
             let get_new_fn: libloading::Symbol<GetNewFnType> = lib.get(fn_name.as_bytes())?;
             let ins = get_new_fn(properties);
             Ok(GeneratorElementHandler { instance: ins })

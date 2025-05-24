@@ -1,0 +1,78 @@
+use std::{collections::HashMap, ffi::c_void, sync::{Arc, Mutex}, thread, time::Duration};
+
+use physim_core::{messages::{callback, Message, MessageBus, MessageClient, MessagePriority}, plugin::transform::TransformElementHandler};
+
+
+struct TestClient {}
+
+impl MessageClient for TestClient {}
+
+
+fn main() {
+
+    let path = "/Users/josephbriggs/repos/physim/target/debug/libdebug.dylib";
+    // physim_core::discover()
+    let bus = Arc::new(Mutex::new(MessageBus::new()));
+
+    let element =
+        TransformElementHandler::loadv2(path, "debug", HashMap::default(),bus.clone())
+            .unwrap();
+
+
+    let client1 = Arc::new(TestClient {});
+    let client2 = Arc::new(TestClient {});
+
+    bus.lock().unwrap().add_client(client1.clone());
+    // bus.lock().unwrap().add_client(client2.clone());
+    let b = element.lock().unwrap();
+    bus.lock().unwrap().add_client(b.clone());
+    drop(b);
+
+    let b1 = bus.clone();
+    let t1 = thread::spawn(move || {
+        let c1_id = Arc::as_ptr(&client1) as usize;
+        let bus_raw_ptr = Arc::into_raw(b1) as *mut c_void;
+        let msg1 = Message {topic: "c1".to_owned(),message: format!("1 - sent by {c1_id}"),priority: MessagePriority::Low, sender_id: c1_id};
+        let msg2 = Message {topic: "c1".to_owned(),message: format!("2 - sent by {c1_id}"),priority: MessagePriority::Normal, sender_id: c1_id};
+        let msg3 = Message {topic: "c1".to_owned(),message: format!("3 - sent by {c1_id}"),priority: MessagePriority::RealTime, sender_id: c1_id};
+        let msg4 = Message {topic: "c1".to_owned(),message: format!("4 - sent by {c1_id}"),priority: MessagePriority::Critical, sender_id: c1_id};
+        callback(bus_raw_ptr, msg1.to_c_message().0);
+        callback(bus_raw_ptr, msg2.to_c_message().0);
+        callback(bus_raw_ptr, msg3.to_c_message().0);
+        callback(bus_raw_ptr, msg4.to_c_message().0);
+        unsafe { Arc::from_raw(bus_raw_ptr) };
+    });
+    let b2 = bus.clone();
+
+    let t2 = thread::spawn(move || {
+        let bus_raw_ptr = Arc::into_raw(b2) as *mut c_void;
+        let c2_id = Arc::as_ptr(&client2) as usize;
+        let msg1 = Message {topic: "c2".to_owned(),message: format!("1 - sent by {c2_id}"),priority: MessagePriority::Low, sender_id: c2_id};
+        let msg2 = Message {topic: "c2".to_owned(),message: format!("2 - sent by {c2_id}"),priority: MessagePriority::Normal, sender_id: c2_id};
+        let msg3 = Message {topic: "c2".to_owned(),message: format!("3 - sent by {c2_id}"),priority: MessagePriority::RealTime, sender_id: c2_id};
+        let msg4 = Message {topic: "c2".to_owned(),message: format!("4 - sent by {c2_id}"),priority: MessagePriority::Critical, sender_id: c2_id};
+        callback(bus_raw_ptr, msg1.to_c_message().0);
+        callback(bus_raw_ptr, msg2.to_c_message().0);
+        callback(bus_raw_ptr, msg3.to_c_message().0);
+        callback(bus_raw_ptr, msg4.to_c_message().0);
+        unsafe { Arc::from_raw(bus_raw_ptr) };
+    });
+
+    let t3= thread::spawn(move || {
+        for _ in 0..100 {        
+            let mut lock = bus.lock().unwrap();
+            lock.pop_messages();
+            drop(lock);
+            thread::sleep(Duration::from_millis(8)); // don't want to spend literally all our computation on this?
+        }
+    });
+    element.lock().unwrap().transform(&vec![], &mut vec![], 1.0);
+    element.lock().unwrap().transform(&vec![], &mut vec![], 1.0);
+    element.lock().unwrap().transform(&vec![], &mut vec![], 1.0);
+    element.lock().unwrap().transform(&vec![], &mut vec![], 1.0);
+    
+    t1.join();
+    t2.join();
+    t3.join();
+
+}

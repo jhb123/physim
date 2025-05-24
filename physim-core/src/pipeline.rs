@@ -52,11 +52,12 @@ impl Pipeline {
             for _ in 0..self.iterations {
                 let start = Instant::now();
                 if let Ok(element) = self.transforms.lock() {
-
-                    self.synths.iter().for_each(|els| for el in els{
-                        let entities = el.create_entities();
-                        state.extend(entities.iter());
-                        new_state.extend(entities.iter());
+                    self.synths.iter().for_each(|els| {
+                        for el in els {
+                            let entities = el.create_entities();
+                            state.extend(entities.iter());
+                            new_state.extend(entities.iter());
+                        }
                     });
 
                     element.transform(&state, &mut new_state, dt);

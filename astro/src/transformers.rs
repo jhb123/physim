@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bumpalo::Bump;
 use physim_attribute::transform_element;
-use physim_core::{Entity, plugin::transform::TransformElement};
+use physim_core::{messages::MessageClient, plugin::transform::TransformElement, Entity};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -106,6 +106,9 @@ impl TransformElement for AstroElement {
     }
 }
 
+impl MessageClient for AstroElement{}
+
+
 #[transform_element(
     name = "astro2",
     blurb = "Compute approximate gravitational forces with the Barnes-Hut algorithm (octree)"
@@ -203,6 +206,9 @@ impl TransformElement for AstroOctreeElement {
     }
 }
 
+impl MessageClient for AstroOctreeElement{}
+
+
 // impl Configurable for
 
 #[transform_element(name = "simple_astro", blurb = "Compute exact gravitational forces")]
@@ -262,3 +268,5 @@ impl TransformElement for SimpleAstroElement {
         )])
     }
 }
+
+impl MessageClient for SimpleAstroElement{}

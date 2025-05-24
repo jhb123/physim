@@ -44,6 +44,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
     let set_property_fn = format_ident!("{}_set_properties", prefix);
     let get_property_fn = format_ident!("{}_get_properties", prefix);
     let get_property_descriptions_fn = format_ident!("{}_get_property_descriptions", prefix);
+    let recv_message_fn = format_ident!("{}_recv_message", prefix);
 
     let g = quote! {
         #ast
@@ -86,7 +87,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 destroy: #destroy_fn,
                 set_properties: #set_property_fn,
                 get_property: #get_property_fn,
-                get_property_descriptions: #get_property_descriptions_fn
+                get_property_descriptions: #get_property_descriptions_fn,
+                recv_message: #recv_message_fn,
             }))
         }
 
@@ -138,6 +140,17 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 Ok(s) => return std::ffi::CString::new(s).unwrap().into_raw(),
                 Err(_) => return std::ptr::null_mut()
             }
+        }
+
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn #recv_message_fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
+            if obj.is_null() {return };
+            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
+            let msg = unsafe { 
+                let msg = (*(msg as *mut physim_core::messages::CMessage)).clone();
+                msg.to_message()
+             };
+            el.recv_message(msg);
         }
     };
     g.into()

@@ -1,14 +1,25 @@
 #![feature(str_from_raw_parts)]
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::c_void, fmt::Debug, ptr};
 
 use physim_attribute::{synth_element, transform_element};
 use physim_core::{
-    plugin::{generator::{GeneratorElement, GeneratorElementCreator}, transform::TransformElement}, register_plugin, Entity
+    messages::{callback, Message, MessageClient, MessagePriority}, plugin::{
+        generator::{GeneratorElement, GeneratorElementCreator},
+        transform::TransformElement,
+    }, register_plugin, Entity
 };
 use rand::Rng;
 use serde_json::Value;
 
-register_plugin!("randsynth","debug");
+register_plugin!("randsynth", "debug");
+
+static mut GLOBAL_TARGET: *mut c_void = ptr::null_mut();
+#[unsafe(no_mangle)]
+pub extern "C" fn set_callback_target(target: *mut c_void) {
+    unsafe {
+        GLOBAL_TARGET = target;
+    }
+}
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {}
@@ -54,6 +65,13 @@ impl TransformElement for DebugTransform {
         for (i, e) in state.iter().enumerate() {
             new_state[i] = *e
         }
+        let sender_id = self as *const Self as *const () as usize;
+
+        // let sender_id = self as *const Self as usize;
+        let msg1 = Message {topic: "debugplugin".to_owned(),message: format!("this is from debug tranform"),priority: MessagePriority::Low, sender_id: sender_id}; 
+        unsafe {
+            callback(GLOBAL_TARGET, msg1.to_c_message().0)
+        }
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
@@ -82,3 +100,23 @@ impl TransformElement for DebugTransform {
         HashMap::new()
     }
 }
+
+// impl MessageClient for DebugTransform{}
+
+impl MessageClient for DebugTransform {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        let sender_id = self as *const Self as *const () as usize;
+        if message.sender_id ==  sender_id { print!(" FILTERED --> ")} 
+    println!(
+        "Custom message:: Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
+        message.priority, message.topic, message.message
+    )}
+}
+
+// #[unsafe(no_mangle)]
+// pub unsafe extern "C" fn debug_transform_recv_message(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
+//     if obj.is_null() {return };
+//     let el: &mut DebugTransform = unsafe { &mut *(obj as *mut DebugTransform) };
+//     let msg = unsafe { (*(obj as *mut Message)).clone() };
+//     el.recv_message(msg);
+// }

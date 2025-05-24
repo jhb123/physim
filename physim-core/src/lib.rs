@@ -1,6 +1,7 @@
 #![feature(test)]
 #![feature(vec_into_raw_parts)]
 #![feature(box_as_ptr)]
+pub mod messages;
 pub mod pipeline;
 pub mod plugin;
 
