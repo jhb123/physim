@@ -1,5 +1,7 @@
 use std::{
-    collections::BinaryHeap, ffi::{c_void, CStr, CString}, sync::{mpsc::{sync_channel, Receiver, SyncSender}, Arc, Mutex}, thread
+    collections::BinaryHeap,
+    ffi::{c_void, CStr, CString},
+    sync::{Arc, Mutex},
 };
 
 // https://doc.rust-lang.org/nomicon/ffi.html#targeting-callbacks-to-rust-objects
@@ -33,27 +35,34 @@ pub struct CMessage {
 }
 
 impl Message {
-    pub fn to_c_message(self) -> (CMessage,CString,CString) {
+    pub fn to_c_message(self) -> (CMessage, CString, CString) {
         let topic_c = CString::new(self.topic.clone()).unwrap();
         let message_c = CString::new(self.message.clone()).unwrap();
         let c_msg = CMessage {
             priority: self.priority,
             topic: topic_c.as_ptr(),
             message: message_c.as_ptr(),
-            sender_id: self.sender_id
+            sender_id: self.sender_id,
         };
-        (c_msg,topic_c,message_c)
+        (c_msg, topic_c, message_c)
     }
 }
 
 impl CMessage {
-    pub unsafe fn to_message(self) -> Message {
-        let topic = CStr::from_ptr(self.topic).to_str().unwrap().to_string();
-        let message = CStr::from_ptr(self.message).to_str().unwrap().to_string();
-        Message { priority: self.priority, topic, message, sender_id: self.sender_id }
+    pub fn to_message(self) -> Message {
+        unsafe {
+            let topic = CStr::from_ptr(self.topic).to_str().unwrap().to_string();
+            let message = CStr::from_ptr(self.message).to_str().unwrap().to_string();
+
+            Message {
+                priority: self.priority,
+                topic,
+                message,
+                sender_id: self.sender_id,
+            }
+        }
     }
 }
-
 
 impl Ord for Message {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -63,14 +72,14 @@ impl Ord for Message {
 
 impl PartialOrd for Message {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.priority.partial_cmp(&other.priority)
+        Some(self.cmp(other))
     }
 }
 
 pub trait MessageClient: Send + Sync {
     fn recv_message(&self, message: Message) {
         let sender_id = self as *const Self as *const () as usize;
-        if message.sender_id !=  sender_id {
+        if message.sender_id != sender_id {
             println!(
                 "Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
                 message.priority, message.topic, message.message
@@ -87,7 +96,9 @@ pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
             let message = message.to_message();
             (*obj).post_message(message);
         }
-        Arc::into_raw(arc);
+        // Just above, we create the Arc. To prevent dropping the message bus,
+        // turn it back into raw pointer.
+        let _ = Arc::into_raw(arc);
     }
 }
 
@@ -108,7 +119,6 @@ impl MessageBus {
                 observer.recv_message(msg.clone());
             }
         }
-       
     }
 
     pub fn add_client(&mut self, client: Arc<dyn MessageClient>) {
@@ -121,6 +131,12 @@ impl MessageBus {
             queue: Mutex::new(BinaryHeap::new()),
             clients: vec![],
         }
+    }
+}
+
+impl Default for MessageBus {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

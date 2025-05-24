@@ -1,13 +1,21 @@
 use std::{
-    collections::HashMap, error::Error, ffi::c_void, str::FromStr, sync::{
-        atomic::{AtomicPtr, Ordering}, Arc, Mutex
-    }
+    collections::HashMap,
+    error::Error,
+    ffi::c_void,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicPtr, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{messages::{CMessage, MessageBus, MessageClient}, Entity};
+use crate::{
+    messages::{MessageBus, MessageClient},
+    Entity,
+};
 
 use super::generator::ElementConfigurationHandler;
 
@@ -30,7 +38,7 @@ pub struct TransformElementAPI {
         unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char) -> *mut std::ffi::c_char,
     pub get_property_descriptions:
         unsafe extern "C" fn(*mut std::ffi::c_void) -> *mut std::ffi::c_char,
-    pub recv_message: unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void)
+    pub recv_message: unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void),
 }
 
 pub struct TransformElementHandler {
@@ -72,7 +80,7 @@ impl TransformElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-        bus: Arc<Mutex<MessageBus>>
+        bus: Arc<Mutex<MessageBus>>,
     ) -> Result<Mutex<Arc<Self>>, Box<dyn std::error::Error>> {
         // Mutex<Arc<Self>> looks weird, but it's for type coercion and it's easier!
         unsafe {
@@ -92,8 +100,8 @@ impl TransformElementHandler {
             }
 
             let set_target: libloading::Symbol<unsafe extern "C" fn(*mut c_void)> =
-                        lib.get(b"set_callback_target").unwrap();
-            
+                lib.get(b"set_callback_target").unwrap();
+
             let bus_raw_ptr = Arc::into_raw(bus) as *mut c_void;
             set_target(bus_raw_ptr);
 
@@ -129,7 +137,6 @@ impl TransformElementHandler {
         }
     }
 }
-
 
 impl ElementConfigurationHandler for TransformElementHandler {
     fn set_properties(&mut self, new_props: HashMap<String, Value>) {
@@ -173,9 +180,9 @@ impl Drop for TransformElementHandler {
 
 impl MessageClient for TransformElementHandler {
     fn recv_message(&self, message: crate::messages::Message) {
-        let (c_message,a,b) = message.to_c_message();
+        let (c_message, _, _) = message.to_c_message();
         let b = Box::new(c_message);
-        let msg = Box::into_raw(b)as *mut core::ffi::c_void;
-        unsafe { (self.api.recv_message)(self.instance.load(Ordering::Relaxed), msg ) }
+        let msg = Box::into_raw(b) as *mut core::ffi::c_void;
+        unsafe { (self.api.recv_message)(self.instance.load(Ordering::Relaxed), msg) }
     }
 }

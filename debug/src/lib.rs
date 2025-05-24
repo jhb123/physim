@@ -1,12 +1,15 @@
 #![feature(str_from_raw_parts)]
-use std::{collections::HashMap, ffi::c_void, fmt::Debug, ptr};
+use std::{collections::HashMap, ffi::c_void, ptr};
 
 use physim_attribute::{synth_element, transform_element};
 use physim_core::{
-    messages::{callback, Message, MessageClient, MessagePriority}, plugin::{
+    Entity,
+    messages::{Message, MessageClient, MessagePriority, callback},
+    plugin::{
         generator::{GeneratorElement, GeneratorElementCreator},
         transform::TransformElement,
-    }, register_plugin, Entity
+    },
+    register_plugin,
 };
 use rand::Rng;
 use serde_json::Value;
@@ -68,10 +71,13 @@ impl TransformElement for DebugTransform {
         let sender_id = self as *const Self as *const () as usize;
 
         // let sender_id = self as *const Self as usize;
-        let msg1 = Message {topic: "debugplugin".to_owned(),message: format!("this is from debug tranform"),priority: MessagePriority::Low, sender_id: sender_id}; 
-        unsafe {
-            callback(GLOBAL_TARGET, msg1.to_c_message().0)
-        }
+        let msg1 = Message {
+            topic: "debugplugin".to_owned(),
+            message: "this is from debug tranform".to_string(),
+            priority: MessagePriority::Low,
+            sender_id,
+        };
+        unsafe { callback(GLOBAL_TARGET, msg1.to_c_message().0) }
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
@@ -106,11 +112,14 @@ impl TransformElement for DebugTransform {
 impl MessageClient for DebugTransform {
     fn recv_message(&self, message: physim_core::messages::Message) {
         let sender_id = self as *const Self as *const () as usize;
-        if message.sender_id ==  sender_id { print!(" FILTERED --> ")} 
-    println!(
-        "Custom message:: Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
-        message.priority, message.topic, message.message
-    )}
+        if message.sender_id == sender_id {
+            print!(" FILTERED --> ")
+        }
+        println!(
+            "Custom message:: Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
+            message.priority, message.topic, message.message
+        )
+    }
 }
 
 // #[unsafe(no_mangle)]

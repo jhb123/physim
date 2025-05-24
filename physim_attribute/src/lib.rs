@@ -50,7 +50,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         #ast
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #init_fn(config: *const u8, len: usize) -> *mut std::ffi::c_void {
+        pub unsafe extern "C" fn #init_fn(config: *const u8, len: usize) -> *mut std::ffi::c_void {
             if config.is_null() {
                 return std::ptr::null_mut();
             }
@@ -66,7 +66,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #transform_fn(obj: *mut std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
+        pub unsafe extern "C" fn #transform_fn(obj: *mut std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
             let n =  unsafe {  std::slice::from_raw_parts_mut(new_state, new_state_len) };
@@ -80,7 +80,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #api_fn() -> *const ::physim_core::plugin::transform::TransformElementAPI {
+        pub unsafe extern "C" fn #api_fn() -> *const ::physim_core::plugin::transform::TransformElementAPI {
             Box::into_raw(Box::new(::physim_core::plugin::transform::TransformElementAPI {
                 init: #init_fn,
                 transform: #transform_fn,
@@ -146,7 +146,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub unsafe extern "C" fn #recv_message_fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
             if obj.is_null() {return };
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-            let msg = unsafe { 
+            let msg = unsafe {
                 let msg = (*(msg as *mut physim_core::messages::CMessage)).clone();
                 msg.to_message()
              };

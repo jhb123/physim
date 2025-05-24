@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bumpalo::Bump;
 use physim_attribute::transform_element;
-use physim_core::{messages::MessageClient, plugin::transform::TransformElement, Entity};
+use physim_core::{Entity, messages::MessageClient, plugin::transform::TransformElement};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -106,8 +106,7 @@ impl TransformElement for AstroElement {
     }
 }
 
-impl MessageClient for AstroElement{}
-
+impl MessageClient for AstroElement {}
 
 #[transform_element(
     name = "astro2",
@@ -206,8 +205,7 @@ impl TransformElement for AstroOctreeElement {
     }
 }
 
-impl MessageClient for AstroOctreeElement{}
-
+impl MessageClient for AstroOctreeElement {}
 
 // impl Configurable for
 
@@ -269,4 +267,4 @@ impl TransformElement for SimpleAstroElement {
     }
 }
 
-impl MessageClient for SimpleAstroElement{}
+impl MessageClient for SimpleAstroElement {}
