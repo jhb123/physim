@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     error::Error,
-    ffi::c_void,
     str::FromStr,
     sync::{
         atomic::{AtomicPtr, Ordering},

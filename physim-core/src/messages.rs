@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     collections::BinaryHeap,
     ffi::{c_void, CStr, CString},
     sync::{Arc, Mutex},
@@ -39,13 +38,13 @@ impl Message {
     pub fn to_c_message(self) -> CMessage {
         let topic_c = CString::new(self.topic.clone()).unwrap();
         let message_c = CString::new(self.message.clone()).unwrap();
-        let c_msg = CMessage {
+        
+        CMessage {
             priority: self.priority,
             topic: topic_c.into_raw(),
             message: message_c.into_raw(),
             sender_id: self.sender_id,
-        };
-        c_msg
+        }
     }
 }
 
@@ -107,7 +106,7 @@ pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
         let arc = Arc::from_raw(target as *const Mutex<MessageBus>);
         {
             let mut obj = arc.lock().unwrap();
-            if (message.message.is_null() || message.topic.is_null()) {
+            if message.message.is_null() || message.topic.is_null() {
                 eprintln!("ERROR, message contents is null");
             } else {
                 let message = message.to_message();

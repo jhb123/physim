@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     error::Error,
-    sync::{mpsc::Receiver, Arc},
+    sync::mpsc::Receiver,
 };
 
 use serde_json::Value;

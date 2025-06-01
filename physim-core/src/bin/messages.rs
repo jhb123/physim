@@ -7,8 +7,8 @@ use std::{
 };
 
 use physim_core::{
-    messages::{callback, Message, MessageBus, MessageClient, MessagePriority},
-    plugin::{set_bus, transform::TransformElementHandler},
+    messages::{callback, Message, MessageBus, MessagePriority},
+    plugin::transform::TransformElementHandler,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

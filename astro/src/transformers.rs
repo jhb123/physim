@@ -3,7 +3,6 @@ use std::{collections::HashMap, sync::Mutex};
 use bumpalo::Bump;
 use physim_attribute::transform_element;
 use physim_core::{Entity, messages::MessageClient, msg, plugin::transform::TransformElement};
-use serde::Serialize;
 use serde_json::Value;
 
 use crate::{Star, octree::Octree, quadtree::QuadTree};

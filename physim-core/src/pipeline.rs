@@ -273,7 +273,7 @@ impl PipelineBuilder {
             Ok(Pipeline {
                 initialisers: self.initialisers,
                 synths: self.synths,
-                transforms: transforms,
+                transforms,
                 render: self.render.expect("Checked just above"),
                 timestep: self.timestep,
                 iterations: self.iterations,
