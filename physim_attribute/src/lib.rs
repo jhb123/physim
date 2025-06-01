@@ -66,8 +66,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #transform_fn(obj: *mut std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
-            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
+        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
+            let el: & #struct_name = unsafe { &*(obj as *const #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
             let n =  unsafe {  std::slice::from_raw_parts_mut(new_state, new_state_len) };
             el.transform(s, n,dt);
@@ -256,7 +256,7 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
     let register_fn = format_ident!("{}_register", prefix);
 
     let g = quote! {
-        #[derive(::serde::Serialize)]
+        // #[derive(::serde::Serialize)]
         #ast
 
         #[unsafe(no_mangle)]

@@ -5,14 +5,13 @@ fn main() {
     // physim_core::discover()
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element =
+    let mut el =
         physim_core::plugin::transform::TransformElementHandler::load(path, "debug", properties)
             .unwrap();
 
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element.lock().unwrap();
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "a": 31}).to_string();
@@ -26,13 +25,12 @@ fn main() {
     //
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element =
+    let mut el =
         physim_core::plugin::transform::TransformElementHandler::load(path, "astro", properties)
             .unwrap();
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element.lock().unwrap();
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "theta": 31}).to_string();

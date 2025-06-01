@@ -1,5 +1,6 @@
 use rand::Rng;
-use std::{collections::HashMap, f32::consts::PI};
+use serde::Serialize;
+use std::{collections::HashMap, f32::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
@@ -15,6 +16,11 @@ use serde_json::Value;
 )]
 #[derive(Debug)]
 pub struct RandomCube {
+    inner: Mutex<InnerRandomCube>,
+}
+
+#[derive(Debug, Serialize)]
+struct InnerRandomCube {
     n: u64,
     seed: u64,
     spin: f64,
@@ -54,49 +60,55 @@ impl GeneratorElementCreator for RandomCube {
             })
             .unwrap_or([0.0_f32; 3]);
         Box::new(Self {
-            n,
-            seed,
-            spin,
-            centre,
-            size,
+            inner: Mutex::new(InnerRandomCube {
+                n,
+                seed,
+                spin,
+                centre,
+                size,
+            }),
         })
     }
 }
 
 impl GeneratorElement for RandomCube {
     fn create_entities(&self) -> Vec<Entity> {
-        let mut rng = ChaCha8Rng::seed_from_u64(self.seed);
-        let mut state = Vec::with_capacity(self.n as usize);
-        for _ in 0..self.n {
+        let element = self.inner.lock().unwrap();
+
+        let mut rng = ChaCha8Rng::seed_from_u64(element.seed);
+        let mut state = Vec::with_capacity(element.n as usize);
+        for _ in 0..element.n {
             let mut e = Entity::random(&mut rng);
-            e.state.x *= self.size;
-            e.state.y *= self.size;
-            e.state.z *= self.size;
+            e.state.x *= element.size;
+            e.state.y *= element.size;
+            e.state.z *= element.size;
 
-            e.state.vx = e.state.y * self.spin as f32;
-            e.state.vy = -e.state.x * self.spin as f32;
+            e.state.vx = e.state.y * element.spin as f32;
+            e.state.vy = -e.state.x * element.spin as f32;
 
-            e.state.x += self.centre[0];
-            e.state.y += self.centre[1];
-            e.state.z += self.centre[2];
+            e.state.x += element.centre[0];
+            e.state.y += element.centre[1];
+            e.state.z += element.centre[2];
 
             state.push(e);
         }
         state
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
+
         if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {
-            self.n = n
+            element.n = n
         }
         if let Some(s) = new_props.get("s").and_then(|s| s.as_f64()) {
-            self.spin = s
+            element.spin = s
         }
         if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
-            self.seed = seed
+            element.seed = seed
         }
         if let Some(size) = new_props.get("size").and_then(|size| size.as_f64()) {
-            self.size = size as f32
+            element.size = size as f32
         }
         if let Some(centre) = new_props.get("centre").and_then(|v| {
             let coords = v.as_array()?;
@@ -111,17 +123,18 @@ impl GeneratorElement for RandomCube {
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
-            self.centre = centre
+            element.centre = centre
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "n" => Ok(serde_json::json!(self.n)),
-            "seed" => Ok(serde_json::json!(self.seed)),
-            "spin" => Ok(serde_json::json!(self.spin)),
-            "size" => Ok(serde_json::json!(self.spin)),
-            "centre" => Ok(serde_json::json!(self.spin)),
+            "n" => Ok(serde_json::json!(element.n)),
+            "seed" => Ok(serde_json::json!(element.seed)),
+            "spin" => Ok(serde_json::json!(element.spin)),
+            "size" => Ok(serde_json::json!(element.size)),
+            "centre" => Ok(serde_json::json!(element.centre)),
             _ => Err("No property".into()),
         }
     }
@@ -142,9 +155,18 @@ impl GeneratorElement for RandomCube {
     }
 }
 
+impl Serialize for RandomCube {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.inner.lock().unwrap().serialize(serializer)
+    }
+}
+
 #[initialise_state_element(name = "star", blurb = "create a configurable star")]
 pub struct SingleStar {
-    entity: Entity,
+    inner: Mutex<Entity>,
 }
 
 impl GeneratorElementCreator for SingleStar {
@@ -175,52 +197,57 @@ impl GeneratorElementCreator for SingleStar {
             ..Default::default()
         };
 
-        Box::new(Self { entity })
+        Box::new(Self {
+            inner: Mutex::new(entity),
+        })
     }
 }
 
 impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
-        vec![self.entity]
+        let entity = self.inner.lock().unwrap();
+        vec![*entity]
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut entity = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            self.entity.state.x = val as f32
+            entity.state.x = val as f32
         }
         if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            self.entity.state.y = val as f32
+            entity.state.y = val as f32
         }
         if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            self.entity.state.z = val as f32
+            entity.state.z = val as f32
         }
         if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            self.entity.state.vx = val as f32
+            entity.state.vx = val as f32
         }
         if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            self.entity.state.vy = val as f32
+            entity.state.vy = val as f32
         }
         if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            self.entity.state.vz = val as f32
+            entity.state.vz = val as f32
         }
         if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
-            self.entity.mass = val as f32
+            entity.mass = val as f32
         }
         if let Some(val) = new_props.get("r").and_then(|val| val.as_f64()) {
-            self.entity.radius = val as f32
+            entity.radius = val as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let entity = self.inner.lock().unwrap();
         match prop {
-            "x" => Ok(serde_json::json!(self.entity.state.x)),
-            "y" => Ok(serde_json::json!(self.entity.state.y)),
-            "z" => Ok(serde_json::json!(self.entity.state.z)),
-            "vx" => Ok(serde_json::json!(self.entity.state.vx)),
-            "vy" => Ok(serde_json::json!(self.entity.state.vy)),
-            "vz" => Ok(serde_json::json!(self.entity.state.vz)),
-            "m" => Ok(serde_json::json!(self.entity.mass)),
-            "r" => Ok(serde_json::json!(self.entity.radius)),
+            "x" => Ok(serde_json::json!(entity.state.x)),
+            "y" => Ok(serde_json::json!(entity.state.y)),
+            "z" => Ok(serde_json::json!(entity.state.z)),
+            "vx" => Ok(serde_json::json!(entity.state.vx)),
+            "vy" => Ok(serde_json::json!(entity.state.vy)),
+            "vz" => Ok(serde_json::json!(entity.state.vz)),
+            "m" => Ok(serde_json::json!(entity.mass)),
+            "r" => Ok(serde_json::json!(entity.radius)),
             _ => Err("No property".into()),
         }
     }
@@ -247,6 +274,11 @@ impl GeneratorElement for SingleStar {
 )]
 #[derive(Debug)]
 pub struct Plummer {
+    inner: Mutex<InnerPlummer>,
+}
+
+#[derive(Debug)]
+struct InnerPlummer {
     n: u64,
     seed: u64,
     mass: f64,
@@ -308,63 +340,67 @@ impl GeneratorElementCreator for Plummer {
             .unwrap_or(0.0) as f32;
 
         Box::new(Self {
-            n,
-            seed,
-            mass,
-            centre,
-            initial_v,
-            plummer_r,
-            spin,
+            inner: Mutex::new(InnerPlummer {
+                n,
+                seed,
+                mass,
+                centre,
+                initial_v,
+                plummer_r,
+                spin,
+            }),
         })
     }
 }
 
 impl GeneratorElement for Plummer {
     fn create_entities(&self) -> Vec<Entity> {
-        let rng = ChaCha8Rng::seed_from_u64(self.seed);
-        let mut state = Vec::with_capacity(self.n as usize);
+        let element = self.inner.lock().unwrap();
+        let rng = ChaCha8Rng::seed_from_u64(element.seed);
+        let mut state = Vec::with_capacity(element.n as usize);
 
-        let cdf: Vec<f32> = rng.random_iter().take((self.n * 3) as usize).collect();
-        let m = (self.mass as f32) / (self.n as f32);
+        let cdf: Vec<f32> = rng.random_iter().take((element.n * 3) as usize).collect();
+        let m = (element.mass as f32) / (element.n as f32);
         for c in cdf.chunks(3) {
-            let r = self.plummer_r * (c[0].powf(-2_f32 / 3_f32) - 1_f32).powf(0.5);
+            let r = element.plummer_r * (c[0].powf(-2_f32 / 3_f32) - 1_f32).powf(0.5);
             let theta = PI * c[2];
             let phi = 2_f32 * PI * c[1];
 
-            let x = r * theta.sin() * phi.cos() + self.centre[0];
-            let y = r * theta.sin() * phi.sin() + self.centre[1];
-            let z = r * theta.cos() + self.centre[2];
+            let x = r * theta.sin() * phi.cos() + element.centre[0];
+            let y = r * theta.sin() * phi.sin() + element.centre[1];
+            let z = r * theta.cos() + element.centre[2];
             let mut e = Entity::new2(x, y, z, m, 0.01);
 
             let r2 = r.powi(2);
-            let a2 = self.plummer_r.powi(2);
+            let a2 = element.plummer_r.powi(2);
 
-            let v_phi = self.spin * ((self.mass as f32) * r2 / (r2 + a2).powf(1.5)).sqrt();
+            let v_phi = element.spin * ((element.mass as f32) * r2 / (r2 + a2).powf(1.5)).sqrt();
 
             let vx = -v_phi * phi.sin();
             let vy = v_phi * phi.cos();
             let vz = 0.0;
 
-            e.state.vx = vx + self.initial_v[0];
-            e.state.vy = vy + self.initial_v[1];
-            e.state.vz = vz + self.initial_v[2];
+            e.state.vx = vx + element.initial_v[0];
+            e.state.vy = vy + element.initial_v[1];
+            e.state.vz = vz + element.initial_v[2];
             state.push(e);
         }
         state
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
         if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {
-            self.n = n
+            element.n = n
         }
         if let Some(m) = new_props.get("mass").and_then(|s| s.as_f64()) {
-            self.mass = m
+            element.mass = m
         }
         if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
-            self.seed = seed
+            element.seed = seed
         }
         if let Some(a) = new_props.get("a").and_then(|a| a.as_f64()) {
-            self.plummer_r = a as f32
+            element.plummer_r = a as f32
         }
         if let Some(centre) = new_props.get("centre").and_then(|v| {
             let coords = v.as_array()?;
@@ -379,7 +415,7 @@ impl GeneratorElement for Plummer {
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
-            self.centre = centre
+            element.centre = centre
         }
         if let Some(initial_v) = new_props.get("v").and_then(|v| {
             let coords = v.as_array()?;
@@ -394,22 +430,23 @@ impl GeneratorElement for Plummer {
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
-            self.initial_v = initial_v
+            element.initial_v = initial_v
         }
         if let Some(spin) = new_props.get("spin").and_then(|spin| spin.as_f64()) {
-            self.spin = spin as f32;
+            element.spin = spin as f32;
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "n" => Ok(serde_json::json!(self.n)),
-            "seed" => Ok(serde_json::json!(self.seed)),
-            "spin" => Ok(serde_json::json!(self.spin)),
-            "a" => Ok(serde_json::json!(self.plummer_r)),
-            "mass" => Ok(serde_json::json!(self.mass)),
-            "centre" => Ok(serde_json::json!(self.centre)),
-            "v" => Ok(serde_json::json!(self.initial_v)),
+            "n" => Ok(serde_json::json!(element.n)),
+            "seed" => Ok(serde_json::json!(element.seed)),
+            "spin" => Ok(serde_json::json!(element.spin)),
+            "a" => Ok(serde_json::json!(element.plummer_r)),
+            "mass" => Ok(serde_json::json!(element.mass)),
+            "centre" => Ok(serde_json::json!(element.centre)),
+            "v" => Ok(serde_json::json!(element.initial_v)),
             _ => Err("No property".into()),
         }
     }

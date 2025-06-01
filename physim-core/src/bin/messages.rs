@@ -8,14 +8,10 @@ use std::{
 
 use physim_core::{
     messages::{callback, Message, MessageBus, MessageClient, MessagePriority},
-    plugin::transform::TransformElementHandler,
+    plugin::{set_bus, transform::TransformElementHandler},
 };
 
-struct TestClient {}
-
-impl MessageClient for TestClient {}
-
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = "/Users/josephbriggs/repos/physim/target/debug/libdebug.dylib";
     // physim_core::discover()
     let bus = Arc::new(Mutex::new(MessageBus::new()));
@@ -23,18 +19,9 @@ fn main() {
     let element =
         TransformElementHandler::loadv2(path, "debug", HashMap::default(), bus.clone()).unwrap();
 
-    let client1 = Arc::new(TestClient {});
-    let client2 = Arc::new(TestClient {});
-
-    bus.lock().unwrap().add_client(client1.clone());
-    // bus.lock().unwrap().add_client(client2.clone());
-    let b = element.lock().unwrap();
-    bus.lock().unwrap().add_client(b.clone());
-    drop(b);
-
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {
-        let c1_id = Arc::as_ptr(&client1) as usize;
+        let c1_id = 1;
         let bus_raw_ptr = Arc::into_raw(b1) as *mut c_void;
         let msg1 = Message {
             topic: "c1".to_owned(),
@@ -60,17 +47,17 @@ fn main() {
             priority: MessagePriority::Critical,
             sender_id: c1_id,
         };
-        callback(bus_raw_ptr, msg1.to_c_message().0);
-        callback(bus_raw_ptr, msg2.to_c_message().0);
-        callback(bus_raw_ptr, msg3.to_c_message().0);
-        callback(bus_raw_ptr, msg4.to_c_message().0);
+        callback(bus_raw_ptr, msg1.to_c_message());
+        callback(bus_raw_ptr, msg2.to_c_message());
+        callback(bus_raw_ptr, msg3.to_c_message());
+        callback(bus_raw_ptr, msg4.to_c_message());
         unsafe { Arc::from_raw(bus_raw_ptr as *mut usize) };
     });
     let b2 = bus.clone();
 
     let t2 = thread::spawn(move || {
         let bus_raw_ptr = Arc::into_raw(b2) as *mut c_void;
-        let c2_id = Arc::as_ptr(&client2) as usize;
+        let c2_id = 2;
         let msg1 = Message {
             topic: "c2".to_owned(),
             message: format!("1 - sent by {c2_id}"),
@@ -95,10 +82,10 @@ fn main() {
             priority: MessagePriority::Critical,
             sender_id: c2_id,
         };
-        callback(bus_raw_ptr, msg1.to_c_message().0);
-        callback(bus_raw_ptr, msg2.to_c_message().0);
-        callback(bus_raw_ptr, msg3.to_c_message().0);
-        callback(bus_raw_ptr, msg4.to_c_message().0);
+        callback(bus_raw_ptr, msg1.to_c_message());
+        callback(bus_raw_ptr, msg2.to_c_message());
+        callback(bus_raw_ptr, msg3.to_c_message());
+        callback(bus_raw_ptr, msg4.to_c_message());
         unsafe { Arc::from_raw(bus_raw_ptr as *mut usize) };
     });
 
@@ -110,12 +97,14 @@ fn main() {
             thread::sleep(Duration::from_millis(8)); // don't want to spend literally all our computation on this?
         }
     });
-    element.lock().unwrap().transform(&[], &mut [], 1.0);
-    element.lock().unwrap().transform(&[], &mut [], 1.0);
-    element.lock().unwrap().transform(&[], &mut [], 1.0);
-    element.lock().unwrap().transform(&[], &mut [], 1.0);
-
+    {
+        element.transform(&[], &mut [], 1.0);
+        element.transform(&[], &mut [], 1.0);
+        element.transform(&[], &mut [], 1.0);
+        element.transform(&[], &mut [], 1.0);
+    }
     let _ = t1.join();
     let _ = t2.join();
     let _ = t3.join();
+    Ok(())
 }

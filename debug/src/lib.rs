@@ -1,28 +1,20 @@
 #![feature(str_from_raw_parts)]
-use std::{collections::HashMap, ffi::c_void, ptr};
+use std::{collections::HashMap, sync::Mutex};
 
 use physim_attribute::{synth_element, transform_element};
 use physim_core::{
     Entity,
-    messages::{Message, MessageClient, MessagePriority, callback},
+    messages::{Message, MessageClient, MessagePriority},
     plugin::{
         generator::{GeneratorElement, GeneratorElementCreator},
         transform::TransformElement,
     },
-    register_plugin,
+    post_bus_msg, register_plugin,
 };
 use rand::Rng;
 use serde_json::Value;
 
 register_plugin!("randsynth", "debug");
-
-static mut GLOBAL_TARGET: *mut c_void = ptr::null_mut();
-#[unsafe(no_mangle)]
-pub extern "C" fn set_callback_target(target: *mut c_void) {
-    unsafe {
-        GLOBAL_TARGET = target;
-    }
-}
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {}
@@ -45,7 +37,7 @@ impl GeneratorElement for RandSynth {
         vec![e]
     }
 
-    fn set_properties(&mut self, _: HashMap<String, Value>) {}
+    fn set_properties(&self, _: HashMap<String, Value>) {}
 
     fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
         Err("No property".into())
@@ -60,49 +52,56 @@ impl GeneratorElement for RandSynth {
 
 #[transform_element(name = "debug", blurb = "Pass through data with no effect")]
 pub struct DebugTransform {
-    state: u64,
+    state: Mutex<u64>,
 }
 
 impl TransformElement for DebugTransform {
-    fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], _dt: f32) {
+    fn transform(&self, state: &[Entity], new_state: &mut [Entity], _dt: f32) {
         for (i, e) in state.iter().enumerate() {
             new_state[i] = *e
         }
-        let sender_id = self as *const Self as *const () as usize;
 
-        // let sender_id = self as *const Self as usize;
+        // let msg1 = physim_core::msg!(
+        //     self,
+        //     "debugplugin",
+        //     "this is a message from debug transform",
+        //     MessagePriority::Low
+        // );
         let msg1 = Message {
-            topic: "debugplugin".to_owned(),
-            message: "this is from debug tranform".to_string(),
+            topic: "debugplugin".to_string(),
+            message: "$message".to_string(),
             priority: MessagePriority::Low,
-            sender_id,
+            sender_id: self as *const Self as *const () as usize,
         };
-        unsafe { callback(GLOBAL_TARGET, msg1.to_c_message().0) }
+        println!("Posting: {:?}", msg1);
+        post_bus_msg!(msg1);
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
         DebugTransform {
-            state: properties
-                .get("prop")
-                .and_then(|x| x.as_u64())
-                .unwrap_or_default(),
+            state: Mutex::new(
+                properties
+                    .get("prop")
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or_default(),
+            ),
         }
     }
 
-    fn set_properties(&mut self, properties: HashMap<String, Value>) {
+    fn set_properties(&self, properties: HashMap<String, Value>) {
         if let Some(state) = properties.get("state").and_then(|state| state.as_u64()) {
-            self.state = state
+            *self.state.lock().unwrap() = state
         }
     }
 
-    fn get_property(&mut self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         match prop {
-            "state" => Ok(Value::Number(self.state.into())),
+            "state" => Ok(Value::Number((*self.state.lock().unwrap()).into())),
             _ => Err("No property".into()),
         }
     }
 
-    fn get_property_descriptions(&mut self) -> HashMap<String, String> {
+    fn get_property_descriptions(&self) -> HashMap<String, String> {
         HashMap::new()
     }
 }

@@ -1,9 +1,16 @@
-use std::{collections::HashMap, env, path::Path};
+use std::{
+    collections::HashMap,
+    env,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use generator::{ElementConfigurationHandler, GeneratorElementHandler};
 use render::RenderElementHandler;
 use transform::TransformElementHandler;
 use yansi::Paint;
+
+use crate::messages::MessageBus;
 
 pub mod generator;
 pub mod render;
@@ -58,6 +65,14 @@ impl ElementMeta {
     }
 }
 
+/// Registers a plugin by generating a `register_plugin` function and a `set_callback_target` function.
+///
+/// # Usage
+/// ```ignore
+/// register_plugin!("my_plugin", "other_plugin");
+/// ```
+///
+/// This macro is meant to be called once per crate in lib.rs to initialize the plugin interface.
 #[macro_export]
 macro_rules! register_plugin {
     ( $( $x:expr ),* ) => {
@@ -70,7 +85,159 @@ macro_rules! register_plugin {
             )*
             std::ffi::CString::new(elements.join(",")).unwrap_or_default()
         }
+
+        static mut GLOBAL_BUS_TARGET: *mut std::ffi::c_void = std::ptr::null_mut();
+        #[unsafe(no_mangle)]
+        pub extern "C" fn set_callback_target(target: *mut std::ffi::c_void) {
+            unsafe {
+                assert!(!target.is_null());
+                GLOBAL_BUS_TARGET = target;
+            }
+        }
     };
+}
+
+/// Sends a message to the global plugin bus target set by `set_callback_target`.
+///
+/// This macro wraps a call to the `callback` function using the globally stored
+/// target pointer. It expects that `set_callback_target` has already been called
+/// to initialize the global bus target. This can be done with the register_plugin
+/// macro.
+///
+/// # Arguments
+///
+/// * `$msg` - A Message.
+///
+/// # Example
+/// ```ignore
+///   let msg1 = physim_core::msg!(self,"topic","message",MessagePriority::Low);
+///   post_bus_msg!(msg1);
+/// ```
+///
+/// # Safety
+///
+/// This macro internally uses `unsafe` to call a C-style function with a raw pointer.
+/// It assumes that the global target has been correctly set and remains valid for
+/// the duration of the program.
+///
+/// # Panics
+///
+/// Does not panic, but invoking this macro before the target is set will likely lead
+/// to undefined behavior (null pointer dereference).
+#[macro_export]
+#[allow(clippy::crate_in_macro_def)]
+macro_rules! post_bus_msg {
+    ($msg:expr) => {
+        unsafe { physim_core::messages::callback(crate::GLOBAL_BUS_TARGET, $msg.to_c_message()) }
+    };
+}
+
+/// Constructs a `Message` for the plugin messaging system with a topic, message body, priority, and sender ID.
+///
+/// This macro is designed to be called from **within any function defined on a plugin element**. The `sender_id` is
+/// automatically generated using the memory address of the element instance (`self`). This allows the messaging
+/// system to identify the origin of the message.
+///
+/// # Arguments
+///
+/// * `$self` - The element instance. Typically `self`, used to derive a unique `sender_id`.
+/// * `$topic` - A topic string (`&str` or `String`) representing the category or subject of the message.
+/// * `$message` - The content of the message. Must be convertible to a `String`.
+/// * `$priority` - The priority level of the message `MessagePriority`.
+///
+/// # Context
+///
+/// - This macro should be called from **functions that are part of an element** within a plugin.
+/// - Elements are defined in the plugin (a dynamic library), and represent stateful units with related logic.
+/// - The resulting `Message` is typically sent via a macro like `post_bus_msg!` to a global bus.
+///
+/// # Example
+///
+/// ```ignore
+/// impl TransformElement for DebugTransform {
+///     fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], _dt: f32) {
+///         for (i, e) in state.iter().enumerate() {
+///             new_state[i] = *e
+///         }
+///         let msg1 = physim_core::msg!(
+///             self,
+///             "debugplugin",
+///             "this is a message from debug transform",
+///             MessagePriority::Low
+///         );
+///         post_bus_msg!(msg1);
+///     }
+/// }
+/// ```
+///
+/// # Safety
+///
+/// Internally performs raw pointer casting to derive a `sender_id` from `self`. This is safe as long as `self`
+/// is a valid reference to a plugin element instance.
+#[macro_export]
+macro_rules! msg {
+    ($self:expr, $topic:expr, $message:expr, $priority:expr) => {
+        physim_core::messages::Message {
+            topic: $topic.to_owned(),
+            message: $message.to_string(),
+            priority: $priority,
+            sender_id: $self as *const Self as *const () as usize,
+        }
+    };
+}
+
+/// Loads a plugin library and sets its global callback target to a shared message bus.
+///
+/// This function dynamically loads a plugin (shared library) from the given `path` using `libloading`,
+/// looks up the `set_callback_target` symbol, and passes a raw pointer to the provided `MessageBus`
+/// (wrapped in `Arc<Mutex<_>>`) to the plugin.
+///
+/// This effectively registers the bus as the target for messages from the plugin via a globally stored pointer.
+///
+/// # Arguments
+///
+/// * `path` - The file system path to the compiled plugin dynamic library (e.g., `.so`, `.dll`, `.dylib`).
+/// * `bus` - A reference-counted, thread-safe `MessageBus` wrapped in a `Mutex` for synchronization.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the library was successfully loaded and the callback target was set.
+/// Returns an error if the library could not be loaded or the `set_callback_target` symbol was not found.
+///
+/// # Example
+///
+/// ```rust
+/// let bus = Arc::new(Mutex::new(MessageBus::new()));
+/// unsafe {
+///     set_bus("target/debug/libmy_plugin.so", bus)?;
+/// }
+/// ```
+///
+/// # Safety
+///
+/// This function is `unsafe` for several reasons:
+/// - It performs raw pointer casting from `Arc<Mutex<MessageBus>>` to `*mut c_void`.
+/// - It assumes the dynamic library at `path` is trusted and that the `set_callback_target` function
+///   has the correct signature and behavior.
+/// - The caller must ensure that the `bus` outlives any use of the raw pointer in the plugin.
+///
+/// Misuse can lead to undefined behavior if the pointer is invalidated or misinterpreted.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The dynamic library cannot be opened at the given path.
+/// - The `set_callback_target` symbol is missing or has an incompatible signature.
+pub unsafe fn set_bus(
+    path: &str,
+    bus: Arc<Mutex<MessageBus>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let lib = libloading::Library::new(path)?;
+    let set_target: libloading::Symbol<unsafe extern "C" fn(*mut core::ffi::c_void)> =
+        lib.get(b"set_callback_target")?;
+    let bus_raw_ptr = Arc::into_raw(bus) as *mut core::ffi::c_void;
+    set_target(bus_raw_ptr);
+    Ok(())
 }
 
 // determined at run time
@@ -233,7 +400,6 @@ pub fn discover() -> Vec<RegisteredElement> {
                                             HashMap::new(),
                                         )
                                         .unwrap();
-                                        let el = el.lock().unwrap();
                                         el.get_property_descriptions().unwrap()
                                     }
                                     ElementKind::Render => {

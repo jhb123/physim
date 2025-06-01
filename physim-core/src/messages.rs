@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     collections::BinaryHeap,
     ffi::{c_void, CStr, CString},
     sync::{Arc, Mutex},
@@ -7,7 +8,7 @@ use std::{
 // https://doc.rust-lang.org/nomicon/ffi.html#targeting-callbacks-to-rust-objects
 
 #[repr(C)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Copy)]
 pub enum MessagePriority {
     Background,
     Low,
@@ -17,7 +18,7 @@ pub enum MessagePriority {
     Critical,
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Message {
     pub priority: MessagePriority,
     pub topic: String,
@@ -26,7 +27,7 @@ pub struct Message {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CMessage {
     pub priority: MessagePriority,
     pub topic: *const std::ffi::c_char,
@@ -35,16 +36,29 @@ pub struct CMessage {
 }
 
 impl Message {
-    pub fn to_c_message(self) -> (CMessage, CString, CString) {
+    pub fn to_c_message(self) -> CMessage {
         let topic_c = CString::new(self.topic.clone()).unwrap();
         let message_c = CString::new(self.message.clone()).unwrap();
         let c_msg = CMessage {
             priority: self.priority,
-            topic: topic_c.as_ptr(),
-            message: message_c.as_ptr(),
+            topic: topic_c.into_raw(),
+            message: message_c.into_raw(),
             sender_id: self.sender_id,
         };
-        (c_msg, topic_c, message_c)
+        c_msg
+    }
+}
+
+impl Drop for CMessage {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.topic.is_null() {
+                drop(CString::from_raw(self.topic as *mut i8));
+            }
+            if !self.message.is_null() {
+                drop(CString::from_raw(self.message as *mut i8));
+            }
+        }
     }
 }
 
@@ -93,8 +107,12 @@ pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
         let arc = Arc::from_raw(target as *const Mutex<MessageBus>);
         {
             let mut obj = arc.lock().unwrap();
-            let message = message.to_message();
-            (*obj).post_message(message);
+            if (message.message.is_null() || message.topic.is_null()) {
+                eprintln!("ERROR, message contents is null");
+            } else {
+                let message = message.to_message();
+                (*obj).post_message(message);
+            }
         }
         // Just above, we create the Arc. To prevent dropping the message bus,
         // turn it back into raw pointer.
@@ -142,11 +160,6 @@ impl Default for MessageBus {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{Arc, Mutex},
-        thread,
-        time::Duration,
-    };
 
     use super::*;
 
@@ -166,5 +179,33 @@ mod tests {
     fn test_message_bus() {
         
         assert!(true)
+    }
+
+    #[test]
+    fn test_c_message() {
+        let msg = Message {
+            priority: MessagePriority::RealTime,
+            topic: "topic".to_string(),
+            message: "message".to_string(),
+            sender_id: 0,
+        };
+
+        let c_msg = msg.clone().to_c_message();
+
+        let msg2 = c_msg.to_message();
+        assert_eq!(msg, msg2);
+    }
+
+    #[test]
+    fn test_c_message_lifecycle() {
+        let msg = Message {
+            priority: MessagePriority::RealTime,
+            topic: "topic".to_string(),
+            message: "message".to_string(),
+            sender_id: 0,
+        };
+
+        let c_msg = msg.to_c_message();
+        drop(c_msg)
     }
 }

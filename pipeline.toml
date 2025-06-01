@@ -28,6 +28,6 @@ theta = 0.4
 e = 0.5
 
 
-[[elements.stdout]]
+[[elements.glrender]]
 resolution="1080p"
 shader="velocity"

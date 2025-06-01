@@ -1,5 +1,6 @@
 #![feature(str_from_raw_parts)]
 use std::io::Write;
+use std::sync::Mutex;
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
 use glium::{
@@ -86,6 +87,10 @@ implement_vertex!(Vertex, position, velocity);
 
 #[render_element(name = "glrender", blurb = "Render simulation to a window")]
 pub struct GLRenderElement {
+    inner: Mutex<InnerRenderElement>,
+}
+
+struct InnerRenderElement {
     resolution: (u64, u64),
     zoom: f32,
     shader: RenderPipelineShader,
@@ -121,19 +126,22 @@ impl RenderElementCreator for GLRenderElement {
         };
 
         Box::new(GLRenderElement {
-            resolution,
-            zoom,
-            shader,
+            inner: Mutex::new(InnerRenderElement {
+                resolution,
+                zoom,
+                shader,
+            }),
         })
     }
 }
 
 impl RenderElement for GLRenderElement {
-    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+        let element = self.inner.lock().unwrap();
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
-            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
+            .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
         let state = state_recv.recv().unwrap();
@@ -150,7 +158,7 @@ impl RenderElement for GLRenderElement {
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
-            self.shader.get_shader();
+            element.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -171,10 +179,10 @@ impl RenderElement for GLRenderElement {
             ..Default::default()
         };
 
-        let mut zoom = config.size_x.max(config.size_y) * self.zoom;
+        let mut zoom = config.size_x.max(config.size_y) * element.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
-
+        drop(element);
         // thread::spawn(move || {
         // *verticies.lock().unwrap() = new_state;
         // });
@@ -262,24 +270,26 @@ impl RenderElement for GLRenderElement {
     });
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
             match resolution {
-                "1080p" => self.resolution = (1920, 1080),
-                "720p" => self.resolution = (1280, 720),
-                "4k" => self.resolution = (3840, 2160),
-                _ => self.resolution = (1920, 1080),
+                "1080p" => element.resolution = (1920, 1080),
+                "720p" => element.resolution = (1280, 720),
+                "4k" => element.resolution = (3840, 2160),
+                _ => element.resolution = (1920, 1080),
             }
         }
         if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            self.zoom = zoom as f32
+            element.zoom = zoom as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(self.zoom)),
+            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(element.zoom)),
             _ => Err("No property".into()),
         }
     }
@@ -306,9 +316,7 @@ impl RenderElement for GLRenderElement {
     blurb = "Render simulation to stdout for further processing by video software"
 )]
 pub struct StdOutRender {
-    resolution: (u64, u64),
-    zoom: f32,
-    shader: RenderPipelineShader,
+    inner: Mutex<InnerRenderElement>,
 }
 
 impl RenderElementCreator for StdOutRender {
@@ -341,15 +349,18 @@ impl RenderElementCreator for StdOutRender {
         };
 
         Box::new(StdOutRender {
-            resolution,
-            zoom,
-            shader,
+            inner: Mutex::new(InnerRenderElement {
+                resolution,
+                zoom,
+                shader,
+            }),
         })
     }
 }
 
 impl RenderElement for StdOutRender {
-    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+        let element = self.inner.lock().unwrap();
         let mut verticies: Vec<Vertex> = state_recv
             .recv()
             .unwrap()
@@ -360,7 +371,7 @@ impl RenderElement for StdOutRender {
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
-            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
+            .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
@@ -372,7 +383,7 @@ impl RenderElement for StdOutRender {
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
-            self.shader.get_shader();
+            element.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -393,9 +404,11 @@ impl RenderElement for StdOutRender {
             ..Default::default()
         };
 
-        let zoom = config.size_x.max(config.size_y) * self.zoom;
+        let zoom = config.size_x.max(config.size_y) * element.zoom;
         let pos_x: f32 = 0.0;
         let pos_y: f32 = 0.0;
+
+        drop(element);
 
         let window_size = display.get_framebuffer_dimensions();
         let mut target = display.draw();
@@ -465,24 +478,26 @@ impl RenderElement for StdOutRender {
         }
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
             match resolution {
-                "1080p" => self.resolution = (1920, 1080),
-                "720p" => self.resolution = (1280, 720),
-                "4k" => self.resolution = (3840, 2160),
-                _ => self.resolution = (1920, 1080),
+                "1080p" => element.resolution = (1920, 1080),
+                "720p" => element.resolution = (1280, 720),
+                "4k" => element.resolution = (3840, 2160),
+                _ => element.resolution = (1920, 1080),
             }
         }
         if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            self.zoom = zoom as f32
+            element.zoom = zoom as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(self.zoom)),
+            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(element.zoom)),
             _ => Err("No property".into()),
         }
     }
