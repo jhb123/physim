@@ -11,6 +11,7 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
+use physim_core::messages::MessageClient;
 use physim_core::plugin::render::{RenderElement, RenderElementCreator};
 use physim_core::{Entity, UniverseConfiguration, register_plugin};
 use serde_json::Value;
@@ -311,6 +312,18 @@ impl RenderElement for GLRenderElement {
     }
 }
 
+impl MessageClient for GLRenderElement {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        let sender_id = self as *const Self as *const () as usize;
+        if message.sender_id != sender_id {
+            println!(
+                "GLRENDER RECV Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
+                message.priority, message.topic, message.message
+            )
+        }
+    }
+}
+
 #[render_element(
     name = "stdout",
     blurb = "Render simulation to stdout for further processing by video software"
@@ -516,5 +529,11 @@ impl RenderElement for StdOutRender {
             ),
             ("shader".to_string(), "velocity, yellowblue".to_string()),
         ]))
+    }
+}
+
+impl MessageClient for StdOutRender {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        // don't print anything to stdout!!
     }
 }

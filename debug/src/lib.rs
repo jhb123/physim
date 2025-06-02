@@ -1,12 +1,14 @@
 #![feature(str_from_raw_parts)]
 use std::{collections::HashMap, sync::Mutex};
 
-use physim_attribute::{synth_element, transform_element};
+use physim_attribute::{render_element, synth_element, transform_element};
 use physim_core::{
     Entity,
-    messages::{Message, MessageClient, MessagePriority},
+    messages::{MessageClient, MessagePriority},
+    msg,
     plugin::{
         generator::{GeneratorElement, GeneratorElementCreator},
+        render::{RenderElement, RenderElementCreator},
         transform::TransformElement,
     },
     post_bus_msg, register_plugin,
@@ -14,7 +16,7 @@ use physim_core::{
 use rand::Rng;
 use serde_json::Value;
 
-register_plugin!("randsynth", "debug");
+register_plugin!("randsynth", "debug", "fakesink");
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {}
@@ -50,6 +52,8 @@ impl GeneratorElement for RandSynth {
     }
 }
 
+impl MessageClient for RandSynth {}
+
 #[transform_element(name = "debug", blurb = "Pass through data with no effect")]
 pub struct DebugTransform {
     state: Mutex<u64>,
@@ -61,19 +65,7 @@ impl TransformElement for DebugTransform {
             new_state[i] = *e
         }
 
-        // let msg1 = physim_core::msg!(
-        //     self,
-        //     "debugplugin",
-        //     "this is a message from debug transform",
-        //     MessagePriority::Low
-        // );
-        let msg1 = Message {
-            topic: "debugplugin".to_string(),
-            message: "$message".to_string(),
-            priority: MessagePriority::Low,
-            sender_id: self as *const Self as *const () as usize,
-        };
-        println!("Posting: {:?}", msg1);
+        let msg1 = msg!(self, "debugplugin", "transformed", MessagePriority::Low);
         post_bus_msg!(msg1);
     }
 
@@ -121,10 +113,50 @@ impl MessageClient for DebugTransform {
     }
 }
 
-// #[unsafe(no_mangle)]
-// pub unsafe extern "C" fn debug_transform_recv_message(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
-//     if obj.is_null() {return };
-//     let el: &mut DebugTransform = unsafe { &mut *(obj as *mut DebugTransform) };
-//     let msg = unsafe { (*(obj as *mut Message)).clone() };
-//     el.recv_message(msg);
-// }
+#[render_element(name = "fakesink", blurb = "Do nothing with data")]
+struct FakeSink {
+    state: Mutex<u64>,
+}
+
+impl RenderElementCreator for FakeSink {
+    fn create_element(
+        _properties: HashMap<String, Value>,
+    ) -> Box<dyn physim_core::plugin::render::RenderElement> {
+        Box::new(FakeSink {
+            state: Mutex::new(0),
+        })
+    }
+}
+
+impl RenderElement for FakeSink {
+    fn render(
+        &self,
+        _config: physim_core::UniverseConfiguration,
+        state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
+    ) {
+        while state_recv.recv().is_ok() {
+            println!("Rendering!");
+        }
+    }
+
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        if let Some(state) = new_props.get("state").and_then(|state| state.as_u64()) {
+            *self.state.lock().unwrap() = state
+        }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        match prop {
+            "state" => Ok(Value::Number((*self.state.lock().unwrap()).into())),
+            _ => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::new())
+    }
+}
+
+impl MessageClient for FakeSink {}

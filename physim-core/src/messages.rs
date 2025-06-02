@@ -38,7 +38,7 @@ impl Message {
     pub fn to_c_message(self) -> CMessage {
         let topic_c = CString::new(self.topic.clone()).unwrap();
         let message_c = CString::new(self.message.clone()).unwrap();
-        
+
         CMessage {
             priority: self.priority,
             topic: topic_c.into_raw(),

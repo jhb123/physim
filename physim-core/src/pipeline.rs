@@ -14,17 +14,17 @@ use serde_json::Value;
 use crate::{
     messages::MessageBus,
     plugin::{
-        discover_map, generator::GeneratorElementHandler, render::RenderElementHandler,
+        discover_map, generator::GeneratorElementHandler, render::RenderElementHandler, set_bus,
         transform::TransformElementHandler, ElementKind, RegisteredElement,
     },
     Entity, UniverseConfiguration,
 };
 
 pub struct Pipeline {
-    initialisers: Vec<GeneratorElementHandler>,
-    synths: Option<Vec<GeneratorElementHandler>>,
+    initialisers: Vec<Arc<GeneratorElementHandler>>,
+    synths: Option<Vec<Arc<GeneratorElementHandler>>>,
     transforms: Arc<TransformElementHandler>,
-    render: RenderElementHandler,
+    render: Arc<RenderElementHandler>,
     timestep: f32,
     iterations: u64,
     bus: Arc<Mutex<MessageBus>>,
@@ -178,10 +178,10 @@ impl Pipeline {
 }
 
 struct PipelineBuilder {
-    initialisers: Vec<GeneratorElementHandler>,
-    synths: Option<Vec<GeneratorElementHandler>>,
+    initialisers: Vec<Arc<GeneratorElementHandler>>,
+    synths: Option<Vec<Arc<GeneratorElementHandler>>>,
     transforms: Option<Arc<TransformElementHandler>>, // maybe will allow more than one of these one day
-    render: Option<RenderElementHandler>,
+    render: Option<Arc<RenderElementHandler>>,
     element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of elements
     timestep: f32,
     iterations: u64,
@@ -222,33 +222,43 @@ impl PipelineBuilder {
             .get(el_name)
             .ok_or(format!("{el_name} is not a registered element"))?;
 
+        unsafe { set_bus(element_data, self.bus.clone()) };
+
         match element_data.get_element_kind() {
             ElementKind::Initialiser => {
                 let element =
                     GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
                         .map_err(|_| "Failed to load initialiser element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
                 self.initialisers.push(element);
             }
             ElementKind::Transform => {
-                let element = TransformElementHandler::loadv2(
-                    &element_data.lib_path,
-                    el_name,
-                    properties,
-                    self.bus.clone(),
-                )
-                .map_err(|_| "Failed to load transform element")?;
+                let element =
+                    TransformElementHandler::loadv2(&element_data.lib_path, el_name, properties)
+                        .map_err(|_| "Failed to load transform element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
                 self.transforms = Some(element);
             }
             ElementKind::Render => {
                 let element =
                     RenderElementHandler::load(&element_data.lib_path, el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
                 self.render = Some(element);
             }
             ElementKind::Synth => {
                 let element =
                     GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
                         .map_err(|_| "Failed to load synth element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
                 match self.synths.as_mut() {
                     Some(els) => {
                         els.push(element);

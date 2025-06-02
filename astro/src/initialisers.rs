@@ -5,6 +5,7 @@ use std::{collections::HashMap, f32::consts::PI, sync::Mutex};
 use physim_attribute::initialise_state_element;
 use physim_core::{
     Entity, EntityState,
+    messages::MessageClient,
     plugin::generator::{GeneratorElement, GeneratorElementCreator},
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
@@ -164,6 +165,8 @@ impl Serialize for RandomCube {
     }
 }
 
+impl MessageClient for RandomCube {}
+
 #[initialise_state_element(name = "star", blurb = "create a configurable star")]
 pub struct SingleStar {
     inner: Mutex<Entity>,
@@ -202,6 +205,8 @@ impl GeneratorElementCreator for SingleStar {
         })
     }
 }
+
+impl MessageClient for SingleStar {}
 
 impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
@@ -471,3 +476,5 @@ impl GeneratorElement for Plummer {
         ]))
     }
 }
+
+impl MessageClient for Plummer {}

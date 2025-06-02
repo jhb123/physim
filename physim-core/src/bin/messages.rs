@@ -8,7 +8,7 @@ use std::{
 
 use physim_core::{
     messages::{callback, Message, MessageBus, MessagePriority},
-    plugin::transform::TransformElementHandler,
+    plugin::{set_bus, transform::TransformElementHandler},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,8 +16,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // physim_core::discover()
     let bus = Arc::new(Mutex::new(MessageBus::new()));
 
-    let element =
-        TransformElementHandler::loadv2(path, "debug", HashMap::default(), bus.clone()).unwrap();
+    let elements_db = physim_core::plugin::discover_map();
+
+    let element_meta = elements_db.get("debug").expect("plugins not loaded");
+    unsafe {
+        let _ = set_bus(element_meta, bus.clone());
+    }
+
+    let element = TransformElementHandler::loadv2(path, "debug", HashMap::default()).unwrap();
 
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {

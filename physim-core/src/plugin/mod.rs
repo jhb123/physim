@@ -229,10 +229,10 @@ macro_rules! msg {
 /// - The dynamic library cannot be opened at the given path.
 /// - The `set_callback_target` symbol is missing or has an incompatible signature.
 pub unsafe fn set_bus(
-    path: &str,
+    element: &RegisteredElement,
     bus: Arc<Mutex<MessageBus>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let lib = libloading::Library::new(path)?;
+    let lib = libloading::Library::new(&element.lib_path)?;
     let set_target: libloading::Symbol<unsafe extern "C" fn(*mut core::ffi::c_void)> =
         lib.get(b"set_callback_target")?;
     let bus_raw_ptr = Arc::into_raw(bus) as *mut core::ffi::c_void;
@@ -384,13 +384,12 @@ pub fn discover() -> Vec<RegisteredElement> {
                                 let element_info = register_element();
                                 let properties = match element_info.kind {
                                     ElementKind::Initialiser => {
-                                        let el: GeneratorElementHandler =
-                                            GeneratorElementHandler::load(
-                                                &lib_path,
-                                                &element_info.name,
-                                                HashMap::new(),
-                                            )
-                                            .unwrap();
+                                        let el = GeneratorElementHandler::load(
+                                            &lib_path,
+                                            &element_info.name,
+                                            HashMap::new(),
+                                        )
+                                        .unwrap();
                                         el.get_property_descriptions().unwrap()
                                     }
                                     ElementKind::Transform => {

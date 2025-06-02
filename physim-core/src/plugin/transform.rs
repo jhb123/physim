@@ -85,7 +85,6 @@ impl TransformElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-        bus: Arc<Mutex<MessageBus>>,
     ) -> Result<Arc<Self>, Box<dyn std::error::Error>> {
         unsafe {
             let api_fn_name = format!("{name}_get_api");
@@ -102,17 +101,11 @@ impl TransformElementHandler {
             if instance.is_null() {
                 return Err("Could not create_entities element".into());
             }
-            super::set_bus(path, bus.clone())?;
             let element = Arc::new(Self {
                 api: &*api,
                 instance: AtomicPtr::new(instance),
                 _lib: lib,
             });
-            {
-                let mut b = bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
-            }
             Ok(element)
         }
     }
@@ -141,7 +134,7 @@ impl TransformElementHandler {
 }
 
 impl ElementConfigurationHandler for TransformElementHandler {
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
         // covert hashmap into something else?
         let json = serde_json::to_string(&new_props).unwrap();
         let json = std::ffi::CString::new(json).unwrap().into_raw(); // danger!
