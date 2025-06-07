@@ -53,13 +53,13 @@ impl TransformElement for AstroElement {
             }
             new_state[i] = star_a.verlet(dt, f);
         }
-        let msg = msg!(
-            self,
-            "astro",
-            "transformed",
-            physim_core::messages::MessagePriority::Low
-        );
-        physim_core::post_bus_msg!(msg);
+        // let msg = msg!(
+        //     self,
+        //     "astro",
+        //     "transformed",
+        //     physim_core::messages::MessagePriority::Low
+        // );
+        // physim_core::post_bus_msg!(msg);
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {

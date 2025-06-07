@@ -132,60 +132,6 @@ macro_rules! post_bus_msg {
     };
 }
 
-/// Constructs a `Message` for the plugin messaging system with a topic, message body, priority, and sender ID.
-///
-/// This macro is designed to be called from **within any function defined on a plugin element**. The `sender_id` is
-/// automatically generated using the memory address of the element instance (`self`). This allows the messaging
-/// system to identify the origin of the message.
-///
-/// # Arguments
-///
-/// * `$self` - The element instance. Typically `self`, used to derive a unique `sender_id`.
-/// * `$topic` - A topic string (`&str` or `String`) representing the category or subject of the message.
-/// * `$message` - The content of the message. Must be convertible to a `String`.
-/// * `$priority` - The priority level of the message `MessagePriority`.
-///
-/// # Context
-///
-/// - This macro should be called from **functions that are part of an element** within a plugin.
-/// - Elements are defined in the plugin (a dynamic library), and represent stateful units with related logic.
-/// - The resulting `Message` is typically sent via a macro like `post_bus_msg!` to a global bus.
-///
-/// # Example
-///
-/// ```ignore
-/// impl TransformElement for DebugTransform {
-///     fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], _dt: f32) {
-///         for (i, e) in state.iter().enumerate() {
-///             new_state[i] = *e
-///         }
-///         let msg1 = physim_core::msg!(
-///             self,
-///             "debugplugin",
-///             "this is a message from debug transform",
-///             MessagePriority::Low
-///         );
-///         post_bus_msg!(msg1);
-///     }
-/// }
-/// ```
-///
-/// # Safety
-///
-/// Internally performs raw pointer casting to derive a `sender_id` from `self`. This is safe as long as `self`
-/// is a valid reference to a plugin element instance.
-#[macro_export]
-macro_rules! msg {
-    ($self:expr, $topic:expr, $message:expr, $priority:expr) => {
-        physim_core::messages::Message {
-            topic: $topic.to_owned(),
-            message: $message.to_string(),
-            priority: $priority,
-            sender_id: $self as *const Self as *const () as usize,
-        }
-    };
-}
-
 /// Loads a plugin library and sets its global callback target to a shared message bus.
 ///
 /// This function dynamically loads a plugin (shared library) from the given `path` using `libloading`,

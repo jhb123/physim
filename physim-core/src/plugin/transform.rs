@@ -4,17 +4,14 @@ use std::{
     str::FromStr,
     sync::{
         atomic::{AtomicPtr, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{
-    messages::{MessageBus, MessageClient},
-    Entity,
-};
+use crate::{messages::MessageClient, Entity};
 
 use super::generator::ElementConfigurationHandler;
 

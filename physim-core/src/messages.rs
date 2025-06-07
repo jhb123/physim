@@ -48,6 +48,62 @@ impl Message {
     }
 }
 
+
+/// Constructs a `Message` for the plugin messaging system with a topic, message body, priority, and sender ID.
+///
+/// This macro is designed to be called from **within any function defined on a plugin element**. The `sender_id` is
+/// automatically generated using the memory address of the element instance (`self`). This allows the messaging
+/// system to identify the origin of the message.
+///
+/// # Arguments
+///
+/// * `$self` - The element instance. Typically `self`, used to derive a unique `sender_id`.
+/// * `$topic` - A topic string (`&str` or `String`) representing the category or subject of the message.
+/// * `$message` - The content of the message. Must be convertible to a `String`.
+/// * `$priority` - The priority level of the message `MessagePriority`.
+///
+/// # Context
+///
+/// - This macro should be called from **functions that are part of an element** within a plugin.
+/// - Elements are defined in the plugin (a dynamic library), and represent stateful units with related logic.
+/// - The resulting `Message` is typically sent via a macro like `post_bus_msg!` to a global bus.
+///
+/// # Example
+///
+/// ```ignore
+/// impl TransformElement for DebugTransform {
+///     fn transform(&mut self, state: &[Entity], new_state: &mut [Entity], _dt: f32) {
+///         for (i, e) in state.iter().enumerate() {
+///             new_state[i] = *e
+///         }
+///         let msg1 = physim_core::msg!(
+///             self,
+///             "debugplugin",
+///             "this is a message from debug transform",
+///             MessagePriority::Low
+///         );
+///         post_bus_msg!(msg1);
+///     }
+/// }
+/// ```
+///
+/// # Safety
+///
+/// Internally performs raw pointer casting to derive a `sender_id` from `self`. This is safe as long as `self`
+/// is a valid reference to a plugin element instance.
+#[macro_export]
+macro_rules! msg {
+    ($self:expr, $topic:expr, $message:expr, $priority:expr) => {
+        $crate::messages::Message {
+            topic: $topic.to_owned(),
+            message: $message.to_string(),
+            priority: $priority,
+            sender_id: $self as *const Self as *const () as usize,
+        }
+    };
+}
+
+
 impl Drop for CMessage {
     fn drop(&mut self) {
         unsafe {
@@ -89,16 +145,22 @@ impl PartialOrd for Message {
     }
 }
 
-pub trait MessageClient: Send + Sync {
-    fn recv_message(&self, message: Message) {
-        let sender_id = self as *const Self as *const () as usize;
-        if message.sender_id != sender_id {
-            println!(
-                "Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
-                message.priority, message.topic, message.message
-            )
+mod private {
+    pub trait Sealed {
+        fn recv_message_filtered(&self, message: super::Message);
+    }
+
+    impl<T: super::MessageClient> Sealed for T {
+        fn recv_message_filtered(&self, message: super::Message) {
+            let sender_id = self as *const Self as *const () as usize;
+            if message.sender_id != sender_id {
+                self.recv_message(message)
+            }
         }
     }
+}
+pub trait MessageClient: Send + Sync + private::Sealed {
+    fn recv_message(&self, _message: Message) {}
 }
 
 pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
@@ -133,7 +195,7 @@ impl MessageBus {
         let mut queue = self.queue.lock().unwrap();
         while let Some(msg) = queue.pop() {
             for observer in self.clients.iter() {
-                observer.recv_message(msg.clone());
+                observer.recv_message_filtered(msg.clone());
             }
         }
     }

@@ -3,6 +3,8 @@ use std::io::Write;
 use std::sync::Mutex;
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
+use glium::winit::event::KeyEvent;
+use glium::winit::keyboard::{KeyCode, PhysicalKey};
 use glium::{
     Surface, implement_vertex, uniform,
     winit::{
@@ -11,9 +13,9 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
-use physim_core::messages::MessageClient;
+use physim_core::messages::{self, Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::{RenderElement, RenderElementCreator};
-use physim_core::{Entity, UniverseConfiguration, register_plugin};
+use physim_core::{Entity, UniverseConfiguration, msg, post_bus_msg, register_plugin};
 use serde_json::Value;
 
 register_plugin!("glrender,stdout");
@@ -95,6 +97,19 @@ struct InnerRenderElement {
     resolution: (u64, u64),
     zoom: f32,
     shader: RenderPipelineShader,
+    running: bool,
+}
+
+impl GLRenderElement {
+    fn keycode_msg(&self, key: &KeyEvent) -> Option<Message> {
+        let key = key.text.clone()?;
+        Some(msg!(
+            self,
+            "glrender::keyboard::press",
+            key.to_string(),
+            MessagePriority::Normal
+        ))
+    }
 }
 
 impl RenderElementCreator for GLRenderElement {
@@ -131,6 +146,7 @@ impl RenderElementCreator for GLRenderElement {
                 resolution,
                 zoom,
                 shader,
+                running: true,
             }),
         })
     }
@@ -236,22 +252,33 @@ impl RenderElement for GLRenderElement {
                 WindowEvent::KeyboardInput {
                     device_id: _, event: kin, is_synthetic: _
                 } => {
+                    if let Some(message) = self.keycode_msg(&kin) {
+                        post_bus_msg!(message);
+                    }
                     if let glium::winit::event::ElementState::Released = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
+                        if let PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = 0.01_f32.max(zoom/2.0),
-                                glium::winit::keyboard::KeyCode::BracketRight => zoom = 4_f32.min(zoom*2.0),
+                                KeyCode::BracketLeft => zoom = 0.01_f32.max(zoom/2.0),
+                                KeyCode::BracketRight => zoom = 4_f32.min(zoom*2.0),
                                 _ => {},
                             }
                         }
                     }
                     if let glium::winit::event::ElementState::Pressed  = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
+                        if let PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::KeyS => pos_y = 1.0_f32.min(pos_y + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0_f32).max(pos_y - 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyA => pos_x = 1.0_f32.min(pos_x + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0_f32).max(pos_x - 0.1*zoom),
+                                KeyCode::KeyS => pos_y = 1.0_f32.min(pos_y + 0.1*zoom),
+                                KeyCode::KeyW => pos_y = (-1.0_f32).max(pos_y - 0.1*zoom),
+                                KeyCode::KeyA => pos_x = 1.0_f32.min(pos_x + 0.1*zoom),
+                                KeyCode::KeyD => pos_x = (-1.0_f32).max(pos_x - 0.1*zoom),
+                                KeyCode::KeyP | KeyCode::Space  => {
+                                    let pause = msg!(self,"pipeline","pause_toggle",MessagePriority::High);
+                                    post_bus_msg!(pause);
+                                },
+                                KeyCode::KeyQ => {
+                                    let pause = msg!(self,"pipeline","quit",MessagePriority::High);
+                                    post_bus_msg!(pause);        
+                                },
                             _ => {},
                             }
                         }
@@ -260,6 +287,9 @@ impl RenderElement for GLRenderElement {
                     _ => (),
                 },
                 Event::AboutToWait => {
+                    if !self.inner.lock().unwrap().running {
+                        window_target.exit()
+                    }
                     verticies.clear();
                     verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
                     vertex_buffer.invalidate();
@@ -314,12 +344,8 @@ impl RenderElement for GLRenderElement {
 
 impl MessageClient for GLRenderElement {
     fn recv_message(&self, message: physim_core::messages::Message) {
-        let sender_id = self as *const Self as *const () as usize;
-        if message.sender_id != sender_id {
-            println!(
-                "GLRENDER RECV Priority: {:?} - topic {} - message: {} - sender: {sender_id}",
-                message.priority, message.topic, message.message
-            )
+        if &message.topic == "pipeline" && &message.message == "finished" {
+            self.inner.lock().unwrap().running = false
         }
     }
 }
@@ -366,6 +392,7 @@ impl RenderElementCreator for StdOutRender {
                 resolution,
                 zoom,
                 shader,
+                running: true,
             }),
         })
     }

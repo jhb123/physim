@@ -2,9 +2,9 @@ use std::{
     collections::HashMap,
     error::Error,
     str::FromStr,
-    sync::{atomic::AtomicBool, mpsc, Arc, Mutex},
+    sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex},
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use log::info;
@@ -12,13 +12,15 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    messages::MessageBus,
+    messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
         discover_map, generator::GeneratorElementHandler, render::RenderElementHandler, set_bus,
         transform::TransformElementHandler, ElementKind, RegisteredElement,
     },
     Entity, UniverseConfiguration,
 };
+
+use crate::msg;
 
 pub struct Pipeline {
     initialisers: Vec<Arc<GeneratorElementHandler>>,
@@ -30,9 +32,40 @@ pub struct Pipeline {
     bus: Arc<Mutex<MessageBus>>,
 }
 
+struct PipelineMessageClient {
+    paused: AtomicBool,
+    quit: AtomicBool
+}
+impl PipelineMessageClient {
+    fn new() -> Self {
+        Self { 
+            paused: AtomicBool::new(false),
+            quit: AtomicBool::new(false)
+         }
+    }
+}
+impl MessageClient for PipelineMessageClient {
+    fn recv_message(&self, message: Message) {
+        if &message.topic == "pipeline" {
+            match message.message.as_str() {
+                "pause_toggle" => {
+                    self.paused.fetch_xor(true, Ordering::SeqCst);
+                },
+                "quit" => {
+                    self.quit.store(true, Ordering::SeqCst);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 impl Pipeline {
     pub fn run(mut self) {
         // cannot be reference since it'd break renderer
+        let pipeline_messages = Arc::new(PipelineMessageClient::new());
+        self.bus.lock().unwrap().add_client(pipeline_messages.clone());
+
         let config = UniverseConfiguration {
             size_x: 2.0,
             size_y: 1.0,
@@ -50,19 +83,31 @@ impl Pipeline {
 
         let msg_flag = Arc::new(AtomicBool::new(true));
         let msg_flag_clone = msg_flag.clone();
+        let bus_clone = self.bus.clone();
         let message_thread = thread::spawn(move || {
             while msg_flag_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                let mut lock = self.bus.lock().unwrap();
+                let mut lock = bus_clone.lock().unwrap();
                 lock.pop_messages();
                 drop(lock);
                 thread::sleep(std::time::Duration::from_millis(8)); // don't want to spend literally all our computation on this?
             }
         });
 
-        let (simulation_sender, renderer_receiver) = mpsc::sync_channel(10);
+        let (simulation_sender, renderer_receiver) = mpsc::sync_channel(2);
         thread::spawn(move || {
             let dt = self.timestep;
-            for _ in 0..self.iterations {
+            let mut count = 0;
+            while count < self.iterations {
+                if pipeline_messages.quit.load(Ordering::Relaxed) {
+                    break;
+                }
+                if pipeline_messages.paused.load(Ordering::Relaxed) {
+                    thread::sleep(Duration::from_millis(1));
+                    simulation_sender.send(new_state.clone()).unwrap();
+                    continue;
+                } else {
+                    count +=1;
+                }
                 let start = Instant::now();
 
                 self.synths.iter().for_each(|els| {
@@ -81,6 +126,15 @@ impl Pipeline {
                 );
                 simulation_sender.send(new_state.clone()).unwrap();
             }
+
+            let msg = msg!(0,"pipeline", "finished", MessagePriority::RealTime);
+
+            self.bus.lock().unwrap().post_message(Message {
+                sender_id: 0,
+                topic: "pipeline".to_string(),
+                message: "finished".to_string(),
+                priority: MessagePriority::RealTime,
+            })
         });
 
         self.render.render(config, renderer_receiver);

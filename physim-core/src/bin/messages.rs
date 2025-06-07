@@ -7,14 +7,20 @@ use std::{
 };
 
 use physim_core::{
-    messages::{callback, Message, MessageBus, MessagePriority},
+    messages::{callback, Message, MessageBus, MessageClient, MessagePriority},
     plugin::{set_bus, transform::TransformElementHandler},
 };
 
+struct TestClient {}
+impl MessageClient for TestClient {
+    fn recv_message(&self, message: Message) {
+        println!("{:?}", message)
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = "/Users/josephbriggs/repos/physim/target/debug/libdebug.dylib";
-    // physim_core::discover()
     let bus = Arc::new(Mutex::new(MessageBus::new()));
+    bus.lock().unwrap().add_client(Arc::new(TestClient {}));
 
     let elements_db = physim_core::plugin::discover_map();
 
@@ -23,7 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _ = set_bus(element_meta, bus.clone());
     }
 
-    let element = TransformElementHandler::loadv2(path, "debug", HashMap::default()).unwrap();
+    let element =
+        TransformElementHandler::loadv2(&element_meta.lib_path, "debug", HashMap::default())
+            .unwrap();
 
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {

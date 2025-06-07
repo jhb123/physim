@@ -1,7 +1,9 @@
 #![feature(str_from_raw_parts)]
 use std::{collections::HashMap, sync::Mutex};
 
-use physim_attribute::{render_element, synth_element, transform_element};
+use physim_attribute::{
+    initialise_state_element, render_element, synth_element, transform_element,
+};
 use physim_core::{
     Entity,
     messages::{MessageClient, MessagePriority},
@@ -16,7 +18,7 @@ use physim_core::{
 use rand::Rng;
 use serde_json::Value;
 
-register_plugin!("randsynth", "debug", "fakesink");
+register_plugin!("randsynth", "debug", "fakesink", "msgdebug");
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {}
@@ -160,3 +162,39 @@ impl RenderElement for FakeSink {
 }
 
 impl MessageClient for FakeSink {}
+
+#[initialise_state_element(name = "msgdebug", blurb = "Print messages")]
+struct MessageDebug {}
+
+impl GeneratorElementCreator for MessageDebug {
+    fn create_element(_: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+        Box::new(Self {})
+    }
+}
+
+impl GeneratorElement for MessageDebug {
+    fn create_entities(&self) -> Vec<Entity> {
+        vec![]
+    }
+
+    fn set_properties(&self, _: HashMap<String, Value>) {}
+
+    fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        Err("No property".into())
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([]))
+    }
+}
+
+impl MessageClient for MessageDebug {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        println!(
+            "[MSGDEBUG] Priority: {:?} - topic {} - message: {}",
+            message.priority, message.topic, message.message
+        )
+    }
+}
