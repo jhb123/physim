@@ -5,7 +5,7 @@ iterations = 15000
 [elements]
 
 [[elements.plummer]]
-n = 20000
+n = 20
 seed = 2
 spin = 0.7
 mass = 1000.0
@@ -13,16 +13,12 @@ centre=[0.5,0.0,0.0]
 v=[0.0,-5.0,0.0]
 a = 0.5
 
-[[elements.plummer]]
-n = 20000
-seed = 4
-spin = 0.7
-mass = 1000.0
-centre=[-0.5,0.0,0.0]
-v=[0.0,5.0,0.0]
-a = 0.5
+[[elements.msgdebug]]
 
+[[elements.randsynth]]
 
 [[elements.debug]]
 
-[[elements.fakesink]]
+[[elements.glrender]]
+resolution="1080p"
+shader="velocity"

@@ -105,7 +105,7 @@ impl GLRenderElement {
         let key = key.text.clone()?;
         Some(msg!(
             self,
-            "glrender::keyboard::press",
+            "keyboard.press",
             key.to_string(),
             MessagePriority::Normal
         ))
@@ -277,7 +277,7 @@ impl RenderElement for GLRenderElement {
                                 },
                                 KeyCode::KeyQ => {
                                     let pause = msg!(self,"pipeline","quit",MessagePriority::High);
-                                    post_bus_msg!(pause);        
+                                    post_bus_msg!(pause);
                                 },
                             _ => {},
                             }

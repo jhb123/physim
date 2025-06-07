@@ -2,7 +2,10 @@ use std::{
     collections::HashMap,
     error::Error,
     str::FromStr,
-    sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -34,14 +37,14 @@ pub struct Pipeline {
 
 struct PipelineMessageClient {
     paused: AtomicBool,
-    quit: AtomicBool
+    quit: AtomicBool,
 }
 impl PipelineMessageClient {
     fn new() -> Self {
-        Self { 
+        Self {
             paused: AtomicBool::new(false),
-            quit: AtomicBool::new(false)
-         }
+            quit: AtomicBool::new(false),
+        }
     }
 }
 impl MessageClient for PipelineMessageClient {
@@ -50,7 +53,7 @@ impl MessageClient for PipelineMessageClient {
             match message.message.as_str() {
                 "pause_toggle" => {
                     self.paused.fetch_xor(true, Ordering::SeqCst);
-                },
+                }
                 "quit" => {
                     self.quit.store(true, Ordering::SeqCst);
                 }
@@ -64,7 +67,10 @@ impl Pipeline {
     pub fn run(mut self) {
         // cannot be reference since it'd break renderer
         let pipeline_messages = Arc::new(PipelineMessageClient::new());
-        self.bus.lock().unwrap().add_client(pipeline_messages.clone());
+        self.bus
+            .lock()
+            .unwrap()
+            .add_client(pipeline_messages.clone());
 
         let config = UniverseConfiguration {
             size_x: 2.0,
@@ -106,7 +112,7 @@ impl Pipeline {
                     simulation_sender.send(new_state.clone()).unwrap();
                     continue;
                 } else {
-                    count +=1;
+                    count += 1;
                 }
                 let start = Instant::now();
 
@@ -127,7 +133,7 @@ impl Pipeline {
                 simulation_sender.send(new_state.clone()).unwrap();
             }
 
-            let msg = msg!(0,"pipeline", "finished", MessagePriority::RealTime);
+            let msg = msg!(0, "pipeline", "finished", MessagePriority::RealTime);
 
             self.bus.lock().unwrap().post_message(Message {
                 sender_id: 0,

@@ -48,7 +48,6 @@ impl Message {
     }
 }
 
-
 /// Constructs a `Message` for the plugin messaging system with a topic, message body, priority, and sender ID.
 ///
 /// This macro is designed to be called from **within any function defined on a plugin element**. The `sender_id` is
@@ -102,7 +101,6 @@ macro_rules! msg {
         }
     };
 }
-
 
 impl Drop for CMessage {
     fn drop(&mut self) {
@@ -160,7 +158,8 @@ mod private {
     }
 }
 pub trait MessageClient: Send + Sync + private::Sealed {
-    fn recv_message(&self, _message: Message) {}
+    #[allow(unused_variables)]
+    fn recv_message(&self, message: Message) {}
 }
 
 pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
