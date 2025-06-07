@@ -13,7 +13,7 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
-use physim_core::messages::{self, Message, MessageClient, MessagePriority};
+use physim_core::messages::{Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::{RenderElement, RenderElementCreator};
 use physim_core::{Entity, UniverseConfiguration, msg, post_bus_msg, register_plugin};
 use serde_json::Value;
@@ -559,8 +559,4 @@ impl RenderElement for StdOutRender {
     }
 }
 
-impl MessageClient for StdOutRender {
-    fn recv_message(&self, message: physim_core::messages::Message) {
-        // don't print anything to stdout!!
-    }
-}
+impl MessageClient for StdOutRender {}

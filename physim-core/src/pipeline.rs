@@ -64,7 +64,7 @@ impl MessageClient for PipelineMessageClient {
 }
 
 impl Pipeline {
-    pub fn run(mut self) {
+    pub fn run(self) -> Result<(), Box<dyn Error>> {
         // cannot be reference since it'd break renderer
         let pipeline_messages = Arc::new(PipelineMessageClient::new());
         self.bus
@@ -133,19 +133,15 @@ impl Pipeline {
                 simulation_sender.send(new_state.clone()).unwrap();
             }
 
-            let msg = msg!(0, "pipeline", "finished", MessagePriority::RealTime);
-
-            self.bus.lock().unwrap().post_message(Message {
-                sender_id: 0,
-                topic: "pipeline".to_string(),
-                message: "finished".to_string(),
-                priority: MessagePriority::RealTime,
-            })
+            let msg = msg!(1, "pipeline", "finished", MessagePriority::RealTime);
+            self.bus.lock().unwrap().post_message(msg)
         });
 
         self.render.render(config, renderer_receiver);
         msg_flag.store(false, std::sync::atomic::Ordering::Relaxed);
-        message_thread.join();
+        message_thread.join().unwrap();
+        // .map_err(|_e| "Message thread ran into a problem")?;
+        Ok(())
     }
 
     pub fn new_from_description(pipeline_description: &str) -> Result<Self, Box<dyn Error>> {
@@ -282,7 +278,7 @@ impl PipelineBuilder {
             .get(el_name)
             .ok_or(format!("{el_name} is not a registered element"))?;
 
-        unsafe { set_bus(element_data, self.bus.clone()) };
+        unsafe { set_bus(element_data, self.bus.clone())? };
 
         match element_data.get_element_kind() {
             ElementKind::Initialiser => {

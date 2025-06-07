@@ -90,8 +90,8 @@ impl TransformElement for DebugTransform {
             new_state[i] = *e
         }
 
-        // let msg1 = msg!(self, "debugplugin", "transformed", MessagePriority::Low);
-        // post_bus_msg!(msg1);
+        let msg1 = msg!(self, "debugplugin", "transformed", MessagePriority::Low);
+        post_bus_msg!(msg1);
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
@@ -125,9 +125,7 @@ impl TransformElement for DebugTransform {
 
 // impl MessageClient for DebugTransform{}
 
-impl MessageClient for DebugTransform {
-    fn recv_message(&self, message: physim_core::messages::Message) {}
-}
+impl MessageClient for DebugTransform {}
 
 #[render_element(name = "fakesink", blurb = "Do nothing with data")]
 struct FakeSink {
