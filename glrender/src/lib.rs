@@ -1,7 +1,10 @@
 #![feature(str_from_raw_parts)]
 use std::io::Write;
+use std::sync::Mutex;
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
+use glium::winit::event::KeyEvent;
+use glium::winit::keyboard::{KeyCode, PhysicalKey};
 use glium::{
     Surface, implement_vertex, uniform,
     winit::{
@@ -10,8 +13,9 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
+use physim_core::messages::{Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::{RenderElement, RenderElementCreator};
-use physim_core::{Entity, UniverseConfiguration, register_plugin};
+use physim_core::{Entity, UniverseConfiguration, msg, post_bus_msg, register_plugin};
 use serde_json::Value;
 
 register_plugin!("glrender,stdout");
@@ -86,9 +90,26 @@ implement_vertex!(Vertex, position, velocity);
 
 #[render_element(name = "glrender", blurb = "Render simulation to a window")]
 pub struct GLRenderElement {
+    inner: Mutex<InnerRenderElement>,
+}
+
+struct InnerRenderElement {
     resolution: (u64, u64),
     zoom: f32,
     shader: RenderPipelineShader,
+    running: bool,
+}
+
+impl GLRenderElement {
+    fn keycode_msg(&self, key: &KeyEvent) -> Option<Message> {
+        let key = key.text.clone()?;
+        Some(msg!(
+            self,
+            "keyboard.press",
+            key.to_string(),
+            MessagePriority::Normal
+        ))
+    }
 }
 
 impl RenderElementCreator for GLRenderElement {
@@ -121,19 +142,23 @@ impl RenderElementCreator for GLRenderElement {
         };
 
         Box::new(GLRenderElement {
-            resolution,
-            zoom,
-            shader,
+            inner: Mutex::new(InnerRenderElement {
+                resolution,
+                zoom,
+                shader,
+                running: true,
+            }),
         })
     }
 }
 
 impl RenderElement for GLRenderElement {
-    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+        let element = self.inner.lock().unwrap();
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
-            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
+            .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
         let state = state_recv.recv().unwrap();
@@ -150,7 +175,7 @@ impl RenderElement for GLRenderElement {
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
-            self.shader.get_shader();
+            element.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -171,10 +196,10 @@ impl RenderElement for GLRenderElement {
             ..Default::default()
         };
 
-        let mut zoom = config.size_x.max(config.size_y) * self.zoom;
+        let mut zoom = config.size_x.max(config.size_y) * element.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
-
+        drop(element);
         // thread::spawn(move || {
         // *verticies.lock().unwrap() = new_state;
         // });
@@ -227,22 +252,33 @@ impl RenderElement for GLRenderElement {
                 WindowEvent::KeyboardInput {
                     device_id: _, event: kin, is_synthetic: _
                 } => {
+                    if let Some(message) = self.keycode_msg(&kin) {
+                        post_bus_msg!(message);
+                    }
                     if let glium::winit::event::ElementState::Released = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
+                        if let PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::BracketLeft => zoom = 0.01_f32.max(zoom/2.0),
-                                glium::winit::keyboard::KeyCode::BracketRight => zoom = 4_f32.min(zoom*2.0),
+                                KeyCode::BracketLeft => zoom = 0.01_f32.max(zoom/2.0),
+                                KeyCode::BracketRight => zoom = 4_f32.min(zoom*2.0),
                                 _ => {},
                             }
                         }
                     }
                     if let glium::winit::event::ElementState::Pressed  = kin.state {
-                        if let glium::winit::keyboard::PhysicalKey::Code(key_code) = kin.physical_key {
+                        if let PhysicalKey::Code(key_code) = kin.physical_key {
                             match key_code {
-                                glium::winit::keyboard::KeyCode::KeyS => pos_y = 1.0_f32.min(pos_y + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyW => pos_y = (-1.0_f32).max(pos_y - 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyA => pos_x = 1.0_f32.min(pos_x + 0.1*zoom),
-                                glium::winit::keyboard::KeyCode::KeyD => pos_x = (-1.0_f32).max(pos_x - 0.1*zoom),
+                                KeyCode::KeyS => pos_y = 1.0_f32.min(pos_y + 0.1*zoom),
+                                KeyCode::KeyW => pos_y = (-1.0_f32).max(pos_y - 0.1*zoom),
+                                KeyCode::KeyA => pos_x = 1.0_f32.min(pos_x + 0.1*zoom),
+                                KeyCode::KeyD => pos_x = (-1.0_f32).max(pos_x - 0.1*zoom),
+                                KeyCode::KeyP | KeyCode::Space  => {
+                                    let pause = msg!(self,"pipeline","pause_toggle",MessagePriority::High);
+                                    post_bus_msg!(pause);
+                                },
+                                KeyCode::KeyQ => {
+                                    let pause = msg!(self,"pipeline","quit",MessagePriority::High);
+                                    post_bus_msg!(pause);
+                                },
                             _ => {},
                             }
                         }
@@ -251,6 +287,9 @@ impl RenderElement for GLRenderElement {
                     _ => (),
                 },
                 Event::AboutToWait => {
+                    if !self.inner.lock().unwrap().running {
+                        window_target.exit()
+                    }
                     verticies.clear();
                     verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
                     vertex_buffer.invalidate();
@@ -262,24 +301,26 @@ impl RenderElement for GLRenderElement {
     });
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
             match resolution {
-                "1080p" => self.resolution = (1920, 1080),
-                "720p" => self.resolution = (1280, 720),
-                "4k" => self.resolution = (3840, 2160),
-                _ => self.resolution = (1920, 1080),
+                "1080p" => element.resolution = (1920, 1080),
+                "720p" => element.resolution = (1280, 720),
+                "4k" => element.resolution = (3840, 2160),
+                _ => element.resolution = (1920, 1080),
             }
         }
         if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            self.zoom = zoom as f32
+            element.zoom = zoom as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(self.zoom)),
+            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(element.zoom)),
             _ => Err("No property".into()),
         }
     }
@@ -301,14 +342,20 @@ impl RenderElement for GLRenderElement {
     }
 }
 
+impl MessageClient for GLRenderElement {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        if &message.topic == "pipeline" && &message.message == "finished" {
+            self.inner.lock().unwrap().running = false
+        }
+    }
+}
+
 #[render_element(
     name = "stdout",
     blurb = "Render simulation to stdout for further processing by video software"
 )]
 pub struct StdOutRender {
-    resolution: (u64, u64),
-    zoom: f32,
-    shader: RenderPipelineShader,
+    inner: Mutex<InnerRenderElement>,
 }
 
 impl RenderElementCreator for StdOutRender {
@@ -341,15 +388,19 @@ impl RenderElementCreator for StdOutRender {
         };
 
         Box::new(StdOutRender {
-            resolution,
-            zoom,
-            shader,
+            inner: Mutex::new(InnerRenderElement {
+                resolution,
+                zoom,
+                shader,
+                running: true,
+            }),
         })
     }
 }
 
 impl RenderElement for StdOutRender {
-    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+        let element = self.inner.lock().unwrap();
         let mut verticies: Vec<Vertex> = state_recv
             .recv()
             .unwrap()
@@ -360,7 +411,7 @@ impl RenderElement for StdOutRender {
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
-            .with_inner_size(self.resolution.0 as u32, self.resolution.1 as u32)
+            .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
@@ -372,7 +423,7 @@ impl RenderElement for StdOutRender {
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
-            self.shader.get_shader();
+            element.shader.get_shader();
 
         let program = glium::Program::from_source(
             &display,
@@ -393,9 +444,11 @@ impl RenderElement for StdOutRender {
             ..Default::default()
         };
 
-        let zoom = config.size_x.max(config.size_y) * self.zoom;
+        let zoom = config.size_x.max(config.size_y) * element.zoom;
         let pos_x: f32 = 0.0;
         let pos_y: f32 = 0.0;
+
+        drop(element);
 
         let window_size = display.get_framebuffer_dimensions();
         let mut target = display.draw();
@@ -465,24 +518,26 @@ impl RenderElement for StdOutRender {
         }
     }
 
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
             match resolution {
-                "1080p" => self.resolution = (1920, 1080),
-                "720p" => self.resolution = (1280, 720),
-                "4k" => self.resolution = (3840, 2160),
-                _ => self.resolution = (1920, 1080),
+                "1080p" => element.resolution = (1920, 1080),
+                "720p" => element.resolution = (1280, 720),
+                "4k" => element.resolution = (3840, 2160),
+                _ => element.resolution = (1920, 1080),
             }
         }
         if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            self.zoom = zoom as f32
+            element.zoom = zoom as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let element = self.inner.lock().unwrap();
         match prop {
-            "resolution" => Ok(serde_json::json!(self.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(self.zoom)),
+            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
+            "zoom" => Ok(serde_json::json!(element.zoom)),
             _ => Err("No property".into()),
         }
     }
@@ -503,3 +558,5 @@ impl RenderElement for StdOutRender {
         ]))
     }
 }
+
+impl MessageClient for StdOutRender {}

@@ -1,22 +1,22 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use serde_json::Value;
 
-use crate::Entity;
+use crate::{messages::MessageClient, Entity};
 
 pub trait GeneratorElementCreator {
     fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement>;
 }
 
-pub trait GeneratorElement {
+pub trait GeneratorElement: Send + Sync + MessageClient {
     fn create_entities(&self) -> Vec<Entity>;
-    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+    fn set_properties(&self, new_props: HashMap<String, Value>);
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
 
 pub struct GeneratorElementHandler {
-    instance: Box<dyn GeneratorElement + Send>,
+    instance: Box<dyn GeneratorElement>,
 }
 
 impl GeneratorElementHandler {
@@ -24,16 +24,17 @@ impl GeneratorElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<GeneratorElementHandler, Box<dyn std::error::Error>> {
+    ) -> Result<Arc<GeneratorElementHandler>, Box<dyn std::error::Error>> {
         unsafe {
             let fn_name = format!("{name}_create_element");
             let lib = libloading::Library::new(path)?;
             type GetNewFnType = unsafe extern "Rust" fn(
                 properties: HashMap<String, Value>,
-            ) -> Box<dyn GeneratorElement + Send>;
+            )
+                -> Box<dyn GeneratorElement + Send>;
             let get_new_fn: libloading::Symbol<GetNewFnType> = lib.get(fn_name.as_bytes())?;
             let ins = get_new_fn(properties);
-            Ok(GeneratorElementHandler { instance: ins })
+            Ok(Arc::new(GeneratorElementHandler { instance: ins }))
         }
     }
 
@@ -43,7 +44,7 @@ impl GeneratorElementHandler {
 }
 
 impl ElementConfigurationHandler for GeneratorElementHandler {
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
         self.instance.set_properties(new_props);
     }
 
@@ -57,7 +58,13 @@ impl ElementConfigurationHandler for GeneratorElementHandler {
 }
 
 pub trait ElementConfigurationHandler {
-    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+    fn set_properties(&self, new_props: HashMap<String, Value>);
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
+}
+
+impl MessageClient for GeneratorElementHandler {
+    fn recv_message(&self, message: crate::messages::Message) {
+        self.instance.recv_message(message)
+    }
 }

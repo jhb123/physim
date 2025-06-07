@@ -44,12 +44,13 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
     let set_property_fn = format_ident!("{}_set_properties", prefix);
     let get_property_fn = format_ident!("{}_get_properties", prefix);
     let get_property_descriptions_fn = format_ident!("{}_get_property_descriptions", prefix);
+    let recv_message_fn = format_ident!("{}_recv_message", prefix);
 
     let g = quote! {
         #ast
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #init_fn(config: *const u8, len: usize) -> *mut std::ffi::c_void {
+        pub unsafe extern "C" fn #init_fn(config: *const u8, len: usize) -> *mut std::ffi::c_void {
             if config.is_null() {
                 return std::ptr::null_mut();
             }
@@ -65,8 +66,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #transform_fn(obj: *mut std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
-            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
+        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
+            let el: & #struct_name = unsafe { &*(obj as *const #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
             let n =  unsafe {  std::slice::from_raw_parts_mut(new_state, new_state_len) };
             el.transform(s, n,dt);
@@ -79,14 +80,15 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub extern "C" fn #api_fn() -> *const ::physim_core::plugin::transform::TransformElementAPI {
+        pub unsafe extern "C" fn #api_fn() -> *const ::physim_core::plugin::transform::TransformElementAPI {
             Box::into_raw(Box::new(::physim_core::plugin::transform::TransformElementAPI {
                 init: #init_fn,
                 transform: #transform_fn,
                 destroy: #destroy_fn,
                 set_properties: #set_property_fn,
                 get_property: #get_property_fn,
-                get_property_descriptions: #get_property_descriptions_fn
+                get_property_descriptions: #get_property_descriptions_fn,
+                recv_message: #recv_message_fn,
             }))
         }
 
@@ -138,6 +140,17 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 Ok(s) => return std::ffi::CString::new(s).unwrap().into_raw(),
                 Err(_) => return std::ptr::null_mut()
             }
+        }
+
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn #recv_message_fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
+            if obj.is_null() {return };
+            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
+            let msg = unsafe {
+                let msg = (*(msg as *mut physim_core::messages::CMessage)).clone();
+                msg.to_message()
+             };
+            el.recv_message(msg);
         }
     };
     g.into()
@@ -243,7 +256,7 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
     let register_fn = format_ident!("{}_register", prefix);
 
     let g = quote! {
-        #[derive(::serde::Serialize)]
+        // #[derive(::serde::Serialize)]
         #ast
 
         #[unsafe(no_mangle)]

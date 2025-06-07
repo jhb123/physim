@@ -1,8 +1,12 @@
-use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
+use std::{
+    collections::HashMap,
+    error::Error,
+    sync::{mpsc::Receiver, Arc},
+};
 
 use serde_json::Value;
 
-use crate::{Entity, UniverseConfiguration};
+use crate::{messages::MessageClient, Entity, UniverseConfiguration};
 
 use super::generator::ElementConfigurationHandler;
 
@@ -10,9 +14,9 @@ pub trait RenderElementCreator {
     fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement>;
 }
 
-pub trait RenderElement {
-    fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>);
-    fn set_properties(&mut self, new_props: HashMap<String, Value>);
+pub trait RenderElement: Send + Sync + MessageClient {
+    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>);
+    fn set_properties(&self, new_props: HashMap<String, Value>);
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
@@ -25,7 +29,7 @@ impl RenderElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<RenderElementHandler, Box<dyn std::error::Error>> {
+    ) -> Result<Arc<RenderElementHandler>, Box<dyn std::error::Error>> {
         unsafe {
             let fn_name = format!("{name}_create_element");
             let lib = libloading::Library::new(path)?;
@@ -34,17 +38,17 @@ impl RenderElementHandler {
             ) -> Box<dyn RenderElement>;
             let get_new_fn: libloading::Symbol<GetNewFnType> = lib.get(fn_name.as_bytes())?;
             let ins = get_new_fn(properties);
-            Ok(RenderElementHandler { instance: ins })
+            Ok(Arc::new(RenderElementHandler { instance: ins }))
         }
     }
 
-    pub fn render(&mut self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    pub fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
         self.instance.render(config, state_recv);
     }
 }
 
 impl ElementConfigurationHandler for RenderElementHandler {
-    fn set_properties(&mut self, new_props: HashMap<String, Value>) {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
         self.instance.set_properties(new_props);
     }
 
@@ -54,5 +58,11 @@ impl ElementConfigurationHandler for RenderElementHandler {
 
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
         self.instance.get_property_descriptions()
+    }
+}
+
+impl MessageClient for RenderElementHandler {
+    fn recv_message(&self, message: crate::messages::Message) {
+        self.instance.recv_message(message)
     }
 }

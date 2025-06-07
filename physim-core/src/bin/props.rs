@@ -1,18 +1,20 @@
 use physim_core::plugin::generator::ElementConfigurationHandler;
 
 fn main() {
-    let path = "/Users/josephbriggs/repos/physim/target/release/libastro.dylib";
+    let elements_db = physim_core::plugin::discover_map();
+
+    let element_meta = elements_db.get("debug").expect("plugins not loaded");
+    let path = &element_meta.lib_path;
     // physim_core::discover()
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element =
+    let el =
         physim_core::plugin::transform::TransformElementHandler::load(path, "debug", properties)
             .unwrap();
 
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element.lock().unwrap();
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "a": 31}).to_string();
@@ -24,15 +26,17 @@ fn main() {
 
     println!("{:?}", el.get_property_descriptions());
     //
+    let element_meta = elements_db.get("astro").expect("plugins not loaded");
+    let path = &element_meta.lib_path;
+
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
-    let element =
+    let el =
         physim_core::plugin::transform::TransformElementHandler::load(path, "astro", properties)
             .unwrap();
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element.lock().unwrap();
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "theta": 31}).to_string();
@@ -53,7 +57,7 @@ fn main() {
     let properties = serde_json::json!({ "n": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element;
+    let el = element;
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "n": 31.2}).to_string();
@@ -66,7 +70,9 @@ fn main() {
     println!("{:?}", el.get_property_descriptions());
 
     // check render elements
-    let path = "/Users/josephbriggs/repos/physim/target/release/libglrender.dylib";
+    let element_meta = elements_db.get("glrender").expect("plugins not loaded");
+    let path = &element_meta.lib_path;
+
     let properties = serde_json::json!({ "prop": 0, "a": 2}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
     let element =
@@ -75,7 +81,7 @@ fn main() {
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element;
+    let el = element;
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "resolution": "4k"}).to_string();
@@ -95,7 +101,7 @@ fn main() {
     let properties = serde_json::json!({ "a": 3}).to_string();
     let properties = serde_json::from_str(&properties).unwrap();
 
-    let mut el = element;
+    let el = element;
     el.set_properties(properties);
 
     let properties = serde_json::json!({ "resolution": "4k"}).to_string();
