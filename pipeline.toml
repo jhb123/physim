@@ -1,6 +1,6 @@
 [global]
-dt = 0.001
-iterations = 15000
+dt = 0.00001
+iterations = 1500
 
 [elements]
 

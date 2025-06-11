@@ -1,21 +1,24 @@
 use std::{
     collections::HashMap,
     env,
+    error::Error,
     path::Path,
     sync::{Arc, Mutex},
 };
 
-use generator::{ElementConfigurationHandler, GeneratorElementHandler};
+use generator::GeneratorElementHandler;
 use render::RenderElementHandler;
+use serde_json::Value;
 use transform::TransformElementHandler;
+use transmute::TransmuteElementHandler;
 use yansi::Paint;
 
-use crate::messages::MessageBus;
+use crate::messages::{MessageBus, MessageClient};
 
 pub mod generator;
 pub mod render;
-pub mod synth;
 pub mod transform;
+pub mod transmute;
 
 #[derive(Debug)]
 #[repr(C)]
@@ -24,6 +27,46 @@ pub enum ElementKind {
     Transform,
     Render,
     Synth,
+    Transmute,
+}
+
+pub trait Element: MessageClient {
+    fn set_properties(&self, new_props: HashMap<String, Value>);
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
+}
+pub trait Loadable {
+    type Item;
+    fn load(
+        path: &str,
+        name: &str,
+        properties: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<Arc<Self>, Box<dyn std::error::Error>>
+    where
+        Self: Sized,
+    {
+        let ins = unsafe { load_from_library::<Self::Item>(path, name, properties)? };
+        Ok(Arc::new(Self::new(ins)))
+    }
+
+    fn new(instance: Self::Item) -> Self;
+}
+
+unsafe fn load_from_library<T>(
+    path: &str,
+    name: &str,
+    properties: HashMap<String, Value>,
+) -> Result<T, Box<dyn Error>> {
+    let fn_name = format!("{name}_create_element");
+    let lib = libloading::Library::new(path)?;
+    type GetNewFnType<T> = unsafe extern "Rust" fn(HashMap<String, Value>) -> T;
+
+    let get_new_fn: libloading::Symbol<GetNewFnType<T>> = lib.get(fn_name.as_bytes())?;
+    Ok(get_new_fn(properties))
+}
+
+pub trait ElementCreator {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self>;
 }
 
 // set by library authors, determined at compile time
@@ -237,6 +280,12 @@ impl RegisteredElement {
                 self.element_info.name.bold().bright_red(),
                 "synth".yellow().dim()
             ),
+            ElementKind::Transmute => println!(
+                "{:>10}: {} {}",
+                self.element_info.plugin.bright_magenta(),
+                self.element_info.name.bold().bright_red(),
+                "transmute".yellow().dim()
+            ),
         }
     }
 
@@ -358,6 +407,15 @@ pub fn discover() -> Vec<RegisteredElement> {
                                     }
                                     ElementKind::Synth => {
                                         let el = GeneratorElementHandler::load(
+                                            &lib_path,
+                                            &element_info.name,
+                                            HashMap::new(),
+                                        )
+                                        .unwrap();
+                                        el.get_property_descriptions().unwrap()
+                                    }
+                                    ElementKind::Transmute => {
+                                        let el = TransmuteElementHandler::load(
                                             &lib_path,
                                             &element_info.name,
                                             HashMap::new(),

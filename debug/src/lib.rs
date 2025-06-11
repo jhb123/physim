@@ -15,8 +15,7 @@ use physim_core::{
     messages::{MessageClient, MessagePriority},
     msg,
     plugin::{
-        generator::{GeneratorElement, GeneratorElementCreator},
-        render::{RenderElement, RenderElementCreator},
+        Element, ElementCreator, generator::GeneratorElement, render::RenderElement,
         transform::TransformElement,
     },
     post_bus_msg, register_plugin,
@@ -31,8 +30,8 @@ struct RandSynth {
     active: AtomicBool,
 }
 
-impl GeneratorElementCreator for RandSynth {
-    fn create_element(_: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for RandSynth {
+    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
         Box::new(Self {
             active: AtomicBool::new(false),
         })
@@ -54,7 +53,9 @@ impl GeneratorElement for RandSynth {
             vec![]
         }
     }
+}
 
+impl Element for RandSynth {
     fn set_properties(&self, _: HashMap<String, Value>) {}
 
     fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -132,10 +133,8 @@ struct FakeSink {
     state: Mutex<u64>,
 }
 
-impl RenderElementCreator for FakeSink {
-    fn create_element(
-        _properties: HashMap<String, Value>,
-    ) -> Box<dyn physim_core::plugin::render::RenderElement> {
+impl ElementCreator for FakeSink {
+    fn create_element(_properties: HashMap<String, Value>) -> Box<Self> {
         Box::new(FakeSink {
             state: Mutex::new(0),
         })
@@ -152,7 +151,9 @@ impl RenderElement for FakeSink {
             println!("Rendering!");
         }
     }
+}
 
+impl Element for FakeSink {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         if let Some(state) = new_props.get("state").and_then(|state| state.as_u64()) {
             *self.state.lock().unwrap() = state
@@ -178,8 +179,8 @@ impl MessageClient for FakeSink {}
 #[initialise_state_element(name = "msgdebug", blurb = "Print messages")]
 struct MessageDebug {}
 
-impl GeneratorElementCreator for MessageDebug {
-    fn create_element(_: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for MessageDebug {
+    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
         Box::new(Self {})
     }
 }
@@ -188,7 +189,9 @@ impl GeneratorElement for MessageDebug {
     fn create_entities(&self) -> Vec<Entity> {
         vec![]
     }
+}
 
+impl Element for MessageDebug {
     fn set_properties(&self, _: HashMap<String, Value>) {}
 
     fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {

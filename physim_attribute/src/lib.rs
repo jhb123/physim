@@ -256,28 +256,12 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
     let register_fn = format_ident!("{}_register", prefix);
 
     let g = quote! {
-        // #[derive(::serde::Serialize)]
         #ast
 
         #[unsafe(no_mangle)]
         fn #create_element(properties: std::collections::HashMap<String, serde_json::Value>) -> Box<dyn ::physim_core::plugin::generator::GeneratorElement> {
             #name::create_element(properties)
         }
-
-        // #[unsafe(no_mangle)]
-        // fn #set_property_fn(properties: HashMap<String, Value>) {
-        //     #name::set_properties(properties)
-        // }
-
-        // #[unsafe(no_mangle)]
-        // fn #get_property_fn(prop:&str) -> Result<Value, Box<dyn std::error::Error>> {
-        //     #name::get_property(prop)
-        // }
-
-        // #[unsafe(no_mangle)]
-        // fn #get_property_descriptions_fn() -> HashMap<String, String> {
-        //     #name::get_property_descriptions()
-        // }
 
         #[unsafe(no_mangle)]
         unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
@@ -334,28 +318,12 @@ pub fn synth_element(attr: TokenStream, item: TokenStream) -> TokenStream {
     let register_fn = format_ident!("{}_register", prefix);
 
     let g = quote! {
-        #[derive(::serde::Serialize)]
         #ast
 
         #[unsafe(no_mangle)]
         fn #create_element(properties: std::collections::HashMap<String, serde_json::Value>) -> Box<dyn ::physim_core::plugin::generator::GeneratorElement> {
             #name::create_element(properties)
         }
-
-        // #[unsafe(no_mangle)]
-        // fn #set_property_fn(properties: HashMap<String, Value>) {
-        //     #name::set_properties(properties)
-        // }
-
-        // #[unsafe(no_mangle)]
-        // fn #get_property_fn(prop:&str) -> Result<Value, Box<dyn std::error::Error>> {
-        //     #name::get_property(prop)
-        // }
-
-        // #[unsafe(no_mangle)]
-        // fn #get_property_descriptions_fn() -> HashMap<String, String> {
-        //     #name::get_property_descriptions()
-        // }
 
         #[unsafe(no_mangle)]
         unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {

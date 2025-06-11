@@ -1,53 +1,33 @@
-use std::{
-    collections::HashMap,
-    error::Error,
-    sync::{mpsc::Receiver, Arc},
-};
+use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
 
 use serde_json::Value;
 
 use crate::{messages::MessageClient, Entity, UniverseConfiguration};
 
-use super::generator::ElementConfigurationHandler;
+use super::Element;
 
-pub trait RenderElementCreator {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement>;
-}
-
-pub trait RenderElement: Send + Sync + MessageClient {
+pub trait RenderElement: Element + Send + Sync + MessageClient {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>);
-    fn set_properties(&self, new_props: HashMap<String, Value>);
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
-    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
 pub struct RenderElementHandler {
     instance: Box<dyn RenderElement>,
 }
 
-impl RenderElementHandler {
-    pub fn load(
-        path: &str,
-        name: &str,
-        properties: HashMap<String, Value>,
-    ) -> Result<Arc<RenderElementHandler>, Box<dyn std::error::Error>> {
-        unsafe {
-            let fn_name = format!("{name}_create_element");
-            let lib = libloading::Library::new(path)?;
-            type GetNewFnType = unsafe extern "Rust" fn(
-                properties: HashMap<String, Value>,
-            ) -> Box<dyn RenderElement>;
-            let get_new_fn: libloading::Symbol<GetNewFnType> = lib.get(fn_name.as_bytes())?;
-            let ins = get_new_fn(properties);
-            Ok(Arc::new(RenderElementHandler { instance: ins }))
-        }
-    }
+impl super::Loadable for RenderElementHandler {
+    type Item = Box<dyn RenderElement>;
 
+    fn new(instance: Self::Item) -> Self {
+        Self { instance }
+    }
+}
+
+impl RenderElementHandler {
     pub fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
         self.instance.render(config, state_recv);
     }
 }
 
-impl ElementConfigurationHandler for RenderElementHandler {
+impl Element for RenderElementHandler {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         self.instance.set_properties(new_props);
     }

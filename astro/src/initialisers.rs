@@ -6,7 +6,7 @@ use physim_attribute::initialise_state_element;
 use physim_core::{
     Entity, EntityState,
     messages::MessageClient,
-    plugin::generator::{GeneratorElement, GeneratorElementCreator},
+    plugin::{Element, ElementCreator, generator::GeneratorElement},
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 use serde_json::Value;
@@ -29,8 +29,8 @@ struct InnerRandomCube {
     size: f32,
 }
 
-impl GeneratorElementCreator for RandomCube {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for RandomCube {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
         let n = properties
             .get("n")
             .and_then(|v| v.as_u64())
@@ -95,7 +95,8 @@ impl GeneratorElement for RandomCube {
         }
         state
     }
-
+}
+impl Element for RandomCube {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
 
@@ -172,8 +173,8 @@ pub struct SingleStar {
     inner: Mutex<Entity>,
 }
 
-impl GeneratorElementCreator for SingleStar {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for SingleStar {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
         fn get_f32(properties: &HashMap<String, Value>, key: &str) -> f32 {
             properties
                 .get(key)
@@ -213,7 +214,9 @@ impl GeneratorElement for SingleStar {
         let entity = self.inner.lock().unwrap();
         vec![*entity]
     }
+}
 
+impl Element for SingleStar {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut entity = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
@@ -293,8 +296,8 @@ struct InnerPlummer {
     spin: f32,
 }
 
-impl GeneratorElementCreator for Plummer {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for Plummer {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
         let n = properties
             .get("n")
             .and_then(|v| v.as_u64())
@@ -392,7 +395,9 @@ impl GeneratorElement for Plummer {
         }
         state
     }
+}
 
+impl Element for Plummer {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
         if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {

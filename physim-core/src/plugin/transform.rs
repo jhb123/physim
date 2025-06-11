@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::{messages::MessageClient, Entity};
 
-use super::generator::ElementConfigurationHandler;
+use super::Element;
 
 pub trait TransformElement: Send + Sync {
     fn new(properties: HashMap<String, Value>) -> Self;
@@ -130,7 +130,7 @@ impl TransformElementHandler {
     }
 }
 
-impl ElementConfigurationHandler for TransformElementHandler {
+impl Element for TransformElementHandler {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         // covert hashmap into something else?
         let json = serde_json::to_string(&new_props).unwrap();

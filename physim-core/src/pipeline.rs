@@ -18,7 +18,7 @@ use crate::{
     messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
         discover_map, generator::GeneratorElementHandler, render::RenderElementHandler, set_bus,
-        transform::TransformElementHandler, ElementKind, RegisteredElement,
+        transform::TransformElementHandler, ElementKind, Loadable, RegisteredElement,
     },
     Entity, UniverseConfiguration,
 };
@@ -323,6 +323,9 @@ impl PipelineBuilder {
                         self.synths.replace(vec![element]);
                     }
                 }
+            }
+            ElementKind::Transmute => {
+                todo!()
             }
         }
         Ok(self)
