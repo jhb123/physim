@@ -18,7 +18,8 @@ use crate::{
     messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
         discover_map, generator::GeneratorElementHandler, render::RenderElementHandler, set_bus,
-        transform::TransformElementHandler, ElementKind, RegisteredElement,
+        transform::TransformElementHandler, transmute::{TransmuteElement, TransmuteElementHandler}, ElementKind,
+        Loadable, RegisteredElement,
     },
     Entity, UniverseConfiguration,
 };
@@ -28,7 +29,8 @@ use crate::msg;
 pub struct Pipeline {
     initialisers: Vec<Arc<GeneratorElementHandler>>,
     synths: Option<Vec<Arc<GeneratorElementHandler>>>,
-    transforms: Arc<TransformElementHandler>,
+    transforms: Vec<Arc<TransformElementHandler>>,
+    transmutes: Vec<Arc<TransmuteElementHandler>>,
     render: Arc<RenderElementHandler>,
     timestep: f32,
     iterations: u64,
@@ -123,7 +125,14 @@ impl Pipeline {
                         new_state.extend(entities.iter());
                     }
                 });
-                self.transforms.transform(&state, &mut new_state, dt);
+                for t in &self.transforms {
+                    t.transform(&state, &mut new_state, dt);
+                    state = new_state.clone();
+                }
+                for t in &self.transmutes {
+                    t.transmute(&mut new_state);
+                }
+
                 state = new_state.clone();
                 info!(
                     "Updated state in {} ms. Sending state of len {}",
@@ -236,7 +245,8 @@ impl Pipeline {
 struct PipelineBuilder {
     initialisers: Vec<Arc<GeneratorElementHandler>>,
     synths: Option<Vec<Arc<GeneratorElementHandler>>>,
-    transforms: Option<Arc<TransformElementHandler>>, // maybe will allow more than one of these one day
+    transforms: Vec<Arc<TransformElementHandler>>,
+    transmutes: Vec<Arc<TransmuteElementHandler>>,
     render: Option<Arc<RenderElementHandler>>,
     element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of elements
     timestep: f32,
@@ -249,7 +259,8 @@ impl PipelineBuilder {
         PipelineBuilder {
             initialisers: vec![],
             synths: None,
-            transforms: None,
+            transforms: vec![],
+            transmutes: vec![],
             render: None,
             element_db: discover_map(),
             timestep: 0.000001,
@@ -292,12 +303,12 @@ impl PipelineBuilder {
             }
             ElementKind::Transform => {
                 let element =
-                    TransformElementHandler::loadv2(&element_data.lib_path, el_name, properties)
+                    TransformElementHandler::load(&element_data.lib_path, el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
                 drop(b);
-                self.transforms = Some(element);
+                self.transforms.push(element);
             }
             ElementKind::Render => {
                 let element =
@@ -324,6 +335,15 @@ impl PipelineBuilder {
                     }
                 }
             }
+            ElementKind::Transmute => {
+                let element =
+                    TransmuteElementHandler::load(&element_data.lib_path, el_name, properties)
+                        .map_err(|_| "Failed to load transmute element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
+                self.transmutes.push(element);
+            }
         }
         Ok(self)
     }
@@ -331,15 +351,16 @@ impl PipelineBuilder {
     pub fn build(self) -> Result<Pipeline, Box<dyn Error>> {
         if self.render.is_none() {
             Err("No renderer defined in pipeline".into())
-        } else if self.transforms.is_none() {
+        } else if self.transforms.is_empty() && self.transmutes.is_empty() {
             Err("No transforms defined in pipeline".into())
         } else {
-            let transforms = self.transforms.expect("just checked above");
-
+            let transforms = self.transforms;
+            let transmutes = self.transmutes;
             Ok(Pipeline {
                 initialisers: self.initialisers,
                 synths: self.synths,
                 transforms,
+                transmutes,
                 render: self.render.expect("Checked just above"),
                 timestep: self.timestep,
                 iterations: self.iterations,

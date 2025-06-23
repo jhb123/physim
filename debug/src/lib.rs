@@ -8,31 +8,30 @@ use std::{
 };
 
 use physim_attribute::{
-    initialise_state_element, render_element, synth_element, transform_element,
+    initialise_state_element, render_element, synth_element, transform_element, transmute_element,
 };
 use physim_core::{
     Entity,
     messages::{MessageClient, MessagePriority},
     msg,
     plugin::{
-        generator::{GeneratorElement, GeneratorElementCreator},
-        render::{RenderElement, RenderElementCreator},
-        transform::TransformElement,
+        Element, ElementCreator, generator::GeneratorElement, render::RenderElement,
+        transform::TransformElement, transmute::TransmuteElement,
     },
     post_bus_msg, register_plugin,
 };
 use rand::Rng;
 use serde_json::Value;
 
-register_plugin!("randsynth", "debug", "fakesink", "msgdebug");
+register_plugin!("randsynth", "debug", "fakesink", "msgdebug", "void");
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {
     active: AtomicBool,
 }
 
-impl GeneratorElementCreator for RandSynth {
-    fn create_element(_: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
+impl ElementCreator for RandSynth {
+    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
         Box::new(Self {
             active: AtomicBool::new(false),
         })
@@ -54,7 +53,9 @@ impl GeneratorElement for RandSynth {
             vec![]
         }
     }
+}
 
+impl Element for RandSynth {
     fn set_properties(&self, _: HashMap<String, Value>) {}
 
     fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -132,10 +133,8 @@ struct FakeSink {
     state: Mutex<u64>,
 }
 
-impl RenderElementCreator for FakeSink {
-    fn create_element(
-        _properties: HashMap<String, Value>,
-    ) -> Box<dyn physim_core::plugin::render::RenderElement> {
+impl ElementCreator for FakeSink {
+    fn create_element(_properties: HashMap<String, Value>) -> Box<Self> {
         Box::new(FakeSink {
             state: Mutex::new(0),
         })
@@ -152,7 +151,9 @@ impl RenderElement for FakeSink {
             println!("Rendering!");
         }
     }
+}
 
+impl Element for FakeSink {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         if let Some(state) = new_props.get("state").and_then(|state| state.as_u64()) {
             *self.state.lock().unwrap() = state
@@ -178,17 +179,19 @@ impl MessageClient for FakeSink {}
 #[initialise_state_element(name = "msgdebug", blurb = "Print messages")]
 struct MessageDebug {}
 
-impl GeneratorElementCreator for MessageDebug {
-    fn create_element(_: HashMap<String, Value>) -> Box<dyn GeneratorElement> {
-        Box::new(Self {})
-    }
-}
-
 impl GeneratorElement for MessageDebug {
     fn create_entities(&self) -> Vec<Entity> {
         vec![]
     }
+}
 
+impl ElementCreator for MessageDebug {
+    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+
+impl Element for MessageDebug {
     fn set_properties(&self, _: HashMap<String, Value>) {}
 
     fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -208,5 +211,59 @@ impl MessageClient for MessageDebug {
             "[MSGDEBUG] Priority: {:?} - topic {} - message: {}",
             message.priority, message.topic, message.message
         )
+    }
+}
+
+#[transmute_element(name = "void", blurb = "Destroy Entities")]
+struct Void {
+    inner: Mutex<VoidInner>
+}
+
+struct VoidInner {
+    lim: f32
+}
+
+impl TransmuteElement for Void {
+    fn transmute(&self, data: &mut Vec<Entity>) {
+        let lim = self.inner.lock().unwrap().lim;
+        data.retain(|entity| 
+            entity.state.x.abs() < lim &&
+            entity.state.y.abs() < lim
+        );
+    }
+}
+
+impl MessageClient for Void {}
+
+impl ElementCreator for Void {
+    fn create_element(props: HashMap<String, Value>) -> Box<Self> {
+        let lim = props.get("lim").map(|x| x.as_f64().unwrap_or(1.0)).unwrap_or(1.0);
+        let inner = VoidInner { lim: lim as f32 };
+        Box::new(Self { inner: Mutex::new(inner)})
+    }
+}
+
+impl Element for Void {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(val) = new_props.get("lim").and_then(|val| val.as_f64()) {
+            inner.lim = val as f32
+        }
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        let inner = self.inner.lock().unwrap();
+        match prop {
+            "lim" => Ok(serde_json::json!(inner.lim)),
+            _  => Err("No property".into()),
+        }
+    }
+
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([
+            ("lim".to_string(), "Maximum distance from origin in x,y, or z an entity can be s".to_string()),
+        ]))
     }
 }

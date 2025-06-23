@@ -14,7 +14,8 @@ use glium::{
 };
 use physim_attribute::render_element;
 use physim_core::messages::{Message, MessageClient, MessagePriority};
-use physim_core::plugin::render::{RenderElement, RenderElementCreator};
+use physim_core::plugin::render::RenderElement;
+use physim_core::plugin::{Element, ElementCreator};
 use physim_core::{Entity, UniverseConfiguration, msg, post_bus_msg, register_plugin};
 use serde_json::Value;
 
@@ -112,8 +113,8 @@ impl GLRenderElement {
     }
 }
 
-impl RenderElementCreator for GLRenderElement {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
+impl ElementCreator for GLRenderElement {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
         let resolution = properties
             .get("resolution")
             .and_then(|theta| theta.as_str())
@@ -300,7 +301,9 @@ impl RenderElement for GLRenderElement {
         };
     });
     }
+}
 
+impl Element for GLRenderElement {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
@@ -358,8 +361,8 @@ pub struct StdOutRender {
     inner: Mutex<InnerRenderElement>,
 }
 
-impl RenderElementCreator for StdOutRender {
-    fn create_element(properties: HashMap<String, Value>) -> Box<dyn RenderElement> {
+impl ElementCreator for StdOutRender {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
         let resolution = properties
             .get("resolution")
             .and_then(|theta| theta.as_str())
@@ -517,7 +520,9 @@ impl RenderElement for StdOutRender {
             handle.flush().expect("Failed to flush stdout");
         }
     }
+}
 
+impl Element for StdOutRender {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
         if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {

@@ -1,4 +1,4 @@
-use physim_core::plugin::generator::ElementConfigurationHandler;
+use physim_core::plugin::{Element, Loadable};
 
 fn main() {
     let elements_db = physim_core::plugin::discover_map();

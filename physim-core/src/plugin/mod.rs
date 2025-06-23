@@ -1,21 +1,23 @@
 use std::{
     collections::HashMap,
     env,
+    error::Error,
     path::Path,
     sync::{Arc, Mutex},
 };
 
-use generator::{ElementConfigurationHandler, GeneratorElementHandler};
-use render::RenderElementHandler;
-use transform::TransformElementHandler;
+use serde_json::Value;
 use yansi::Paint;
 
-use crate::messages::MessageBus;
+use crate::{
+    messages::{MessageBus, MessageClient},
+    plugin::transform::TransformElementHandler,
+};
 
 pub mod generator;
 pub mod render;
-pub mod synth;
 pub mod transform;
+pub mod transmute;
 
 #[derive(Debug)]
 #[repr(C)]
@@ -24,6 +26,46 @@ pub enum ElementKind {
     Transform,
     Render,
     Synth,
+    Transmute,
+}
+
+pub trait Element: MessageClient {
+    fn set_properties(&self, new_props: HashMap<String, Value>);
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
+}
+pub trait Loadable {
+    type Item;
+    fn load(
+        path: &str,
+        name: &str,
+        properties: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<Arc<Self>, Box<dyn std::error::Error>>
+    where
+        Self: Sized,
+    {
+        let ins = unsafe { load_from_library::<Self::Item>(path, name, properties)? };
+        Ok(Arc::new(Self::new(ins)))
+    }
+
+    fn new(instance: Self::Item) -> Self;
+}
+
+unsafe fn load_from_library<T>(
+    path: &str,
+    name: &str,
+    properties: HashMap<String, Value>,
+) -> Result<T, Box<dyn Error>> {
+    let fn_name = format!("{name}_create_element");
+    let lib = libloading::Library::new(path)?;
+    type GetNewFnType<T> = unsafe extern "Rust" fn(HashMap<String, Value>) -> T;
+
+    let get_new_fn: libloading::Symbol<GetNewFnType<T>> = lib.get(fn_name.as_bytes())?;
+    Ok(get_new_fn(properties))
+}
+
+pub trait ElementCreator {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self>;
 }
 
 // set by library authors, determined at compile time
@@ -235,7 +277,13 @@ impl RegisteredElement {
                 "{:>10}: {} {}",
                 self.element_info.plugin.bright_magenta(),
                 self.element_info.name.bold().bright_red(),
-                "synth".yellow().dim()
+                "synth".red().dim()
+            ),
+            ElementKind::Transmute => println!(
+                "{:>10}: {} {}",
+                self.element_info.plugin.bright_magenta(),
+                self.element_info.name.bold().bright_white(),
+                "transmute".white().dim()
             ),
         }
     }
@@ -328,16 +376,8 @@ pub fn discover() -> Vec<RegisteredElement> {
                                         )
                                         .unwrap();
                                 let element_info = register_element();
+
                                 let properties = match element_info.kind {
-                                    ElementKind::Initialiser => {
-                                        let el = GeneratorElementHandler::load(
-                                            &lib_path,
-                                            &element_info.name,
-                                            HashMap::new(),
-                                        )
-                                        .unwrap();
-                                        el.get_property_descriptions().unwrap()
-                                    }
                                     ElementKind::Transform => {
                                         let el = TransformElementHandler::load(
                                             &lib_path,
@@ -347,17 +387,8 @@ pub fn discover() -> Vec<RegisteredElement> {
                                         .unwrap();
                                         el.get_property_descriptions().unwrap()
                                     }
-                                    ElementKind::Render => {
-                                        let el = RenderElementHandler::load(
-                                            &lib_path,
-                                            &element_info.name,
-                                            HashMap::new(),
-                                        )
-                                        .unwrap();
-                                        el.get_property_descriptions().unwrap()
-                                    }
-                                    ElementKind::Synth => {
-                                        let el = GeneratorElementHandler::load(
+                                    _ => {
+                                        let el: Arc<MetaElement> = Loadable::load(
                                             &lib_path,
                                             &element_info.name,
                                             HashMap::new(),
@@ -381,6 +412,34 @@ pub fn discover() -> Vec<RegisteredElement> {
     }
     elements
 }
+
+/// Struct for determining metadata
+struct MetaElement {
+    instance: Box<dyn Element>,
+}
+impl Loadable for MetaElement {
+    type Item = Box<dyn Element>;
+
+    fn new(instance: Self::Item) -> Self {
+        Self { instance }
+    }
+}
+
+impl Element for MetaElement {
+    fn set_properties(&self, new_props: HashMap<String, Value>) {
+        self.instance.set_properties(new_props);
+    }
+
+    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
+        self.instance.get_property(prop)
+    }
+
+    fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
+        self.instance.get_property_descriptions()
+    }
+}
+
+impl MessageClient for MetaElement {}
 
 pub fn discover_map() -> HashMap<String, RegisteredElement> {
     let elements = discover();
