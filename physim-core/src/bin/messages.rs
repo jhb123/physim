@@ -30,8 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let element =
-        TransformElementHandler::loadv2(&element_meta.lib_path, "debug", HashMap::default())
-            .unwrap();
+        TransformElementHandler::load(&element_meta.lib_path, "debug", HashMap::default()).unwrap();
 
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {

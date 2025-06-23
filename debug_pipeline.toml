@@ -5,7 +5,7 @@ iterations = 15000
 [elements]
 
 [[elements.plummer]]
-n = 20
+n = 2000
 seed = 2
 spin = 0.7
 mass = 1000.0
@@ -17,7 +17,10 @@ a = 0.5
 
 [[elements.randsynth]]
 
-[[elements.debug]]
+[[elements.astro]]
+
+[[elements.void]]
+lim=0.5
 
 [[elements.glrender]]
 resolution="1080p"

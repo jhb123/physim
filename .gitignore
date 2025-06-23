@@ -4,3 +4,4 @@ flamegraph.svg
 *.mp3
 .env
 pipeline.toml
+.DS_Store

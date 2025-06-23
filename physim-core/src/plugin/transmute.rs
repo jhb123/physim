@@ -1,21 +1,17 @@
 use crate::{messages::MessageClient, Entity};
 
-use super::{Element, ElementCreator};
+use super::Element;
 
-/// For use by plugins
-pub trait TransmuteElement: TransmuteElementInternal + ElementCreator {}
-
-pub trait TransmuteElementInternal: Element + Send + Sync {
-    fn transmute(&self, data: Vec<Entity>);
+pub trait TransmuteElement: Element + Send + Sync {
+    fn transmute(&self, data: &mut Vec<Entity>);
 }
 
-/// For use by pipeline
 pub struct TransmuteElementHandler {
-    instance: Box<dyn TransmuteElementInternal>,
+    instance: Box<dyn TransmuteElement>,
 }
 
-impl TransmuteElementInternal for TransmuteElementHandler {
-    fn transmute(&self, data: Vec<Entity>) {
+impl TransmuteElement for TransmuteElementHandler {
+    fn transmute(&self, data: &mut Vec<Entity>) {
         self.instance.transmute(data);
     }
 }
@@ -37,7 +33,7 @@ impl Element for TransmuteElementHandler {
 }
 
 impl super::Loadable for TransmuteElementHandler {
-    type Item = Box<dyn TransmuteElementInternal>;
+    type Item = Box<dyn TransmuteElement>;
     fn new(instance: Self::Item) -> Self {
         Self { instance }
     }

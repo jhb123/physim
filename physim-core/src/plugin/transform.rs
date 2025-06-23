@@ -54,34 +54,6 @@ impl TransformElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        unsafe {
-            let api_fn_name = format!("{name}_get_api");
-            let properties = match serde_json::to_string(&properties) {
-                Ok(s) => s,
-                Err(_) => return Err("Invalid config. Must be JSON".into()),
-            };
-            let lib = libloading::Library::new(path)?;
-            let get_api: libloading::Symbol<unsafe extern "C" fn() -> *const TransformElementAPI> =
-                lib.get(api_fn_name.as_bytes())?;
-            let api = get_api();
-            let (c, u, _l) = properties.into_raw_parts();
-            let instance = ((*api).init)(c, u);
-            if instance.is_null() {
-                return Err("Could not create_entities element".into());
-            }
-            Ok(Self {
-                api: &*api,
-                instance: AtomicPtr::new(instance),
-                _lib: lib,
-            })
-        }
-    }
-
-    pub fn loadv2(
-        path: &str,
-        name: &str,
-        properties: HashMap<String, Value>,
     ) -> Result<Arc<Self>, Box<dyn std::error::Error>> {
         unsafe {
             let api_fn_name = format!("{name}_get_api");
