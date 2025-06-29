@@ -41,24 +41,24 @@ impl Renderable for Entity {
     fn verticies(&self) -> Vec<Vertex> {
         vec![
             Vertex {
-                position: [self.state.x, self.state.y + self.radius, self.state.z],
-                velocity: [self.state.vx, self.state.vy, self.state.vx],
+                position: [self.x, self.y + self.radius, self.z],
+                velocity: [self.vx, self.vy, self.vx],
             },
             Vertex {
                 position: [
-                    self.state.x - self.radius * f32::sqrt(3.0) * 0.5,
-                    self.state.y - 0.5 * self.radius,
-                    self.state.z,
+                    self.x - self.radius * f32::sqrt(3.0) * 0.5,
+                    self.y - 0.5 * self.radius,
+                    self.z,
                 ],
-                velocity: [self.state.vx, self.state.vy, self.state.vx],
+                velocity: [self.vx, self.vy, self.vx],
             },
             Vertex {
                 position: [
-                    self.state.x + self.radius * f32::sqrt(3.0) * 0.5,
-                    self.state.y - 0.5 * self.radius,
-                    self.state.z,
+                    self.x + self.radius * f32::sqrt(3.0) * 0.5,
+                    self.y - 0.5 * self.radius,
+                    self.z,
                 ],
-                velocity: [self.state.vx, self.state.vy, self.state.vx],
+                velocity: [self.vx, self.vy, self.vx],
             },
         ]
     }

@@ -29,6 +29,8 @@ a = 0.5
 theta = 1.4
 e = 0.3
 
+[[elements.euler]]
+
 
 [[elements.glrender]]
 resolution="1080p"

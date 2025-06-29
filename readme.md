@@ -51,7 +51,7 @@ No further features are planned yet. A gas simulation plugin would be interestin
 `physim` simulations can be configured directly in the CLI. Each element is delimited by `!`, and the properties of the element can be configured as shown in the following example:
 
 ```bash
-physim cube n=100000 seed=1 spin=1000 ! astro2 theta=1.5 e=0.5 ! star mass=100000.0 radius=0.1 z=0.5 x=0.2 y=0.2 ! star mass=100000.0 radius=0.1 z=0.5 x=-0.2 y=-0.2 ! glrender ! global dt=0.00001 iterations=10000
+physim cube n=100000 seed=1 spin=1000 ! star mass=100000.0 radius=0.1 z=0.5 x=0.2 y=0.2 ! star mass=100000.0 radius=0.1 z=0.5 x=-0.2 y=-0.2 ! astro2 theta=1.5 e=0.5 ! verlet ! glrender ! global dt=0.00001 iterations=10000
 ```
 Alternatively, the can be loaded via a file. The pipeline above can be expressed in toml as 
 
@@ -85,6 +85,8 @@ y=-0.2
 z=0.5
 radius = 0.1
 
+[[elements.verlet]]
+
 [[elements.glrender]]
 ```
 and run with
@@ -94,7 +96,7 @@ physim -f pipeline.toml
 ## Encoding with FFMPEG
 The following example shows how to use the `stdout` element from the `glrender` plugin.
 ```bash
-cargo run -r --bin physim cube n=100000 seed=1 spin=500 ! star mass=100000.0 x=0.1 y=0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=-0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=0.1 z=0.5 ! star mass=100000 x=0.1 y=-0.1 z=0.5 ! astro theta=1.3 ! stdout zoom=1.5 resolution=1080p | ffmpeg -y -f rawvideo -pixel_format bgra -video_size 1920x1080 -framerate 60 -i pipe:0 -vf "scale=in_range=full:out_range=full,format=yuv420p10le" -c:v libx265 -preset slow -pix_fmt yuv420p10le output.mp4
+cargo run -r --bin physim cube n=100000 seed=1 spin=500 ! star mass=100000.0 x=0.1 y=0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=-0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=0.1 z=0.5 ! star mass=100000 x=0.1 y=-0.1 z=0.5 ! astro theta=1.3 ! verlet ! stdout zoom=1.5 resolution=1080p | ffmpeg -y -f rawvideo -pixel_format bgra -video_size 1920x1080 -framerate 60 -i pipe:0 -vf "scale=in_range=full:out_range=full,format=yuv420p10le" -c:v libx265 -preset slow -pix_fmt yuv420p10le output.mp4
 ```
 Add audio with `ffmpeg -i input.mp4 -i input.mp3 -c:v copy -c:a aac -shortest output.mp4`
 

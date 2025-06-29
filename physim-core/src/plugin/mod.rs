@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub mod generator;
+pub mod integrator;
 pub mod render;
 pub mod transform;
 pub mod transmute;
@@ -27,6 +28,7 @@ pub enum ElementKind {
     Render,
     Synth,
     Transmute,
+    Integrator,
 }
 
 pub trait Element: MessageClient {
@@ -284,6 +286,12 @@ impl RegisteredElement {
                 self.element_info.plugin.bright_magenta(),
                 self.element_info.name.bold().bright_white(),
                 "transmute".white().dim()
+            ),
+            ElementKind::Integrator => println!(
+                "{:>10}: {} {}",
+                self.element_info.plugin.bright_magenta(),
+                self.element_info.name.bold().bright_blue(),
+                "integrator".blue().dim()
             ),
         }
     }

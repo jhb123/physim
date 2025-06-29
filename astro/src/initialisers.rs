@@ -4,7 +4,7 @@ use std::{collections::HashMap, f32::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
-    Entity, EntityState,
+    Entity,
     messages::MessageClient,
     plugin::{Element, ElementCreator, generator::GeneratorElement},
 };
@@ -80,16 +80,16 @@ impl GeneratorElement for RandomCube {
         let mut state = Vec::with_capacity(element.n as usize);
         for _ in 0..element.n {
             let mut e = Entity::random(&mut rng);
-            e.state.x *= element.size;
-            e.state.y *= element.size;
-            e.state.z *= element.size;
+            e.x *= element.size;
+            e.y *= element.size;
+            e.z *= element.size;
 
-            e.state.vx = e.state.y * element.spin as f32;
-            e.state.vy = -e.state.x * element.spin as f32;
+            e.vx = e.y * element.spin as f32;
+            e.vy = -e.x * element.spin as f32;
 
-            e.state.x += element.centre[0];
-            e.state.y += element.centre[1];
-            e.state.z += element.centre[2];
+            e.x += element.centre[0];
+            e.y += element.centre[1];
+            e.z += element.centre[2];
 
             state.push(e);
         }
@@ -184,14 +184,12 @@ impl ElementCreator for SingleStar {
         }
 
         let entity = Entity {
-            state: EntityState {
-                x: get_f32(&properties, "x"),
-                y: get_f32(&properties, "y"),
-                z: get_f32(&properties, "z"),
-                vx: get_f32(&properties, "vx"),
-                vy: get_f32(&properties, "vy"),
-                vz: get_f32(&properties, "vz"),
-            },
+            x: get_f32(&properties, "x"),
+            y: get_f32(&properties, "y"),
+            z: get_f32(&properties, "z"),
+            vx: get_f32(&properties, "vx"),
+            vy: get_f32(&properties, "vy"),
+            vz: get_f32(&properties, "vz"),
             radius: properties
                 .get("radius")
                 .and_then(|v| v.as_f64())
@@ -220,22 +218,22 @@ impl Element for SingleStar {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut entity = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            entity.state.x = val as f32
+            entity.x = val as f32
         }
         if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            entity.state.y = val as f32
+            entity.y = val as f32
         }
         if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            entity.state.z = val as f32
+            entity.z = val as f32
         }
         if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            entity.state.vx = val as f32
+            entity.vx = val as f32
         }
         if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            entity.state.vy = val as f32
+            entity.vy = val as f32
         }
         if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            entity.state.vz = val as f32
+            entity.vz = val as f32
         }
         if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
             entity.mass = val as f32
@@ -248,12 +246,12 @@ impl Element for SingleStar {
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         let entity = self.inner.lock().unwrap();
         match prop {
-            "x" => Ok(serde_json::json!(entity.state.x)),
-            "y" => Ok(serde_json::json!(entity.state.y)),
-            "z" => Ok(serde_json::json!(entity.state.z)),
-            "vx" => Ok(serde_json::json!(entity.state.vx)),
-            "vy" => Ok(serde_json::json!(entity.state.vy)),
-            "vz" => Ok(serde_json::json!(entity.state.vz)),
+            "x" => Ok(serde_json::json!(entity.x)),
+            "y" => Ok(serde_json::json!(entity.y)),
+            "z" => Ok(serde_json::json!(entity.z)),
+            "vx" => Ok(serde_json::json!(entity.vx)),
+            "vy" => Ok(serde_json::json!(entity.vy)),
+            "vz" => Ok(serde_json::json!(entity.vz)),
             "m" => Ok(serde_json::json!(entity.mass)),
             "r" => Ok(serde_json::json!(entity.radius)),
             _ => Err("No property".into()),
@@ -388,9 +386,9 @@ impl GeneratorElement for Plummer {
             let vy = v_phi * phi.cos();
             let vz = 0.0;
 
-            e.state.vx = vx + element.initial_v[0];
-            e.state.vy = vy + element.initial_v[1];
-            e.state.vz = vz + element.initial_v[2];
+            e.vx = vx + element.initial_v[0];
+            e.vy = vy + element.initial_v[1];
+            e.vz = vz + element.initial_v[2];
             state.push(e);
         }
         state

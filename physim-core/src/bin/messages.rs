@@ -111,10 +111,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     {
-        element.transform(&[], &mut [], 1.0);
-        element.transform(&[], &mut [], 1.0);
-        element.transform(&[], &mut [], 1.0);
-        element.transform(&[], &mut [], 1.0);
+        element.transform(&[], &mut []);
+        element.transform(&[], &mut []);
+        element.transform(&[], &mut []);
+        element.transform(&[], &mut []);
     }
     let _ = t1.join();
     let _ = t2.join();
