@@ -45,6 +45,10 @@ impl IntegratorElement for Euler {
             new_state[idx] = new_entity;
         }
     }
+
+    fn get_steps(&self) -> usize {
+        1
+    }
 }
 
 impl MessageClient for Euler {}

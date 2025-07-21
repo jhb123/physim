@@ -4,6 +4,7 @@ use super::Element;
 
 pub trait IntegratorElement: Element + Send + Sync {
     fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f32);
+    fn get_steps(&self) -> usize;
 }
 
 pub struct IntegratorElementHandler {
@@ -13,6 +14,9 @@ pub struct IntegratorElementHandler {
 impl IntegratorElement for IntegratorElementHandler {
     fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f32) {
         self.instance.integrate(entities, new_state, forces, dt);
+    }
+    fn get_steps(&self) -> usize {
+        self.instance.get_steps()
     }
 }
 

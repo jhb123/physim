@@ -136,12 +136,14 @@ impl Pipeline {
                         new_state.extend(entities.iter());
                     }
                 });
-                for t in &self.transforms {
-                    t.transform(&state, &mut forces);
-                }
 
-                self.integrator
-                    .integrate(&state, &mut new_state, &forces, dt);
+                for _ in 0..self.integrator.get_steps() {
+                    for t in &self.transforms {
+                        t.transform(&state, &mut forces);
+                    }
+                    self.integrator
+                        .integrate(&state, &mut new_state, &forces, dt);
+                }
 
                 for t in &self.transmutes {
                     t.transmute(&mut new_state);

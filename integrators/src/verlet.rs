@@ -83,7 +83,6 @@ impl VerletInner {
     }
 }
 
-
 impl IntegratorElement for Verlet {
     fn integrate(
         &self,
@@ -98,6 +97,10 @@ impl IntegratorElement for Verlet {
         } else {
             inner.integration(entities, new_state, forces, dt);
         }
+    }
+
+    fn get_steps(&self) -> usize {
+        1
     }
 }
 
