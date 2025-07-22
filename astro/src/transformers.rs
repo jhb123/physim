@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use bumpalo::Bump;
 use physim_attribute::transform_element;
-use physim_core::{Entity, messages::MessageClient, plugin::transform::TransformElement};
+use physim_core::{Entity, Force, messages::MessageClient, plugin::transform::TransformElement};
 use serde_json::Value;
 
 use crate::{Star, octree::Octree, quadtree::QuadTree};
@@ -23,7 +23,7 @@ struct InnerBhElement {
 }
 
 impl TransformElement for AstroElement {
-    fn transform(&self, state: &[Entity], new_state: &mut [Entity], dt: f32) {
+    fn transform(&self, state: &[Entity], forces: &mut [Force]) {
         // let mut new_state = Vec::with_capacity(state.len());
         let arena = Bump::new();
         let extent = state
@@ -51,7 +51,11 @@ impl TransformElement for AstroElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.verlet(dt, f);
+            forces[i] = Force {
+                fx: f[0],
+                fy: f[1],
+                fz: f[2],
+            }
         }
         // let msg = msg!(
         //     self,
@@ -133,7 +137,7 @@ pub struct AstroOctreeElement {
 }
 
 impl TransformElement for AstroOctreeElement {
-    fn transform(&self, state: &[Entity], new_state: &mut [Entity], dt: f32) {
+    fn transform(&self, state: &[Entity], forces: &mut [Force]) {
         // let mut new_state = Vec::with_capacity(state.len());
         let arena = Bump::new();
         let extent = state
@@ -161,7 +165,11 @@ impl TransformElement for AstroOctreeElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.verlet(dt, f);
+            forces[i] += Force {
+                fx: f[0],
+                fy: f[1],
+                fz: f[2],
+            }
         }
     }
 
@@ -235,7 +243,7 @@ pub struct SimpleAstroElement {
 }
 
 impl TransformElement for SimpleAstroElement {
-    fn transform(&self, state: &[Entity], new_state: &mut [Entity], dt: f32) {
+    fn transform(&self, state: &[Entity], forces: &mut [Force]) {
         for (i, star_a) in state.iter().enumerate() {
             let mut f = [0.0; 3];
 
@@ -251,7 +259,11 @@ impl TransformElement for SimpleAstroElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            new_state[i] = star_a.verlet(dt, f);
+            forces[i] += Force {
+                fx: f[0],
+                fy: f[1],
+                fz: f[2],
+            }
         }
     }
 

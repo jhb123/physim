@@ -17,11 +17,16 @@ use serde_json::Value;
 use crate::{
     messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
-        discover_map, generator::GeneratorElementHandler, render::RenderElementHandler, set_bus,
-        transform::TransformElementHandler, transmute::{TransmuteElement, TransmuteElementHandler}, ElementKind,
-        Loadable, RegisteredElement,
+        discover_map,
+        generator::GeneratorElementHandler,
+        integrator::{IntegratorElement, IntegratorElementHandler},
+        render::RenderElementHandler,
+        set_bus,
+        transform::TransformElementHandler,
+        transmute::{TransmuteElement, TransmuteElementHandler},
+        ElementKind, Loadable, RegisteredElement,
     },
-    Entity, UniverseConfiguration,
+    Entity, Force, UniverseConfiguration,
 };
 
 use crate::msg;
@@ -32,6 +37,7 @@ pub struct Pipeline {
     transforms: Vec<Arc<TransformElementHandler>>,
     transmutes: Vec<Arc<TransmuteElementHandler>>,
     render: Arc<RenderElementHandler>,
+    integrator: Arc<IntegratorElementHandler>,
     timestep: f32,
     iterations: u64,
     bus: Arc<Mutex<MessageBus>>,
@@ -89,6 +95,11 @@ impl Pipeline {
             new_state.push(Entity::default());
         }
 
+        let mut forces = Vec::with_capacity(state.capacity());
+        for _ in 0..state.len() {
+            forces.push(Force::default());
+        }
+
         let msg_flag = Arc::new(AtomicBool::new(true));
         let msg_flag_clone = msg_flag.clone();
         let bus_clone = self.bus.clone();
@@ -125,10 +136,15 @@ impl Pipeline {
                         new_state.extend(entities.iter());
                     }
                 });
-                for t in &self.transforms {
-                    t.transform(&state, &mut new_state, dt);
-                    state = new_state.clone();
+
+                for _ in 0..self.integrator.get_steps() {
+                    for t in &self.transforms {
+                        t.transform(&state, &mut forces);
+                    }
+                    self.integrator
+                        .integrate(&state, &mut new_state, &forces, dt);
                 }
+
                 for t in &self.transmutes {
                     t.transmute(&mut new_state);
                 }
@@ -248,7 +264,8 @@ struct PipelineBuilder {
     transforms: Vec<Arc<TransformElementHandler>>,
     transmutes: Vec<Arc<TransmuteElementHandler>>,
     render: Option<Arc<RenderElementHandler>>,
-    element_db: HashMap<String, RegisteredElement>, // this will be expanded later to have more types of elements
+    integrator: Option<Arc<IntegratorElementHandler>>,
+    element_db: HashMap<String, RegisteredElement>,
     timestep: f32,
     iterations: u64,
     bus: Arc<Mutex<MessageBus>>,
@@ -262,6 +279,7 @@ impl PipelineBuilder {
             transforms: vec![],
             transmutes: vec![],
             render: None,
+            integrator: None,
             element_db: discover_map(),
             timestep: 0.000001,
             iterations: 10000,
@@ -344,12 +362,23 @@ impl PipelineBuilder {
                 drop(b);
                 self.transmutes.push(element);
             }
+            ElementKind::Integrator => {
+                let element =
+                    IntegratorElementHandler::load(&element_data.lib_path, el_name, properties)
+                        .map_err(|_| "Failed to load transmute element")?;
+                let mut b = self.bus.lock().unwrap();
+                b.add_client(element.clone());
+                drop(b);
+                self.integrator = Some(element);
+            }
         }
         Ok(self)
     }
 
     pub fn build(self) -> Result<Pipeline, Box<dyn Error>> {
-        if self.render.is_none() {
+        if self.integrator.is_none() {
+            Err("No integrator defined in pipeline".into())
+        } else if self.render.is_none() {
             Err("No renderer defined in pipeline".into())
         } else if self.transforms.is_empty() && self.transmutes.is_empty() {
             Err("No transforms defined in pipeline".into())
@@ -362,6 +391,7 @@ impl PipelineBuilder {
                 transforms,
                 transmutes,
                 render: self.render.expect("Checked just above"),
+                integrator: self.integrator.expect("Checked just above"),
                 timestep: self.timestep,
                 iterations: self.iterations,
                 bus: self.bus,
@@ -381,6 +411,12 @@ struct PipelineConfig {
     global: GlobalOptions,
     elements: HashMap<String, Vec<HashMap<String, Value>>>,
 }
+
+// #[derive(Deserialize, Debug)]
+// struct ElementConfig {
+//     elements: HashMap<String, Vec<HashMap<String, Value>>>,
+//     branches:
+// }
 
 #[derive(Deserialize, Debug)]
 struct GlobalOptions {

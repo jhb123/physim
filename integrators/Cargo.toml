@@ -1,0 +1,15 @@
+[package]
+name = "integrators"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+physim-core = { path = "../physim-core" }
+physim_attribute = { path = "../physim_attribute" }
+serde_json = "1.0.140"

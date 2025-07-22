@@ -11,13 +11,13 @@ use std::{
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{messages::MessageClient, Entity};
+use crate::{messages::MessageClient, Entity, Force};
 
 use super::Element;
 
 pub trait TransformElement: Send + Sync {
     fn new(properties: HashMap<String, Value>) -> Self;
-    fn transform(&self, state: &[Entity], new_state: &mut [Entity], dt: f32);
+    fn transform(&self, state: &[Entity], forces: &mut [Force]);
     fn set_properties(&self, properties: HashMap<String, Value>);
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> HashMap<String, String>;
@@ -26,14 +26,8 @@ pub trait TransformElement: Send + Sync {
 #[repr(C)]
 pub struct TransformElementAPI {
     pub init: unsafe extern "C" fn(*const u8, usize) -> *mut std::ffi::c_void,
-    pub transform: unsafe extern "C" fn(
-        *const std::ffi::c_void,
-        *const Entity,
-        usize,
-        *mut Entity,
-        usize,
-        f32,
-    ),
+    pub transform:
+        unsafe extern "C" fn(*const std::ffi::c_void, *const Entity, usize, *mut Force, usize),
     pub destroy: unsafe extern "C" fn(*mut std::ffi::c_void),
     pub set_properties: unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char),
     pub get_property:
@@ -79,17 +73,17 @@ impl TransformElementHandler {
         }
     }
 
-    pub fn transform(&self, state: &[Entity], new_state: &mut [Entity], dt: f32) {
+    pub fn transform(&self, state: &[Entity], forces: &mut [Force]) {
         let state_len = state.len();
         let state = state.as_ptr();
-        let new_state_len = state_len;
-        let new_state_ptr = new_state.as_mut_ptr();
+        let forces_len = state_len;
+        let forces_ptr = forces.as_mut_ptr();
         let instance = self.instance.load(Ordering::SeqCst);
         if instance.is_null() {
             eprintln!("Transform is not loaded");
         } else {
             unsafe {
-                (self.api.transform)(instance, state, state_len, new_state_ptr, new_state_len, dt);
+                (self.api.transform)(instance, state, state_len, forces_ptr, forces_len);
             }
             // new_state = std::slice::from_raw_parts_mut(new_state_ptr, new_state_len) ;
         }

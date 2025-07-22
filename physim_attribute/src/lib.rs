@@ -66,11 +66,11 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, new_state: *mut Entity, new_state_len: usize, dt: f32) {
+        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, forces: *mut Force, forces_len: usize) {
             let el: & #struct_name = unsafe { &*(obj as *const #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
-            let n =  unsafe {  std::slice::from_raw_parts_mut(new_state, new_state_len) };
-            el.transform(s, n,dt);
+            let n =  unsafe {  std::slice::from_raw_parts_mut(forces, forces_len) };
+            el.transform(s, n);
         }
 
         #[unsafe(no_mangle)]
@@ -391,6 +391,68 @@ pub fn transmute_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
             ::physim_core::plugin::ElementMeta::new(
                 ::physim_core::plugin::ElementKind::Transmute,
+                #el_name,
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION"),
+                env!("CARGO_PKG_LICENSE"),
+                env!("CARGO_PKG_AUTHORS"),
+                #blurb,
+                env!("CARGO_PKG_REPOSITORY")
+            )
+        }
+    };
+    g.into()
+}
+
+#[proc_macro_attribute]
+pub fn integrator_element(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(item as DeriveInput);
+
+    let mut prefix: Option<LitStr> = None;
+    let mut blurb: Option<LitStr> = None;
+
+    let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("name") {
+            prefix = meta.value()?.parse()?;
+            Ok(())
+        } else if meta.path.is_ident("blurb") {
+            blurb = meta.value()?.parse()?;
+            Ok(())
+        } else {
+            Err(meta.error("unsupported property"))
+        }
+    });
+
+    parse_macro_input!(attr with parser);
+
+    if prefix.is_none() {
+        panic!("Must specify a name")
+    }
+    if blurb.is_none() {
+        panic!("Must specify a blurb")
+    }
+
+    let el_name = prefix.clone().unwrap();
+    let blurb = blurb.unwrap();
+
+    let prefix = prefix.unwrap().value();
+
+    let name = &ast.ident;
+    let create_element = format_ident!("{}_create_element", prefix);
+    let register_fn = format_ident!("{}_register", prefix);
+
+    let g = quote! {
+        #ast
+
+        #[unsafe(no_mangle)]
+        fn #create_element(properties: std::collections::HashMap<String, serde_json::Value>) -> Box<dyn ::physim_core::plugin::integrator::IntegratorElement> {
+            #name::create_element(properties)
+        }
+
+        #[unsafe(no_mangle)]
+        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
+            ::physim_core::plugin::ElementMeta::new(
+                ::physim_core::plugin::ElementKind::Integrator,
                 #el_name,
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION"),
