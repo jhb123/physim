@@ -28,7 +28,6 @@ pub struct Entity {
     pub vx: f32,
     pub vy: f32,
     pub vz: f32,
-    // pub prev_state: Option<EntityState>,
     pub radius: f32,
     pub mass: f32,
     pub id: usize,
