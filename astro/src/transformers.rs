@@ -20,6 +20,7 @@ pub struct AstroElement {
 struct InnerBhElement {
     theta: f32,
     easing_factor: f32,
+    skip_ids: Vec<usize>
 }
 
 impl TransformElement for AstroElement {
@@ -38,6 +39,9 @@ impl TransformElement for AstroElement {
         }
         let element = self.inner.lock().unwrap();
         for (i, star_a) in state.iter().enumerate() {
+            if element.skip_ids.contains(&star_a.id) {
+                continue;
+            }
             let mut f = [0.0; 3];
 
             let star_bs = tree.get_leaves_with_resolution(star_a.get_centre(), element.theta);
@@ -82,6 +86,7 @@ impl TransformElement for AstroElement {
             inner: Mutex::new(InnerBhElement {
                 theta,
                 easing_factor,
+                skip_ids: vec![]
             }),
         }
     }
@@ -126,7 +131,15 @@ impl TransformElement for AstroElement {
     }
 }
 
-impl MessageClient for AstroElement {}
+impl MessageClient for AstroElement {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        if message.topic == "astro.fixed" {
+            let id = message.message.parse().unwrap();
+            let mut lock = self.inner.lock().unwrap();
+            lock.skip_ids.push(id);
+        }
+    }
+}
 
 #[transform_element(
     name = "astro2",
@@ -153,6 +166,9 @@ impl TransformElement for AstroOctreeElement {
 
         let element = self.inner.lock().unwrap();
         for (i, star_a) in state.iter().enumerate() {
+            if element.skip_ids.contains(&star_a.id) {
+                continue;
+            }
             let mut f = [0.0; 3];
             let star_bs = tree.get_leaves_with_resolution(star_a.get_centre(), element.theta);
             for star_b in star_bs.iter() {
@@ -189,6 +205,7 @@ impl TransformElement for AstroOctreeElement {
             inner: Mutex::new(InnerBhElement {
                 theta,
                 easing_factor,
+                skip_ids: vec![]
             }),
         }
     }
@@ -233,18 +250,35 @@ impl TransformElement for AstroOctreeElement {
     }
 }
 
-impl MessageClient for AstroOctreeElement {}
+impl MessageClient for AstroOctreeElement {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        if message.topic == "astro.fixed" {
+            let id = message.message.parse().unwrap();
+            let mut lock = self.inner.lock().unwrap();
+            lock.skip_ids.push(id);
+        }
+    }
+}
 
 // impl Configurable for
 
 #[transform_element(name = "simple_astro", blurb = "Compute exact gravitational forces")]
 pub struct SimpleAstroElement {
-    easing_factor: Mutex<f32>,
+    inner: Mutex<InnerSimpleAstroElement>,
+}
+
+struct InnerSimpleAstroElement {
+    easing_factor: f32,
+    skip_ids: Vec<usize>
 }
 
 impl TransformElement for SimpleAstroElement {
     fn transform(&self, state: &[Entity], forces: &mut [Force]) {
+        let inner = self.inner.lock().unwrap();
         for (i, star_a) in state.iter().enumerate() {
+            if inner.skip_ids.contains(&star_a.id) {
+                continue;
+            }
             let mut f = [0.0; 3];
 
             for star_b in state.iter() {
@@ -252,8 +286,7 @@ impl TransformElement for SimpleAstroElement {
                     continue;
                 }
                 let fij = star_a.newtons_law_of_universal_gravitation(
-                    star_b,
-                    *self.easing_factor.lock().unwrap(),
+                    star_b, inner.easing_factor,
                 );
                 f[0] += fij[0];
                 f[1] += fij[1];
@@ -275,7 +308,7 @@ impl TransformElement for SimpleAstroElement {
             .unwrap_or(1.0) as f32;
 
         Self {
-            easing_factor: Mutex::new(easing_factor),
+            inner: Mutex::new(InnerSimpleAstroElement {easing_factor, skip_ids: vec![]}),
         }
     }
 
@@ -285,13 +318,13 @@ impl TransformElement for SimpleAstroElement {
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
         {
-            *self.easing_factor.lock().unwrap() = easing_factor as f32
+            self.inner.lock().unwrap().easing_factor = easing_factor as f32
         }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
         match prop {
-            "e" => Ok(serde_json::json!(*self.easing_factor.lock().unwrap())),
+            "e" => Ok(serde_json::json!(self.inner.lock().unwrap().easing_factor)),
             _ => Err("No property".into()),
         }
     }
@@ -304,4 +337,12 @@ impl TransformElement for SimpleAstroElement {
     }
 }
 
-impl MessageClient for SimpleAstroElement {}
+impl MessageClient for SimpleAstroElement {
+        fn recv_message(&self, message: physim_core::messages::Message) {
+        if message.topic == "astro.fixed" {
+            let id = message.message.parse().unwrap();
+            let mut lock = self.inner.lock().unwrap();
+            lock.skip_ids.push(id);
+        }
+    }
+}

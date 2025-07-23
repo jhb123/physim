@@ -4,9 +4,7 @@ use std::{collections::HashMap, f32::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
-    Entity,
-    messages::MessageClient,
-    plugin::{Element, ElementCreator, generator::GeneratorElement},
+    messages::{MessageClient, MessagePriority}, msg, plugin::{generator::GeneratorElement, Element, ElementCreator}, post_bus_msg, Entity
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 use serde_json::Value;
@@ -170,7 +168,12 @@ impl MessageClient for RandomCube {}
 
 #[initialise_state_element(name = "star", blurb = "create a configurable star")]
 pub struct SingleStar {
-    inner: Mutex<Entity>,
+    inner: Mutex<SingleStarInner>,
+}
+
+struct SingleStarInner {
+    entity: Entity,
+    fixed: bool
 }
 
 impl ElementCreator for SingleStar {
@@ -196,11 +199,17 @@ impl ElementCreator for SingleStar {
                 .map(|v| v as f32)
                 .unwrap_or(0.1),
             mass: get_f32(&properties, "mass"),
+            id: properties.get("id").and_then(|v| v.as_u64().map(|v| v as usize) ).unwrap_or(0) ,
             ..Default::default()
         };
 
+        let fixed = properties.get("fixed").and_then(|v| v.as_bool()).unwrap_or(false);
+
+
+        let inner = SingleStarInner { entity , fixed };
+
         Box::new(Self {
-            inner: Mutex::new(entity),
+            inner: Mutex::new(inner),
         })
     }
 }
@@ -209,51 +218,67 @@ impl MessageClient for SingleStar {}
 
 impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
-        let entity = self.inner.lock().unwrap();
-        vec![*entity]
+        let inner = self.inner.lock().unwrap();
+        if inner.fixed {
+            let pause = msg!(self,"astro.fixed",format!("{}",inner.entity.id),MessagePriority::RealTime);
+            post_bus_msg!(pause);
+        }
+        vec![inner.entity]
     }
 }
 
 impl Element for SingleStar {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut entity = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            entity.x = val as f32
+            inner.entity.x = val as f32
         }
         if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            entity.y = val as f32
+            inner.entity.y = val as f32
         }
         if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            entity.z = val as f32
+            inner.entity.z = val as f32
         }
         if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            entity.vx = val as f32
+            inner.entity.vx = val as f32
         }
         if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            entity.vy = val as f32
+            inner.entity.vy = val as f32
         }
         if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            entity.vz = val as f32
+            inner.entity.vz = val as f32
         }
         if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
-            entity.mass = val as f32
+            inner.entity.mass = val as f32
         }
         if let Some(val) = new_props.get("r").and_then(|val| val.as_f64()) {
-            entity.radius = val as f32
+            inner.entity.radius = val as f32
         }
+        if let Some(val) = new_props.get("id").and_then(|val| val.as_u64()) {
+            inner.entity.id = val as usize
+        } else {
+            inner.entity.id = 0
+        }
+        if let Some(val) = new_props.get("fixed").and_then(|val| val.as_bool()) {
+            println!("setting fixed!");
+            inner.fixed = val
+        }
+
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let entity = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap();
         match prop {
-            "x" => Ok(serde_json::json!(entity.x)),
-            "y" => Ok(serde_json::json!(entity.y)),
-            "z" => Ok(serde_json::json!(entity.z)),
-            "vx" => Ok(serde_json::json!(entity.vx)),
-            "vy" => Ok(serde_json::json!(entity.vy)),
-            "vz" => Ok(serde_json::json!(entity.vz)),
-            "m" => Ok(serde_json::json!(entity.mass)),
-            "r" => Ok(serde_json::json!(entity.radius)),
+            "x" => Ok(serde_json::json!(inner.entity.x)),
+            "y" => Ok(serde_json::json!(inner.entity.y)),
+            "z" => Ok(serde_json::json!(inner.entity.z)),
+            "vx" => Ok(serde_json::json!(inner.entity.vx)),
+            "vy" => Ok(serde_json::json!(inner.entity.vy)),
+            "vz" => Ok(serde_json::json!(inner.entity.vz)),
+            "m" => Ok(serde_json::json!(inner.entity.mass)),
+            "r" => Ok(serde_json::json!(inner.entity.radius)),
+            "id" => Ok(serde_json::json!(inner.entity.id)),
+            "fixed" => Ok(serde_json::json!(inner.fixed)),
             _ => Err("No property".into()),
         }
     }
@@ -270,6 +295,8 @@ impl Element for SingleStar {
             ("vz".to_string(), "velocity in z direction".to_string()),
             ("m".to_string(), "mass".to_string()),
             ("r".to_string(), "Radius (screen units)".to_string()),
+            ("id".to_string(), "ID of entity".to_string()),
+            ("fixed".to_string(), "Fix location".to_string()),
         ]))
     }
 }
