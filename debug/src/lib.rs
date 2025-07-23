@@ -1,4 +1,6 @@
 #![feature(str_from_raw_parts)]
+mod energysink;
+
 use std::{
     collections::HashMap,
     sync::{
@@ -23,7 +25,7 @@ use physim_core::{
 use rand::Rng;
 use serde_json::Value;
 
-register_plugin!("randsynth", "debug", "fakesink", "msgdebug", "void");
+register_plugin!("randsynth", "debug", "fakesink", "msgdebug", "void", "energysink");
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]
 struct RandSynth {

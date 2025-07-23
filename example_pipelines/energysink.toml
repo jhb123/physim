@@ -1,0 +1,44 @@
+[global]
+dt = 0.0001
+iterations = 1500
+
+[elements]
+
+[[elements.cube]]
+n = 5000
+seed = 1
+spin = 50
+mass = 10.0
+centre=[0.3,-0.3,0.0]
+v=[0.0,-5.0,0.0]
+a = 2.0
+
+[[elements.cube]]
+n = 5000
+seed = 2
+spin = -50
+mass = 10.0
+centre=[-0.3,0.3,0.0]
+v=[0.0,-5.0,0.0]
+a = 2.0
+
+[[elements.star]]
+mass = 100.0
+x=0.0
+y=0.0
+z=0.5
+radius = 0.1
+fixed=true
+id=10
+
+[[elements.msgdebug]]
+
+
+[[elements.astro2]]
+theta = 1.2
+e = 1.2
+
+[[elements.rk4]]
+
+
+[[elements.energysink]]
