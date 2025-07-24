@@ -20,7 +20,7 @@ pub struct AstroElement {
 struct InnerBhElement {
     theta: f32,
     easing_factor: f32,
-    skip_ids: Vec<usize>
+    skip_ids: Vec<usize>,
 }
 
 impl TransformElement for AstroElement {
@@ -55,19 +55,12 @@ impl TransformElement for AstroElement {
                 f[1] += fij[1];
                 f[2] += fij[2];
             }
-            forces[i] = Force {
+            forces[i] += Force {
                 fx: f[0],
                 fy: f[1],
                 fz: f[2],
             }
         }
-        // let msg = msg!(
-        //     self,
-        //     "astro",
-        //     "transformed",
-        //     physim_core::messages::MessagePriority::Low
-        // );
-        // physim_core::post_bus_msg!(msg);
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
@@ -86,7 +79,7 @@ impl TransformElement for AstroElement {
             inner: Mutex::new(InnerBhElement {
                 theta,
                 easing_factor,
-                skip_ids: vec![]
+                skip_ids: vec![],
             }),
         }
     }
@@ -205,7 +198,7 @@ impl TransformElement for AstroOctreeElement {
             inner: Mutex::new(InnerBhElement {
                 theta,
                 easing_factor,
-                skip_ids: vec![]
+                skip_ids: vec![],
             }),
         }
     }
@@ -269,7 +262,7 @@ pub struct SimpleAstroElement {
 
 struct InnerSimpleAstroElement {
     easing_factor: f32,
-    skip_ids: Vec<usize>
+    skip_ids: Vec<usize>,
 }
 
 impl TransformElement for SimpleAstroElement {
@@ -285,9 +278,7 @@ impl TransformElement for SimpleAstroElement {
                 if star_a.get_centre() == star_b.get_centre() {
                     continue;
                 }
-                let fij = star_a.newtons_law_of_universal_gravitation(
-                    star_b, inner.easing_factor,
-                );
+                let fij = star_a.newtons_law_of_universal_gravitation(star_b, inner.easing_factor);
                 f[0] += fij[0];
                 f[1] += fij[1];
                 f[2] += fij[2];
@@ -308,7 +299,10 @@ impl TransformElement for SimpleAstroElement {
             .unwrap_or(1.0) as f32;
 
         Self {
-            inner: Mutex::new(InnerSimpleAstroElement {easing_factor, skip_ids: vec![]}),
+            inner: Mutex::new(InnerSimpleAstroElement {
+                easing_factor,
+                skip_ids: vec![],
+            }),
         }
     }
 
@@ -338,7 +332,7 @@ impl TransformElement for SimpleAstroElement {
 }
 
 impl MessageClient for SimpleAstroElement {
-        fn recv_message(&self, message: physim_core::messages::Message) {
+    fn recv_message(&self, message: physim_core::messages::Message) {
         if message.topic == "astro.fixed" {
             let id = message.message.parse().unwrap();
             let mut lock = self.inner.lock().unwrap();
