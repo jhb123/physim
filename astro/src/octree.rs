@@ -143,9 +143,10 @@ where
 
     fn get_leaves_with_resolution(&self, location: [f32; 3], bh_factor: f32) -> Vec<T> {
         if let Some(e) = self.entity {
-            let r = (location[0] - self.centre[0]).powi(2)
+            let r = ((location[0] - self.centre[0]).powi(2)
                 + (location[1] - self.centre[1]).powi(2)
-                + (location[2] - self.centre[2]).powi(2).sqrt();
+                + (location[2] - self.centre[2]).powi(2))
+            .sqrt();
             if self.extent / r < bh_factor {
                 return vec![e];
             }
