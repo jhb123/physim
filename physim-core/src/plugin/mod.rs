@@ -194,15 +194,6 @@ macro_rules! post_bus_msg {
 /// Returns `Ok(())` if the library was successfully loaded and the callback target was set.
 /// Returns an error if the library could not be loaded or the `set_callback_target` symbol was not found.
 ///
-/// # Example
-///
-/// ```rust
-/// let bus = Arc::new(Mutex::new(MessageBus::new()));
-/// unsafe {
-///     set_bus("target/debug/libmy_plugin.so", bus)?;
-/// }
-/// ```
-///
 /// # Safety
 ///
 /// This function is `unsafe` for several reasons:

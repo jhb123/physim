@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
 
 use serde_json::Value;
 
-use crate::{messages::MessageClient, Entity, UniverseConfiguration};
+use crate::{Entity, UniverseConfiguration, messages::MessageClient};
 
 use super::Element;
 

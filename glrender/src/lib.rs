@@ -34,11 +34,11 @@ enum RenderPipelineShader {
 }
 
 trait Renderable {
-    fn verticies(&self) -> Vec<Vertex>;
+    fn vertices(&self) -> Vec<Vertex>;
 }
 
 impl Renderable for Entity {
-    fn verticies(&self) -> Vec<Vertex> {
+    fn vertices(&self) -> Vec<Vertex> {
         vec![
             Vertex {
                 position: [self.x, self.y + self.radius, self.z],
@@ -164,15 +164,15 @@ impl RenderElement for GLRenderElement {
 
         let state = state_recv.recv().unwrap();
 
-        let mut verticies: Vec<Vertex> = state.iter().flat_map(|s| s.verticies()).collect();
+        let mut vertices: Vec<Vertex> = state.iter().flat_map(|s| s.vertices()).collect();
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
         vertex_buffer
-            .slice(0..verticies.len())
+            .slice(0..vertices.len())
             .unwrap()
-            .write(&verticies);
+            .write(&vertices);
 
-        // vertex_buffer.write(verticies2);
+        // vertex_buffer.write(vertices2);
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
@@ -202,7 +202,7 @@ impl RenderElement for GLRenderElement {
         let mut pos_y = 0.0;
         drop(element);
         // thread::spawn(move || {
-        // *verticies.lock().unwrap() = new_state;
+        // *vertices.lock().unwrap() = new_state;
         // });
 
         // this avoids a lot of boiler plate.
@@ -291,10 +291,10 @@ impl RenderElement for GLRenderElement {
                     if !self.inner.lock().unwrap().running {
                         window_target.exit()
                     }
-                    verticies.clear();
-                    verticies.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.verticies()));
+                    vertices.clear();
+                    vertices.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.vertices()));
                     vertex_buffer.invalidate();
-                    vertex_buffer.slice(0..verticies.len()).unwrap().write(&verticies);
+                    vertex_buffer.slice(0..vertices.len()).unwrap().write(&vertices);
                     window.request_redraw();
                 },
             _ => (),
@@ -404,11 +404,11 @@ impl ElementCreator for StdOutRender {
 impl RenderElement for StdOutRender {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
         let element = self.inner.lock().unwrap();
-        let mut verticies: Vec<Vertex> = state_recv
+        let mut vertices: Vec<Vertex> = state_recv
             .recv()
             .unwrap()
             .iter()
-            .flat_map(|s| s.verticies())
+            .flat_map(|s| s.vertices())
             .collect();
 
         let event_loop = EventLoop::builder().build().expect("event loop building");
@@ -419,9 +419,9 @@ impl RenderElement for StdOutRender {
 
         let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
         vertex_buffer
-            .slice(0..verticies.len())
+            .slice(0..vertices.len())
             .unwrap()
-            .write(&verticies);
+            .write(&vertices);
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
@@ -484,10 +484,10 @@ impl RenderElement for StdOutRender {
         let stdout = std::io::stdout();
 
         loop {
-            verticies.clear();
+            vertices.clear();
             match state_recv.recv() {
                 Ok(state) => {
-                    verticies.extend(state.iter().flat_map(|s| s.verticies()));
+                    vertices.extend(state.iter().flat_map(|s| s.vertices()));
                 }
                 Err(_) => {
                     break;
@@ -495,9 +495,9 @@ impl RenderElement for StdOutRender {
             }
             vertex_buffer.invalidate();
             vertex_buffer
-                .slice(0..verticies.len())
+                .slice(0..vertices.len())
                 .unwrap()
-                .write(&verticies);
+                .write(&vertices);
 
             target = display.draw();
             target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);

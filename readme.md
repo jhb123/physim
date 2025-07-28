@@ -45,7 +45,7 @@ This release will focus on performance, testability, bug fixing and stability al
 - `glrender` with more advanced user inputs.
 
 ### Beyond.
-No further features are planned yet. A gas simulation plugin would be interesting as would some electromagnetism simulations. Adding a simulation with relativistic effects might be possible with this framework. These features could result in `Entity` changing, so it is worth reiterating that this library is not in a stable form and backwards compatibility is not guarenteed.
+No further features are planned yet. A gas simulation plugin would be interesting as would some electromagnetism simulations. Adding a simulation with relativistic effects might be possible with this framework. These features could result in `Entity` changing, so it is worth reiterating that this library is not in a stable form and backwards compatibility is not guaranteed.
 
 # Running a simulation
 `physim` simulations can be configured directly in the CLI. Each element is delimited by `!`, and the properties of the element can be configured as shown in the following example:
@@ -112,6 +112,22 @@ cargo run -r --bin physcan cube
 ```
 
 # Development
+
+## Git
+
+Commits should follow the [conventional commits
+standard](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+
+The `.gitmessage` file provides guidance on this and it can be set
+as your template with 
+```bash
+$ git config commit.template .gitmessage
+```
+
+We use the rebase strategy for pull requests.
+
+Use `pre-commit` to keep the codebase  free of common style issues. 
+
 
 TODO: create a plugin tutorial.
 

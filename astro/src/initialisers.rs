@@ -207,7 +207,6 @@ impl ElementCreator for SingleStar {
                 .get("id")
                 .and_then(|v| v.as_u64().map(|v| v as usize))
                 .unwrap_or(0),
-            ..Default::default()
         };
 
         let fixed = properties

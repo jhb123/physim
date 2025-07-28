@@ -1,4 +1,4 @@
-use crate::{messages::MessageClient, Entity, Force};
+use crate::{Entity, Force, messages::MessageClient};
 
 use super::Element;
 

@@ -3,8 +3,9 @@ use std::{
     error::Error,
     str::FromStr,
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     thread,
     time::{Duration, Instant},
@@ -15,18 +16,17 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
+    Entity, Force, UniverseConfiguration,
     messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
-        discover_map,
+        ElementKind, Loadable, RegisteredElement, discover_map,
         generator::GeneratorElementHandler,
         integrator::{IntegratorElement, IntegratorElementHandler},
         render::RenderElementHandler,
         set_bus,
         transform::TransformElementHandler,
         transmute::{TransmuteElement, TransmuteElementHandler},
-        ElementKind, Loadable, RegisteredElement,
     },
-    Entity, Force, UniverseConfiguration,
 };
 
 use crate::msg;
@@ -188,13 +188,9 @@ impl Pipeline {
             // format!("{} {:?}", e.message(), e.span().and_then(|x| Some(toml_str[x]) ))
             match e.span() {
                 Some(span) => {
-                    let ln_num = toml_str[0..span.start].chars().fold(1, |acc, x| {
-                        if x == '\n' {
-                            acc + 1
-                        } else {
-                            acc
-                        }
-                    });
+                    let ln_num = toml_str[0..span.start]
+                        .chars()
+                        .fold(1, |acc, x| if x == '\n' { acc + 1 } else { acc });
                     println!("{:?}", span.start);
                     format!("Unexpected character on line {ln_num}: {}", &toml_str[span])
                 }

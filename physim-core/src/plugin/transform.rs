@@ -3,15 +3,15 @@ use std::{
     error::Error,
     str::FromStr,
     sync::{
-        atomic::{AtomicPtr, Ordering},
         Arc,
+        atomic::{AtomicPtr, Ordering},
     },
 };
 
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{messages::MessageClient, Entity, Force};
+use crate::{Entity, Force, messages::MessageClient};
 
 use super::Element;
 
@@ -98,7 +98,6 @@ impl TransformElementHandler {
 
 impl Element for TransformElementHandler {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
-        // covert hashmap into something else?
         let json = serde_json::to_string(&new_props).unwrap();
         let json = std::ffi::CString::new(json).unwrap().into_raw(); // danger!
 
