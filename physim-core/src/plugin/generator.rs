@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error};
 
 use serde_json::Value;
 
-use crate::{messages::MessageClient, plugin::Element, Entity};
+use crate::{Entity, messages::MessageClient, plugin::Element};
 
 pub trait GeneratorElement: Element + Send + Sync {
     fn create_entities(&self) -> Vec<Entity>;

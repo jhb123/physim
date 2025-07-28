@@ -1,8 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use physim_attribute::render_element;
@@ -73,7 +71,7 @@ fn calculate_energy(state: Vec<Entity>) -> (f32, f32) {
         for j in (i + 1)..state.len() {
             let r = ((state[i].x - state[j].x).powi(2)
                 + (state[i].y - state[j].y).powi(2)
-                + (state[i].z - state[i].z).powi(2))
+                + (state[i].z - state[j].z).powi(2))
             .sqrt();
             potential = -state[i].mass * state[j].mass / r;
         }
@@ -89,10 +87,8 @@ fn calculate_energy(state: Vec<Entity>) -> (f32, f32) {
 impl Element for EnergySink {
     fn set_properties(&self, _new_props: HashMap<String, Value>) {}
 
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        match prop {
-            _ => Err("No property".into()),
-        }
+    fn get_property(&self, _prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
+        Err("No property".into())
     }
 
     fn get_property_descriptions(

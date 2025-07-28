@@ -4,8 +4,8 @@
 #![feature(trait_alias)]
 
 mod initialisers;
-mod octree;
-mod quadtree;
+pub mod octree;
+pub mod quadtree;
 mod transformers;
 
 use physim_core::{Entity, register_plugin};

@@ -1,0 +1,37 @@
+# <type>[optional scope]: <description>
+
+# [optional body]
+
+# [optional footer(s)]
+
+# type can be e.g. <build|ci|docs|feat|fix|perf|refactor|test>
+# scope can be the name of element/plugin.
+
+# Description: Summary, imperative, start upper case, don't end with a period
+# No more than 50 chars. #### 50 chars is here:  #
+
+# blank line between title and body is required
+
+# Body: Explain *what* and *why* (not *how*). Include link to issue.
+# Wrap at 72 chars. ################################## which is here:  #
+
+# a major version can be indicated with a '!' after the type/scope
+# or with a BREAKING CHANGE trailer
+
+# Examples
+
+# ex.1
+# feat: allow provided config object to extend other configs
+#
+# BREAKING CHANGE: `extends` key in config file is now used for extending other config files
+# ex.2
+# feat: allow provided config object to extend other configs
+# ex.3
+# feat(api)!: send an email to the customer when a product is shipped
+
+# References:
+# Conventional Commits
+# https://www.conventionalcommits.org/en/v1.0.0/#summary
+#
+# How to Write a Git Commit Message:
+# https://chris.beams.io/posts/git-commit/

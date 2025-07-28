@@ -26,6 +26,8 @@ struct InnerRk4 {
 }
 
 impl IntegratorElement for Rk4 {
+    // entity can't be dereferenced
+    #[allow(clippy::needless_range_loop)]
     fn integrate(
         &self,
         entities: &[physim_core::Entity],

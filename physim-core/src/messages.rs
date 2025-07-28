@@ -1,6 +1,6 @@
 use std::{
     collections::BinaryHeap,
-    ffi::{c_void, CStr, CString},
+    ffi::{CStr, CString, c_void},
     sync::{Arc, Mutex},
 };
 
