@@ -7,7 +7,7 @@ use std::{
 };
 
 use physim_core::{
-    messages::{Message, MessageBus, MessageClient, MessagePriority, callback},
+    messages::{callback, Message, MessageBus, MessageClient, MessagePriority},
     plugin::{set_bus, transform::TransformElementHandler},
 };
 

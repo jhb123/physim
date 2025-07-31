@@ -3,15 +3,15 @@ use std::{
     error::Error,
     str::FromStr,
     sync::{
-        Arc,
         atomic::{AtomicPtr, Ordering},
+        Arc,
     },
 };
 
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{Entity, Force, messages::MessageClient};
+use crate::{messages::MessageClient, Entity, Force};
 
 use super::Element;
 

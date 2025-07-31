@@ -9,11 +9,6 @@ repos:
     rev: v2.4.1
     hooks:
     - id: codespell
--   repo: https://github.com/doublify/pre-commit-rust
-    rev: v1.0
-    hooks:
-    -   id: fmt
-    -   id: cargo-check
 -   repo: local
     hooks:
     # -   id: cargo-test
@@ -27,6 +22,13 @@ repos:
         name: cargo clippy
         description: Run clippy linter
         entry: cargo clippy -- --deny unused_variables
+        language: system
+        types: [rust]
+        pass_filenames: false
+    -   id: cargo-fmt
+        name: cargo fmt
+        description: Run cargo fmt
+        entry: cargo fmt --all -- --check
         language: system
         types: [rust]
         pass_filenames: false
