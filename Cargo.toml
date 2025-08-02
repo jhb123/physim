@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "astro","physim-core","glrender", "physim_attribute", "debug", "integrators", "utilities"]
+members = [ "astro","physim-core","glrender", "physim_attribute", "debug", "integrators", "utilities", "mechanics"]
 
 [workspace.package]
 authors = ["Joseph Briggs <jhbriggs23@gmail.com>"]
