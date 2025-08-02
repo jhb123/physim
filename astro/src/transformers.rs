@@ -18,8 +18,8 @@ pub struct AstroElement {
 
 #[repr(C)]
 struct InnerBhElement {
-    theta: f32,
-    easing_factor: f32,
+    theta: f64,
+    easing_factor: f64,
     skip_ids: Vec<usize>,
 }
 
@@ -31,7 +31,7 @@ impl TransformElement for AstroElement {
             .iter()
             .flat_map(|x| x.get_centre())
             .map(|x| x.abs())
-            .reduce(f32::max)
+            .reduce(f64::max)
             .unwrap_or(1.0);
         let mut tree: QuadTree<'_, Entity> = QuadTree::new([0.0; 3], 1.0 * extent, &arena);
         for star in state.iter() {
@@ -67,13 +67,13 @@ impl TransformElement for AstroElement {
         let theta = properties
             .get("theta")
             .and_then(|v| v.as_f64())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
 
         let easing_factor = properties
             .get("e")
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
 
         AstroElement {
             inner: Mutex::new(InnerBhElement {
@@ -87,7 +87,7 @@ impl TransformElement for AstroElement {
     fn set_properties(&self, properties: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
         if let Some(theta) = properties.get("theta").and_then(|theta| theta.as_f64()) {
-            element.theta = theta as f32
+            element.theta = theta
         }
 
         if let Some(easing_factor) = properties
@@ -95,7 +95,7 @@ impl TransformElement for AstroElement {
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
         {
-            element.easing_factor = easing_factor as f32
+            element.easing_factor = easing_factor
         }
     }
 
@@ -150,7 +150,7 @@ impl TransformElement for AstroOctreeElement {
             .iter()
             .flat_map(|x| x.get_centre())
             .map(|x| x.abs())
-            .reduce(f32::max)
+            .reduce(f64::max)
             .unwrap_or(1.0);
         let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0 * extent, &arena);
         for star in state.iter() {
@@ -186,13 +186,13 @@ impl TransformElement for AstroOctreeElement {
         let theta = properties
             .get("theta")
             .and_then(|v| v.as_f64())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
 
         let easing_factor = properties
             .get("e")
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
 
         Self {
             inner: Mutex::new(InnerBhElement {
@@ -206,7 +206,7 @@ impl TransformElement for AstroOctreeElement {
     fn set_properties(&self, properties: HashMap<String, Value>) {
         let mut element = self.inner.lock().unwrap();
         if let Some(theta) = properties.get("theta").and_then(|theta| theta.as_f64()) {
-            element.theta = theta as f32
+            element.theta = theta
         }
 
         if let Some(easing_factor) = properties
@@ -214,7 +214,7 @@ impl TransformElement for AstroOctreeElement {
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
         {
-            element.easing_factor = easing_factor as f32
+            element.easing_factor = easing_factor
         }
     }
 
@@ -261,7 +261,7 @@ pub struct SimpleAstroElement {
 }
 
 struct InnerSimpleAstroElement {
-    easing_factor: f32,
+    easing_factor: f64,
     skip_ids: Vec<usize>,
 }
 
@@ -296,7 +296,7 @@ impl TransformElement for SimpleAstroElement {
             .get("e")
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
 
         Self {
             inner: Mutex::new(InnerSimpleAstroElement {
@@ -312,7 +312,7 @@ impl TransformElement for SimpleAstroElement {
             .and_then(|v| v.as_f64())
             .map(|x| x.abs())
         {
-            self.inner.lock().unwrap().easing_factor = easing_factor as f32
+            self.inner.lock().unwrap().easing_factor = easing_factor
         }
     }
 

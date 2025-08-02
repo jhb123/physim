@@ -64,7 +64,7 @@ impl RenderElement for EnergySink {
     }
 }
 
-fn calculate_energy(state: Vec<Entity>) -> (f32, f32) {
+fn calculate_energy(state: Vec<Entity>) -> (f64, f64) {
     let mut potential = 0.0;
     let mut kinetic = 0.0;
     for i in 0..state.len() {

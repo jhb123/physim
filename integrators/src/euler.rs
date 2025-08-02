@@ -19,7 +19,7 @@ impl IntegratorElement for Euler {
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
         forces: &[physim_core::Force],
-        dt: f32,
+        dt: f64,
     ) {
         for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
             let m = entity.mass;

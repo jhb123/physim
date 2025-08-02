@@ -67,6 +67,7 @@ impl RenderElement for CsvSink {
     }
 }
 
+#[allow(unused_must_use)]
 fn print_state(mut file: &mut File, state: Vec<Entity>) {
     for entity in &state {
         write!(&mut file, "{},{},{},", entity.x, entity.y, entity.z);

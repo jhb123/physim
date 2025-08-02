@@ -15,20 +15,20 @@ register_plugin!("astro", "astro2", "simple_astro", "cube", "star", "plummer");
 
 // make a function that when is called, sets a global bus variable in dynamic library
 
-const G: f32 = 1.0;
+const G: f64 = 1.0;
 
 pub trait Star {
-    fn get_mass(&self) -> f32;
-    fn get_centre(&self) -> [f32; 3];
-    fn centre_of_mass(&self, other: &Self) -> [f32; 3];
-    fn fake(centre: [f32; 3], mass: f32) -> Self;
+    fn get_mass(&self) -> f64;
+    fn get_centre(&self) -> [f64; 3];
+    fn centre_of_mass(&self, other: &Self) -> [f64; 3];
+    fn fake(centre: [f64; 3], mass: f64) -> Self;
     fn inside(a: &Self, b: &Self) -> bool;
-    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3];
+    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f64) -> [f64; 3];
 }
 
 // could implement this so
 impl Star for Entity {
-    fn centre_of_mass(&self, other: &Self) -> [f32; 3] {
+    fn centre_of_mass(&self, other: &Self) -> [f64; 3] {
         let total_mass = self.mass + other.mass;
 
         let inv_total_mass = 1.0 / total_mass;
@@ -40,11 +40,11 @@ impl Star for Entity {
         ]
     }
 
-    fn get_mass(&self) -> f32 {
+    fn get_mass(&self) -> f64 {
         self.mass // this is not real physics.
     }
 
-    fn get_centre(&self) -> [f32; 3] {
+    fn get_centre(&self) -> [f64; 3] {
         // assert!(self.x.is_normal()) ;
         // assert!(self.y.is_normal()) ;
         // assert!(self.z.is_normal()) ;
@@ -52,7 +52,7 @@ impl Star for Entity {
         [self.x, self.y, self.z]
     }
 
-    fn fake(centre: [f32; 3], mass: f32) -> Self {
+    fn fake(centre: [f64; 3], mass: f64) -> Self {
         if centre[0].is_nan() {
             panic!()
         }
@@ -72,7 +72,7 @@ impl Star for Entity {
             && ((a.z - b.z).abs() < a.radius / 2.0 || (a.z - b.z).abs() < b.radius / 2.0)
     }
 
-    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f32) -> [f32; 3] {
+    fn newtons_law_of_universal_gravitation(&self, other: &Self, easing_factor: f64) -> [f64; 3] {
         // if Self::inside(&self, other) {
         //     info!("within");
         //     return [0.0,0.0,0.0]

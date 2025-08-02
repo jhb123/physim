@@ -13,32 +13,32 @@ use serde::Serialize;
 
 #[repr(C)]
 pub struct UniverseConfiguration {
-    pub size_x: f32,
-    pub size_y: f32,
-    pub size_z: f32,
+    pub size_x: f64,
+    pub size_y: f64,
+    pub size_z: f64,
     // edge_mode: UniverseEdge,
 }
 
 #[derive(Clone, Copy, Default, Debug, Serialize)]
 #[repr(C)]
 pub struct Entity {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub vx: f32,
-    pub vy: f32,
-    pub vz: f32,
-    pub radius: f32,
-    pub mass: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub vx: f64,
+    pub vy: f64,
+    pub vz: f64,
+    pub radius: f64,
+    pub mass: f64,
     pub id: usize,
 }
 
 #[derive(Clone, Copy, Default, Debug, Serialize)]
 #[repr(C)]
 pub struct Force {
-    pub fx: f32,
-    pub fy: f32,
-    pub fz: f32,
+    pub fx: f64,
+    pub fy: f64,
+    pub fz: f64,
 }
 
 impl Add for Force {
@@ -86,7 +86,7 @@ impl Neg for Force {
 }
 
 impl Entity {
-    pub fn new(x: f32, y: f32, z: f32, mass: f32) -> Self {
+    pub fn new(x: f64, y: f64, z: f64, mass: f64) -> Self {
         Self {
             x,
             y,
@@ -96,7 +96,7 @@ impl Entity {
             ..Default::default()
         }
     }
-    pub fn new2(x: f32, y: f32, z: f32, mass: f32, radius: f32) -> Self {
+    pub fn new2(x: f64, y: f64, z: f64, mass: f64, radius: f64) -> Self {
         Self {
             x,
             y,
@@ -108,9 +108,9 @@ impl Entity {
     }
 
     pub fn random(rng: &mut ChaCha8Rng) -> Self {
-        let x: f32 = rng.random_range(-1.0..1.0);
-        let y: f32 = rng.random_range(-1.0..1.0);
-        let z: f32 = rng.random_range(0.0..1.0);
+        let x: f64 = rng.random_range(-1.0..1.0);
+        let y: f64 = rng.random_range(-1.0..1.0);
+        let z: f64 = rng.random_range(0.0..1.0);
 
         Self {
             x,

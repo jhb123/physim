@@ -5,3 +5,4 @@ flamegraph.svg
 .env
 pipeline.toml
 .DS_Store
+/plots

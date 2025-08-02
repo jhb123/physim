@@ -3,7 +3,7 @@ use crate::{messages::MessageClient, Entity, Force};
 use super::Element;
 
 pub trait IntegratorElement: Element + Send + Sync {
-    fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f32);
+    fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f64);
     fn get_steps(&self) -> usize;
 }
 
@@ -12,7 +12,7 @@ pub struct IntegratorElementHandler {
 }
 
 impl IntegratorElement for IntegratorElementHandler {
-    fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f32) {
+    fn integrate(&self, entities: &[Entity], new_state: &mut [Entity], forces: &[Force], dt: f64) {
         self.instance.integrate(entities, new_state, forces, dt);
     }
     fn get_steps(&self) -> usize {

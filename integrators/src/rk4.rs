@@ -33,7 +33,7 @@ impl IntegratorElement for Rk4 {
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
         forces: &[physim_core::Force],
-        dt: f32,
+        dt: f64,
     ) {
         let mut inner = self.inner.lock().unwrap();
         let k = inner.step.rem(4);

@@ -26,7 +26,7 @@ impl VerletInner {
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
         forces: &[physim_core::Force],
-        dt: f32,
+        dt: f64,
     ) {
         self.previous_state = entities.to_vec();
         for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
@@ -56,16 +56,16 @@ impl VerletInner {
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
         forces: &[physim_core::Force],
-        dt: f32,
+        dt: f64,
     ) {
         self.previous_state = entities.to_vec();
         for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
             let prev = self.previous_state.get(idx).unwrap();
             let m = entity.mass;
             let a = [f.fx / m, f.fy / m, f.fz / m];
-            let x = 2_f32 * entity.x - prev.x + a[0] * (dt.powi(2));
-            let y = 2_f32 * entity.y - prev.y + a[1] * (dt.powi(2));
-            let z = 2_f32 * entity.z - prev.z + a[2] * (dt.powi(2));
+            let x = 2_f64 * entity.x - prev.x + a[0] * (dt.powi(2));
+            let y = 2_f64 * entity.y - prev.y + a[1] * (dt.powi(2));
+            let z = 2_f64 * entity.z - prev.z + a[2] * (dt.powi(2));
 
             let vx = (x - entity.x) / dt;
             let vy = (y - entity.y) / dt;
@@ -89,7 +89,7 @@ impl IntegratorElement for Verlet {
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
         forces: &[physim_core::Force],
-        dt: f32,
+        dt: f64,
     ) {
         let mut inner = self.inner.lock().unwrap();
         if inner.previous_state.len() != entities.len() {
