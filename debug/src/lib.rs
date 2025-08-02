@@ -54,7 +54,7 @@ impl GeneratorElement for RandSynth {
                 rand::rng().random_range(-1.0..1.0),
                 rand::rng().random_range(-1.0..1.0),
                 rand::rng().random_range(-1.0..1.0),
-                f32::log10(rand::rng().random_range(1.0..6.0)),
+                f64::log10(rand::rng().random_range(1.0..6.0)),
                 0.03,
             );
             vec![e]
@@ -229,7 +229,7 @@ struct Void {
 }
 
 struct VoidInner {
-    lim: f32,
+    lim: f64,
 }
 
 impl TransmuteElement for Void {
@@ -247,7 +247,7 @@ impl ElementCreator for Void {
             .get("lim")
             .map(|x| x.as_f64().unwrap_or(1.0))
             .unwrap_or(1.0);
-        let inner = VoidInner { lim: lim as f32 };
+        let inner = VoidInner { lim };
         Box::new(Self {
             inner: Mutex::new(inner),
         })
@@ -258,7 +258,7 @@ impl Element for Void {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut inner = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("lim").and_then(|val| val.as_f64()) {
-            inner.lim = val as f32
+            inner.lim = val
         }
     }
 

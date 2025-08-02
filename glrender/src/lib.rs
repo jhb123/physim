@@ -41,24 +41,28 @@ impl Renderable for Entity {
     fn vertices(&self) -> Vec<Vertex> {
         vec![
             Vertex {
-                position: [self.x, self.y + self.radius, self.z],
-                velocity: [self.vx, self.vy, self.vx],
+                position: [
+                    self.x as f32,
+                    self.y as f32 + self.radius as f32,
+                    self.z as f32,
+                ],
+                velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
             },
             Vertex {
                 position: [
-                    self.x - self.radius * f32::sqrt(3.0) * 0.5,
-                    self.y - 0.5 * self.radius,
-                    self.z,
+                    (self.x - self.radius * f64::sqrt(3.0) * 0.5) as f32,
+                    (self.y - 0.5 * self.radius) as f32,
+                    self.z as f32,
                 ],
-                velocity: [self.vx, self.vy, self.vx],
+                velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
             },
             Vertex {
                 position: [
-                    self.x + self.radius * f32::sqrt(3.0) * 0.5,
-                    self.y - 0.5 * self.radius,
-                    self.z,
+                    (self.x + self.radius * f64::sqrt(3.0) * 0.5) as f32,
+                    (self.y - 0.5 * self.radius) as f32,
+                    self.z as f32,
                 ],
-                velocity: [self.vx, self.vy, self.vx],
+                velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
             },
         ]
     }
@@ -197,7 +201,7 @@ impl RenderElement for GLRenderElement {
             ..Default::default()
         };
 
-        let mut zoom = config.size_x.max(config.size_y) * element.zoom;
+        let mut zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
         drop(element);
@@ -235,7 +239,7 @@ impl RenderElement for GLRenderElement {
                             [         0.0         ,    0.0, -(2.0*zfar*znear)/(zfar-znear),   0.0],
                         ]
                     };
-                    let n = config.size_x.max(config.size_y);
+                    let n = config.size_x.max(config.size_y) as f32;
                     let matrix = [
                         [1.0/n, 0.0, 0.0, 0.0],
                         [0.0, 1.0/n, 0.0, 0.0],
@@ -447,7 +451,7 @@ impl RenderElement for StdOutRender {
             ..Default::default()
         };
 
-        let zoom = config.size_x.max(config.size_y) * element.zoom;
+        let zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
         let pos_x: f32 = 0.0;
         let pos_y: f32 = 0.0;
 
@@ -471,7 +475,7 @@ impl RenderElement for StdOutRender {
                 [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
             ]
         };
-        let n = config.size_x.max(config.size_y);
+        let n = config.size_x.max(config.size_y) as f32;
         let matrix = [
             [1.0 / n, 0.0, 0.0, 0.0],
             [0.0, 1.0 / n, 0.0, 0.0],

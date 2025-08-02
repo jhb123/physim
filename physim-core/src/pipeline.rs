@@ -38,7 +38,7 @@ pub struct Pipeline {
     transmutes: Vec<Arc<TransmuteElementHandler>>,
     render: Arc<RenderElementHandler>,
     integrator: Arc<IntegratorElementHandler>,
-    timestep: f32,
+    timestep: f64,
     iterations: u64,
     bus: Arc<Mutex<MessageBus>>,
 }
@@ -266,7 +266,7 @@ struct PipelineBuilder {
     render: Option<Arc<RenderElementHandler>>,
     integrator: Option<Arc<IntegratorElementHandler>>,
     element_db: HashMap<String, RegisteredElement>,
-    timestep: f32,
+    timestep: f64,
     iterations: u64,
     bus: Arc<Mutex<MessageBus>>,
 }
@@ -294,7 +294,7 @@ impl PipelineBuilder {
     ) -> Result<Self, Box<dyn Error>> {
         if el_name == "global" {
             if let Some(x) = properties.get("dt").and_then(|x| x.as_f64()) {
-                self.timestep = x as f32;
+                self.timestep = x;
             }
             if let Some(x) = properties.get("iterations").and_then(|x| x.as_u64()) {
                 self.iterations = x;
@@ -420,7 +420,7 @@ struct PipelineConfig {
 
 #[derive(Deserialize, Debug)]
 struct GlobalOptions {
-    dt: f32,
+    dt: f64,
     iterations: u64,
 }
 

@@ -18,8 +18,8 @@ struct QuadTreeNode<'a, T>
 where
     T: Star,
 {
-    centre: [f32; 3],
-    extent: f32,
+    centre: [f64; 3],
+    extent: f64,
     entity: Option<T>,
     children: [Option<Link<'a, T>>; 4],
 }
@@ -28,7 +28,7 @@ impl<'a, T> QuadTree<'a, T>
 where
     T: Star + Default + Copy,
 {
-    pub fn new(centre: [f32; 3], extent: f32, arena: &'a Bump) -> Self {
+    pub fn new(centre: [f64; 3], extent: f64, arena: &'a Bump) -> Self {
         let root = QuadTreeNode::<T>::new(centre, extent);
         Self { root, arena }
     }
@@ -42,7 +42,7 @@ where
         self.root.get_leaves()
     }
 
-    pub fn get_leaves_with_resolution(&self, location: [f32; 3], bh_factor: f32) -> Vec<T> {
+    pub fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
         self.root.get_leaves_with_resolution(location, bh_factor)
     }
 }
@@ -51,7 +51,7 @@ impl<'a, T> QuadTreeNode<'a, T>
 where
     T: Star + Default + Copy,
 {
-    fn new(centre: [f32; 3], extent: f32) -> Self {
+    fn new(centre: [f64; 3], extent: f64) -> Self {
         // todo! put an actual implementation here
         Self {
             centre,
@@ -76,7 +76,7 @@ where
                         .get_centre()
                         .iter()
                         .zip(item.get_centre().iter())
-                        .all(|(a, b)| f32::abs(a - b) < 0.001)
+                        .all(|(a, b)| f64::abs(a - b) < 0.001)
                 {
                     let fake_elem =
                         T::fake(item.get_centre(), current_elem.get_mass() + item.get_mass());
@@ -141,7 +141,7 @@ where
         }
     }
 
-    fn get_leaves_with_resolution(&self, location: [f32; 3], bh_factor: f32) -> Vec<T> {
+    fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
         if let Some(e) = self.entity {
             let r = ((location[0] - self.centre[0]).powi(2)
                 + (location[1] - self.centre[1]).powi(2)
@@ -163,7 +163,7 @@ where
         }
     }
 
-    fn get_octant_id(&self, item_pos: [f32; 3]) -> usize {
+    fn get_octant_id(&self, item_pos: [f64; 3]) -> usize {
         match item_pos {
             [x, y, _] if x <= self.centre[0] && y <= self.centre[1] => 0,
             [x, y, _] if x > self.centre[0] && y <= self.centre[1] => 1,
@@ -175,7 +175,7 @@ where
         }
     }
 
-    fn get_octant_id_centre(&self, item_pos: [f32; 3]) -> [f32; 3] {
+    fn get_octant_id_centre(&self, item_pos: [f64; 3]) -> [f64; 3] {
         match item_pos {
             [x, y, _] if x <= self.centre[0] && y <= self.centre[1] => [
                 self.centre[0] - self.extent / 2.0,

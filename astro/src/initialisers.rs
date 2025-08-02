@@ -1,6 +1,6 @@
 use rand::Rng;
 use serde::Serialize;
-use std::{collections::HashMap, f32::consts::PI, sync::Mutex};
+use std::{collections::HashMap, f64::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
@@ -27,8 +27,8 @@ struct InnerRandomCube {
     n: u64,
     seed: u64,
     spin: f64,
-    centre: [f32; 3],
-    size: f32,
+    centre: [f64; 3],
+    size: f64,
 }
 
 impl ElementCreator for RandomCube {
@@ -45,7 +45,7 @@ impl ElementCreator for RandomCube {
         let size = properties
             .get("size")
             .and_then(|v| v.as_f64())
-            .unwrap_or(1.0) as f32;
+            .unwrap_or(1.0);
         let centre = properties
             .get("centre")
             .and_then(|v| {
@@ -53,15 +53,11 @@ impl ElementCreator for RandomCube {
                 if coords.len() != 3 {
                     None
                 } else {
-                    let coords: Vec<f32> = coords
-                        .iter()
-                        .flat_map(|x| x.as_f64())
-                        .map(|x| x as f32)
-                        .collect();
+                    let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                     Some([coords[0], coords[1], coords[2]])
                 }
             })
-            .unwrap_or([0.0_f32; 3]);
+            .unwrap_or([0.0_f64; 3]);
         Box::new(Self {
             inner: Mutex::new(InnerRandomCube {
                 n,
@@ -86,8 +82,8 @@ impl GeneratorElement for RandomCube {
             e.y *= element.size;
             e.z *= element.size;
 
-            e.vx = e.y * element.spin as f32;
-            e.vy = -e.x * element.spin as f32;
+            e.vx = e.y * element.spin;
+            e.vy = -e.x * element.spin;
 
             e.x += element.centre[0];
             e.y += element.centre[1];
@@ -112,18 +108,14 @@ impl Element for RandomCube {
             element.seed = seed
         }
         if let Some(size) = new_props.get("size").and_then(|size| size.as_f64()) {
-            element.size = size as f32
+            element.size = size
         }
         if let Some(centre) = new_props.get("centre").and_then(|v| {
             let coords = v.as_array()?;
             if coords.len() != 3 {
                 None
             } else {
-                let coords: Vec<f32> = coords
-                    .iter()
-                    .flat_map(|x| x.as_f64())
-                    .map(|x| x as f32)
-                    .collect();
+                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
@@ -182,27 +174,25 @@ struct SingleStarInner {
 
 impl ElementCreator for SingleStar {
     fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
-        fn get_f32(properties: &HashMap<String, Value>, key: &str) -> f32 {
+        fn get_f64(properties: &HashMap<String, Value>, key: &str) -> f64 {
             properties
                 .get(key)
                 .and_then(|v| v.as_f64())
-                .map(|v| v as f32)
                 .unwrap_or_default()
         }
 
         let entity = Entity {
-            x: get_f32(&properties, "x"),
-            y: get_f32(&properties, "y"),
-            z: get_f32(&properties, "z"),
-            vx: get_f32(&properties, "vx"),
-            vy: get_f32(&properties, "vy"),
-            vz: get_f32(&properties, "vz"),
+            x: get_f64(&properties, "x"),
+            y: get_f64(&properties, "y"),
+            z: get_f64(&properties, "z"),
+            vx: get_f64(&properties, "vx"),
+            vy: get_f64(&properties, "vy"),
+            vz: get_f64(&properties, "vz"),
             radius: properties
                 .get("radius")
                 .and_then(|v| v.as_f64())
-                .map(|v| v as f32)
                 .unwrap_or(0.1),
-            mass: get_f32(&properties, "mass"),
+            mass: get_f64(&properties, "mass"),
             id: properties
                 .get("id")
                 .and_then(|v| v.as_u64().map(|v| v as usize))
@@ -244,28 +234,28 @@ impl Element for SingleStar {
     fn set_properties(&self, new_props: HashMap<String, Value>) {
         let mut inner = self.inner.lock().unwrap();
         if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            inner.entity.x = val as f32
+            inner.entity.x = val
         }
         if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            inner.entity.y = val as f32
+            inner.entity.y = val
         }
         if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            inner.entity.z = val as f32
+            inner.entity.z = val
         }
         if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            inner.entity.vx = val as f32
+            inner.entity.vx = val
         }
         if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            inner.entity.vy = val as f32
+            inner.entity.vy = val
         }
         if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            inner.entity.vz = val as f32
+            inner.entity.vz = val
         }
         if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
-            inner.entity.mass = val as f32
+            inner.entity.mass = val
         }
         if let Some(val) = new_props.get("r").and_then(|val| val.as_f64()) {
-            inner.entity.radius = val as f32
+            inner.entity.radius = val
         }
         if let Some(val) = new_props.get("id").and_then(|val| val.as_u64()) {
             inner.entity.id = val as usize
@@ -327,10 +317,10 @@ struct InnerPlummer {
     n: u64,
     seed: u64,
     mass: f64,
-    centre: [f32; 3],
-    initial_v: [f32; 3],
-    plummer_r: f32,
-    spin: f32,
+    centre: [f64; 3],
+    initial_v: [f64; 3],
+    plummer_r: f64,
+    spin: f64,
 }
 
 impl ElementCreator for Plummer {
@@ -344,7 +334,7 @@ impl ElementCreator for Plummer {
             .get("mass")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0);
-        let plummer_r = properties.get("a").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+        let plummer_r = properties.get("a").and_then(|v| v.as_f64()).unwrap_or(1.0);
         let centre = properties
             .get("centre")
             .and_then(|v| {
@@ -352,15 +342,11 @@ impl ElementCreator for Plummer {
                 if coords.len() != 3 {
                     None
                 } else {
-                    let coords: Vec<f32> = coords
-                        .iter()
-                        .flat_map(|x| x.as_f64())
-                        .map(|x| x as f32)
-                        .collect();
+                    let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                     Some([coords[0], coords[1], coords[2]])
                 }
             })
-            .unwrap_or([0.0_f32; 3]);
+            .unwrap_or([0.0_f64; 3]);
 
         let initial_v = properties
             .get("v")
@@ -369,20 +355,16 @@ impl ElementCreator for Plummer {
                 if coords.len() != 3 {
                     None
                 } else {
-                    let coords: Vec<f32> = coords
-                        .iter()
-                        .flat_map(|x| x.as_f64())
-                        .map(|x| x as f32)
-                        .collect();
+                    let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                     Some([coords[0], coords[1], coords[2]])
                 }
             })
-            .unwrap_or([0.0_f32; 3]);
+            .unwrap_or([0.0_f64; 3]);
 
         let spin = properties
             .get("spin")
             .and_then(|v| v.as_f64())
-            .unwrap_or(0.0) as f32;
+            .unwrap_or(0.0);
 
         Box::new(Self {
             inner: Mutex::new(InnerPlummer {
@@ -404,12 +386,12 @@ impl GeneratorElement for Plummer {
         let rng = ChaCha8Rng::seed_from_u64(element.seed);
         let mut state = Vec::with_capacity(element.n as usize);
 
-        let cdf: Vec<f32> = rng.random_iter().take((element.n * 3) as usize).collect();
-        let m = (element.mass as f32) / (element.n as f32);
+        let cdf: Vec<f64> = rng.random_iter().take((element.n * 3) as usize).collect();
+        let m = (element.mass) / (element.n as f64);
         for c in cdf.chunks(3) {
-            let r = element.plummer_r * (c[0].powf(-2_f32 / 3_f32) - 1_f32).powf(0.5);
+            let r = element.plummer_r * (c[0].powf(-2_f64 / 3_f64) - 1_f64).powf(0.5);
             let theta = PI * c[2];
-            let phi = 2_f32 * PI * c[1];
+            let phi = 2_f64 * PI * c[1];
 
             let x = r * theta.sin() * phi.cos() + element.centre[0];
             let y = r * theta.sin() * phi.sin() + element.centre[1];
@@ -419,7 +401,7 @@ impl GeneratorElement for Plummer {
             let r2 = r.powi(2);
             let a2 = element.plummer_r.powi(2);
 
-            let v_phi = element.spin * ((element.mass as f32) * r2 / (r2 + a2).powf(1.5)).sqrt();
+            let v_phi = element.spin * ((element.mass) * r2 / (r2 + a2).powf(1.5)).sqrt();
 
             let vx = -v_phi * phi.sin();
             let vy = v_phi * phi.cos();
@@ -447,18 +429,14 @@ impl Element for Plummer {
             element.seed = seed
         }
         if let Some(a) = new_props.get("a").and_then(|a| a.as_f64()) {
-            element.plummer_r = a as f32
+            element.plummer_r = a
         }
         if let Some(centre) = new_props.get("centre").and_then(|v| {
             let coords = v.as_array()?;
             if coords.len() != 3 {
                 None
             } else {
-                let coords: Vec<f32> = coords
-                    .iter()
-                    .flat_map(|x| x.as_f64())
-                    .map(|x| x as f32)
-                    .collect();
+                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
@@ -469,18 +447,14 @@ impl Element for Plummer {
             if coords.len() != 3 {
                 None
             } else {
-                let coords: Vec<f32> = coords
-                    .iter()
-                    .flat_map(|x| x.as_f64())
-                    .map(|x| x as f32)
-                    .collect();
+                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
                 Some([coords[0], coords[1], coords[2]])
             }
         }) {
             element.initial_v = initial_v
         }
         if let Some(spin) = new_props.get("spin").and_then(|spin| spin.as_f64()) {
-            element.spin = spin as f32;
+            element.spin = spin;
         }
     }
 

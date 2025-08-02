@@ -26,9 +26,9 @@ impl TransformElement for Impluse {
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
-        let fx: f32 = properties.get("fx").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
-        let fy: f32 = properties.get("fy").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
-        let fz: f32 = properties.get("fz").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
+        let fx = properties.get("fx").and_then(|x| x.as_f64()).unwrap_or(0.0);
+        let fy = properties.get("fy").and_then(|x| x.as_f64()).unwrap_or(0.0);
+        let fz = properties.get("fz").and_then(|x| x.as_f64()).unwrap_or(0.0);
         let force = Force { fx, fy, fz };
         Impluse {
             force,

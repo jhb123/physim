@@ -1,0 +1,16 @@
+[global]
+dt = 0.0001
+iterations = 3000
+
+[[elements.solar]]
+
+[[elements.simple_astro]]
+e = 0.1
+
+[[elements.rk4]]
+
+
+[[elements.csvsink]]
+resolution="1080p"
+shader="yellowblue"
+file="./plots/solar_system.csv"

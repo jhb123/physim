@@ -18,9 +18,9 @@ pub struct ShmTransform {
 }
 
 struct ShmTransformInner {
-    origins: Vec<[f32; 3]>,
-    k: f32,
-    c: f32,
+    origins: Vec<[f64; 3]>,
+    k: f64,
+    c: f64,
     mode: ShmTransformMode,
 }
 
@@ -34,8 +34,8 @@ impl TransformElement for ShmTransform {
     }
 
     fn new(properties: HashMap<String, Value>) -> Self {
-        let k: f32 = properties.get("k").and_then(|x| x.as_f64()).unwrap_or(1.0) as f32;
-        let c: f32 = properties.get("c").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
+        let k = properties.get("k").and_then(|x| x.as_f64()).unwrap_or(1.0);
+        let c = properties.get("c").and_then(|x| x.as_f64()).unwrap_or(0.0);
 
         let mode: ShmTransformMode = properties
             .get("mode")
@@ -99,7 +99,7 @@ impl ShmTransformInner {
             self.origins = state.iter().map(|e| [e.x, e.y, e.z]).collect();
         }
 
-        let deltas: Vec<[f32; 3]> = self
+        let deltas: Vec<[f64; 3]> = self
             .origins
             .iter()
             .zip(state)
