@@ -41,6 +41,16 @@ pub struct Force {
     pub fz: f64,
 }
 
+impl Force {
+    pub fn zero() -> Self {
+        return Force {
+            fx: 0.0,
+            fy: 0.0,
+            fz: 0.0,
+        };
+    }
+}
+
 impl Add for Force {
     type Output = Self;
 

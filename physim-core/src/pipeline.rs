@@ -143,7 +143,9 @@ impl Pipeline {
                     }
                     self.integrator
                         .integrate(&state, &mut new_state, &forces, dt);
+                    state = new_state.clone();
                 }
+                forces.fill(Force::zero());
 
                 for t in &self.transmutes {
                     t.transmute(&mut new_state);
