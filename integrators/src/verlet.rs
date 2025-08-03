@@ -58,7 +58,6 @@ impl VerletInner {
         forces: &[physim_core::Force],
         dt: f64,
     ) {
-        self.previous_state = entities.to_vec();
         for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
             let prev = self.previous_state.get(idx).unwrap();
             let m = entity.mass;
@@ -80,6 +79,7 @@ impl VerletInner {
             new_entity.vz = vz;
             new_state[idx] = new_entity;
         }
+        self.previous_state = entities.to_vec();
     }
 }
 
