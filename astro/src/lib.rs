@@ -11,7 +11,15 @@ mod transformers;
 use physim_core::{Entity, register_plugin};
 
 // static ELEMENTS: &str = "astro,simple_astro,debug";
-register_plugin!("astro", "astro2", "simple_astro", "cube", "star", "plummer");
+register_plugin!(
+    "astro",
+    "astro2",
+    "simple_astro",
+    "cube",
+    "star",
+    "plummer",
+    "solar"
+);
 
 // make a function that when is called, sets a global bus variable in dynamic library
 
