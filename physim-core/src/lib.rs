@@ -43,11 +43,11 @@ pub struct Force {
 
 impl Force {
     pub fn zero() -> Self {
-        return Force {
+        Self {
             fx: 0.0,
             fy: 0.0,
             fz: 0.0,
-        };
+        }
     }
 }
 

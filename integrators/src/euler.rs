@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use physim_attribute::integrator_element;
 use physim_core::{
+    Force,
     messages::MessageClient,
     plugin::{Element, ElementCreator, integrator::IntegratorElement},
 };
@@ -18,9 +19,12 @@ impl IntegratorElement for Euler {
         &self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        forces: &[physim_core::Force],
+        force_fn: &dyn Fn(&[physim_core::Entity], &mut [Force]),
         dt: f64,
     ) {
+        let mut forces = vec![Force::zero(); entities.len()];
+        force_fn(entities, &mut forces);
+
         for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
             let m = entity.mass;
             // f = ma
@@ -44,10 +48,6 @@ impl IntegratorElement for Euler {
             new_entity.vz = vz;
             new_state[idx] = new_entity;
         }
-    }
-
-    fn get_steps(&self) -> usize {
-        1
     }
 }
 
