@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use physim_attribute::integrator_element;
 use physim_core::{
-    Entity,
+    Entity, Force,
     messages::MessageClient,
     plugin::{Element, ElementCreator, integrator::IntegratorElement},
 };
@@ -88,19 +88,17 @@ impl IntegratorElement for Verlet {
         &self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        forces: &[physim_core::Force],
+        force_fn: &dyn Fn(&[Entity], &mut [Force]),
         dt: f64,
     ) {
+        let mut forces = vec![Force::zero(); entities.len()];
+        force_fn(entities, &mut forces);
         let mut inner = self.inner.lock().unwrap();
         if inner.previous_state.len() != entities.len() {
-            inner.initial_integration(entities, new_state, forces, dt);
+            inner.initial_integration(entities, new_state, &forces, dt);
         } else {
-            inner.integration(entities, new_state, forces, dt);
+            inner.integration(entities, new_state, &forces, dt);
         }
-    }
-
-    fn get_steps(&self) -> usize {
-        1
     }
 }
 

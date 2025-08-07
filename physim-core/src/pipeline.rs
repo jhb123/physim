@@ -95,10 +95,10 @@ impl Pipeline {
             new_state.push(Entity::default());
         }
 
-        let mut forces = Vec::with_capacity(state.capacity());
-        for _ in 0..state.len() {
-            forces.push(Force::default());
-        }
+        // let mut forces = Vec::with_capacity(state.capacity());
+        // for _ in 0..state.len() {
+        //     forces.push(Force::default());
+        // }
 
         let msg_flag = Arc::new(AtomicBool::new(true));
         let msg_flag_clone = msg_flag.clone();
@@ -116,6 +116,12 @@ impl Pipeline {
         thread::spawn(move || {
             let dt = self.timestep;
             let mut count = 0;
+            let transform_fn = |state: &[Entity], forces: &mut [Force]| {
+                self.transforms
+                    .iter()
+                    .for_each(|element| element.transform(state, forces))
+            };
+
             while count < self.iterations {
                 if pipeline_messages.quit.load(Ordering::Relaxed) {
                     break;
@@ -137,15 +143,8 @@ impl Pipeline {
                     }
                 });
 
-                for _ in 0..self.integrator.get_steps() {
-                    for t in &self.transforms {
-                        t.transform(&state, &mut forces);
-                    }
-                    self.integrator
-                        .integrate(&state, &mut new_state, &forces, dt);
-                    state = new_state.clone();
-                }
-                forces.fill(Force::zero());
+                self.integrator
+                    .integrate(&state, &mut new_state, &transform_fn, dt);
 
                 for t in &self.transmutes {
                     t.transmute(&mut new_state);
