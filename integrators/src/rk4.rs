@@ -22,14 +22,152 @@ struct InnerRk4 {
 }
 
 impl IntegratorElement for Rk4 {
-    // entity can't be dereferenced
     fn integrate(
         &self,
-        _entities: &[physim_core::Entity],
-        _new_state: &mut [physim_core::Entity],
-        _force_fn: &dyn Fn(&[Entity], &mut [Force]),
-        _dt: f64,
+        entities: &[physim_core::Entity],
+        new_state: &mut [physim_core::Entity],
+        force_fn: &dyn Fn(&[Entity], &mut [Force]),
+        dt: f64,
     ) {
+        let n = entities.len();
+
+        // --- k1 ---
+        let mut f1 = vec![Force::zero(); n];
+        force_fn(entities, &mut f1);
+
+        let k1: Vec<Entity> = entities
+            .iter()
+            .cloned()
+            .zip(&f1)
+            .map(|(e, f)| Entity {
+                x: dt * e.vx,
+                y: dt * e.vy,
+                z: dt * e.vz,
+                vx: dt * f.fx / e.mass,
+                vy: dt * f.fy / e.mass,
+                vz: dt * f.fz / e.mass,
+                ..e
+            })
+            .collect();
+
+        // --- k2 ---
+        let temp_ents: Vec<Entity> = entities
+            .iter()
+            .cloned()
+            .zip(&k1)
+            .map(|(e, k)| Entity {
+                x: e.x + 0.5 * k.x,
+                y: e.y + 0.5 * k.y,
+                z: e.z + 0.5 * k.z,
+                vx: e.vx + 0.5 * k.vx,
+                vy: e.vy + 0.5 * k.vy,
+                vz: e.vz + 0.5 * k.vz,
+                ..e
+            })
+            .collect();
+
+        let mut f2 = vec![Force::zero(); n];
+        force_fn(&temp_ents, &mut f2);
+
+        let k2: Vec<Entity> = temp_ents
+            .iter()
+            .cloned()
+            .zip(&f2)
+            .map(|(e, f)| Entity {
+                x: dt * e.vx,
+                y: dt * e.vy,
+                z: dt * e.vz,
+                vx: dt * f.fx / e.mass,
+                vy: dt * f.fy / e.mass,
+                vz: dt * f.fz / e.mass,
+                ..e
+            })
+            .collect();
+
+        // --- k3 ---
+        let temp_ents: Vec<Entity> = entities
+            .iter()
+            .cloned()
+            .zip(&k2)
+            .map(|(e, k)| Entity {
+                x: e.x + 0.5 * k.x,
+                y: e.y + 0.5 * k.y,
+                z: e.z + 0.5 * k.z,
+                vx: e.vx + 0.5 * k.vx,
+                vy: e.vy + 0.5 * k.vy,
+                vz: e.vz + 0.5 * k.vz,
+                ..e
+            })
+            .collect();
+
+        let mut f3 = vec![Force::zero(); n];
+        force_fn(&temp_ents, &mut f3);
+
+        let k3: Vec<Entity> = temp_ents
+            .iter()
+            .cloned()
+            .zip(&f3)
+            .map(|(e, f)| Entity {
+                x: dt * e.vx,
+                y: dt * e.vy,
+                z: dt * e.vz,
+                vx: dt * f.fx / e.mass,
+                vy: dt * f.fy / e.mass,
+                vz: dt * f.fz / e.mass,
+                ..e
+            })
+            .collect();
+
+        // --- k4 ---
+        let temp_ents: Vec<Entity> = entities
+            .iter()
+            .cloned()
+            .zip(&k3)
+            .map(|(e, k)| Entity {
+                x: e.x + k.x,
+                y: e.y + k.y,
+                z: e.z + k.z,
+                vx: e.vx + k.vx,
+                vy: e.vy + k.vy,
+                vz: e.vz + k.vz,
+                ..e
+            })
+            .collect();
+
+        let mut f4 = vec![Force::zero(); n];
+        force_fn(&temp_ents, &mut f4);
+
+        let k4: Vec<Entity> = temp_ents
+            .iter()
+            .cloned()
+            .zip(&f4)
+            .map(|(e, f)| Entity {
+                x: dt * e.vx,
+                y: dt * e.vy,
+                z: dt * e.vz,
+                vx: dt * f.fx / e.mass,
+                vy: dt * f.fy / e.mass,
+                vz: dt * f.fz / e.mass,
+                ..e
+            })
+            .collect();
+
+        // --- Combine results ---
+        for ((e, ns), (((k1, k2), k3), k4)) in entities
+            .iter()
+            .zip(new_state.iter_mut())
+            .zip(k1.iter().zip(&k2).zip(&k3).zip(&k4))
+        {
+            ns.x = e.x + (k1.x + 2.0 * k2.x + 2.0 * k3.x + k4.x) / 6.0;
+            ns.y = e.y + (k1.y + 2.0 * k2.y + 2.0 * k3.y + k4.y) / 6.0;
+            ns.z = e.z + (k1.z + 2.0 * k2.z + 2.0 * k3.z + k4.z) / 6.0;
+            ns.vx = e.vx + (k1.vx + 2.0 * k2.vx + 2.0 * k3.vx + k4.vx) / 6.0;
+            ns.vy = e.vy + (k1.vy + 2.0 * k2.vy + 2.0 * k3.vy + k4.vy) / 6.0;
+            ns.vz = e.vz + (k1.vz + 2.0 * k2.vz + 2.0 * k3.vz + k4.vz) / 6.0;
+            ns.mass = e.mass;
+            ns.radius = e.radius;
+            ns.id = e.id;
+        }
     }
 }
 
