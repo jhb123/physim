@@ -1,0 +1,24 @@
+[global]
+dt = 0.02
+iterations = 10000
+
+[elements]
+
+[[elements.star]]
+mass=1.0
+radius=0.2
+x=0.0
+
+[[elements.impulse]]
+fx = 50.0
+fy = 100.0
+
+[[elements.bbox]]
+xlim=2.6
+ylim=1.5
+
+[[elements.euler]]
+
+[[elements.glrender]]
+resolution="1080p"
+shader="yellowblue"
