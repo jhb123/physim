@@ -26,7 +26,7 @@ use crate::{
         transmute::{TransmuteElement, TransmuteElementHandler},
         ElementKind, Loadable, RegisteredElement,
     },
-    Entity, Force, UniverseConfiguration,
+    Acceleration, Entity, UniverseConfiguration,
 };
 
 use crate::msg;
@@ -95,11 +95,6 @@ impl Pipeline {
             new_state.push(Entity::default());
         }
 
-        // let mut forces = Vec::with_capacity(state.capacity());
-        // for _ in 0..state.len() {
-        //     forces.push(Force::default());
-        // }
-
         let msg_flag = Arc::new(AtomicBool::new(true));
         let msg_flag_clone = msg_flag.clone();
         let bus_clone = self.bus.clone();
@@ -116,10 +111,10 @@ impl Pipeline {
         thread::spawn(move || {
             let dt = self.timestep;
             let mut count = 0;
-            let transform_fn = |state: &[Entity], forces: &mut [Force]| {
+            let transform_fn = |state: &[Entity], accelerations: &mut [Acceleration]| {
                 self.transforms
                     .iter()
-                    .for_each(|element| element.transform(state, forces))
+                    .for_each(|element| element.transform(state, accelerations))
             };
 
             while count < self.iterations {

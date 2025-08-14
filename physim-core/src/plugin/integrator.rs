@@ -1,4 +1,4 @@
-use crate::{messages::MessageClient, Entity, Force};
+use crate::{messages::MessageClient, Acceleration, Entity};
 
 use super::Element;
 
@@ -7,7 +7,7 @@ pub trait IntegratorElement: Element + Send + Sync {
         &self,
         entities: &[Entity],
         new_state: &mut [Entity],
-        force_fn: &dyn Fn(&[Entity], &mut [Force]),
+        acc_fn: &dyn Fn(&[Entity], &mut [Acceleration]),
         dt: f64,
     );
 }
@@ -21,10 +21,10 @@ impl IntegratorElement for IntegratorElementHandler {
         &self,
         entities: &[Entity],
         new_state: &mut [Entity],
-        force_fn: &dyn Fn(&[Entity], &mut [Force]),
+        acc_fn: &dyn Fn(&[Entity], &mut [Acceleration]),
         dt: f64,
     ) {
-        self.instance.integrate(entities, new_state, force_fn, dt);
+        self.instance.integrate(entities, new_state, acc_fn, dt);
     }
 }
 

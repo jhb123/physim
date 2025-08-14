@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use physim_attribute::integrator_element;
 use physim_core::{
-    Entity, Force,
+    Acceleration, Entity,
     messages::MessageClient,
     plugin::{Element, ElementCreator, integrator::IntegratorElement},
 };
@@ -26,26 +26,26 @@ impl IntegratorElement for Rk4 {
         &self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        force_fn: &dyn Fn(&[Entity], &mut [Force]),
+        acc_fn: &dyn Fn(&[Entity], &mut [Acceleration]),
         dt: f64,
     ) {
         let n = entities.len();
 
         // --- k1 ---
-        let mut f1 = vec![Force::zero(); n];
-        force_fn(entities, &mut f1);
+        let mut f1 = vec![Acceleration::zero(); n];
+        acc_fn(entities, &mut f1);
 
         let k1: Vec<Entity> = entities
             .iter()
             .cloned()
             .zip(&f1)
-            .map(|(e, f)| Entity {
+            .map(|(e, a)| Entity {
                 x: dt * e.vx,
                 y: dt * e.vy,
                 z: dt * e.vz,
-                vx: dt * f.fx / e.mass,
-                vy: dt * f.fy / e.mass,
-                vz: dt * f.fz / e.mass,
+                vx: dt * a.x,
+                vy: dt * a.y,
+                vz: dt * a.z,
                 ..e
             })
             .collect();
@@ -66,20 +66,20 @@ impl IntegratorElement for Rk4 {
             })
             .collect();
 
-        let mut f2 = vec![Force::zero(); n];
-        force_fn(&temp_ents, &mut f2);
+        let mut f2 = vec![Acceleration::zero(); n];
+        acc_fn(&temp_ents, &mut f2);
 
         let k2: Vec<Entity> = temp_ents
             .iter()
             .cloned()
             .zip(&f2)
-            .map(|(e, f)| Entity {
+            .map(|(e, a)| Entity {
                 x: dt * e.vx,
                 y: dt * e.vy,
                 z: dt * e.vz,
-                vx: dt * f.fx / e.mass,
-                vy: dt * f.fy / e.mass,
-                vz: dt * f.fz / e.mass,
+                vx: dt * a.x,
+                vy: dt * a.y,
+                vz: dt * a.z,
                 ..e
             })
             .collect();
@@ -100,20 +100,20 @@ impl IntegratorElement for Rk4 {
             })
             .collect();
 
-        let mut f3 = vec![Force::zero(); n];
-        force_fn(&temp_ents, &mut f3);
+        let mut f3 = vec![Acceleration::zero(); n];
+        acc_fn(&temp_ents, &mut f3);
 
         let k3: Vec<Entity> = temp_ents
             .iter()
             .cloned()
             .zip(&f3)
-            .map(|(e, f)| Entity {
+            .map(|(e, a)| Entity {
                 x: dt * e.vx,
                 y: dt * e.vy,
                 z: dt * e.vz,
-                vx: dt * f.fx / e.mass,
-                vy: dt * f.fy / e.mass,
-                vz: dt * f.fz / e.mass,
+                vx: dt * a.x,
+                vy: dt * a.y,
+                vz: dt * a.z,
                 ..e
             })
             .collect();
@@ -134,20 +134,20 @@ impl IntegratorElement for Rk4 {
             })
             .collect();
 
-        let mut f4 = vec![Force::zero(); n];
-        force_fn(&temp_ents, &mut f4);
+        let mut f4 = vec![Acceleration::zero(); n];
+        acc_fn(&temp_ents, &mut f4);
 
         let k4: Vec<Entity> = temp_ents
             .iter()
             .cloned()
             .zip(&f4)
-            .map(|(e, f)| Entity {
+            .map(|(e, a)| Entity {
                 x: dt * e.vx,
                 y: dt * e.vy,
                 z: dt * e.vz,
-                vx: dt * f.fx / e.mass,
-                vy: dt * f.fy / e.mass,
-                vz: dt * f.fz / e.mass,
+                vx: dt * a.x,
+                vy: dt * a.y,
+                vz: dt * a.z,
                 ..e
             })
             .collect();

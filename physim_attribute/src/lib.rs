@@ -66,10 +66,10 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, forces: *mut Force, forces_len: usize) {
+        pub unsafe extern "C" fn #transform_fn(obj: *const std::ffi::c_void, state: *const Entity, state_len: usize, acceleration: *mut Acceleration, acceleration_len: usize) {
             let el: & #struct_name = unsafe { &*(obj as *const #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
-            let n =  unsafe {  std::slice::from_raw_parts_mut(forces, forces_len) };
+            let n =  unsafe {  std::slice::from_raw_parts_mut(acceleration, acceleration_len) };
             el.transform(s, n);
         }
 

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use physim_attribute::integrator_element;
 use physim_core::{
-    Entity, Force,
+    Acceleration, Entity,
     messages::MessageClient,
     plugin::{Element, ElementCreator, integrator::IntegratorElement},
 };
@@ -25,20 +25,18 @@ impl VerletInner {
         &mut self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        forces: &[physim_core::Force],
+        accelerations: &[physim_core::Acceleration],
         dt: f64,
     ) {
         self.previous_state = entities.to_vec();
-        for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
-            let m = entity.mass;
-            let a = [f.fx / m, f.fy / m, f.fz / m];
-            let x = entity.x + entity.vx * dt + 0.5 * a[0] * (dt.powi(2));
-            let y = entity.y + entity.vy * dt + 0.5 * a[1] * (dt.powi(2));
-            let z = entity.z + entity.vz * dt + 0.5 * a[2] * (dt.powi(2));
+        for (idx, (entity, a)) in entities.iter().zip(accelerations).enumerate() {
+            let x = entity.x + entity.vx * dt + 0.5 * a.x * (dt.powi(2));
+            let y = entity.y + entity.vy * dt + 0.5 * a.y * (dt.powi(2));
+            let z = entity.z + entity.vz * dt + 0.5 * a.z * (dt.powi(2));
 
-            let vx = entity.vx + a[0] * dt;
-            let vy = entity.vy + a[1] * dt;
-            let vz = entity.vz + a[2] * dt;
+            let vx = entity.vx + a.x * dt;
+            let vy = entity.vy + a.y * dt;
+            let vz = entity.vz + a.z * dt;
 
             let mut new_entity = *entity;
             new_entity.x = x;
@@ -55,16 +53,14 @@ impl VerletInner {
         &mut self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        forces: &[physim_core::Force],
+        accelerations: &[physim_core::Acceleration],
         dt: f64,
     ) {
-        for (idx, (entity, f)) in entities.iter().zip(forces).enumerate() {
+        for (idx, (entity, a)) in entities.iter().zip(accelerations).enumerate() {
             let prev = self.previous_state.get(idx).unwrap();
-            let m = entity.mass;
-            let a = [f.fx / m, f.fy / m, f.fz / m];
-            let x = 2_f64 * entity.x - prev.x + a[0] * (dt.powi(2));
-            let y = 2_f64 * entity.y - prev.y + a[1] * (dt.powi(2));
-            let z = 2_f64 * entity.z - prev.z + a[2] * (dt.powi(2));
+            let x = 2_f64 * entity.x - prev.x + a.x * (dt.powi(2));
+            let y = 2_f64 * entity.y - prev.y + a.y * (dt.powi(2));
+            let z = 2_f64 * entity.z - prev.z + a.z * (dt.powi(2));
 
             let vx = (x - entity.x) / dt;
             let vy = (y - entity.y) / dt;
@@ -88,16 +84,16 @@ impl IntegratorElement for Verlet {
         &self,
         entities: &[physim_core::Entity],
         new_state: &mut [physim_core::Entity],
-        force_fn: &dyn Fn(&[Entity], &mut [Force]),
+        acc_fn: &dyn Fn(&[Entity], &mut [Acceleration]),
         dt: f64,
     ) {
-        let mut forces = vec![Force::zero(); entities.len()];
-        force_fn(entities, &mut forces);
+        let mut accelerations = vec![Acceleration::zero(); entities.len()];
+        acc_fn(entities, &mut accelerations);
         let mut inner = self.inner.lock().unwrap();
         if inner.previous_state.len() != entities.len() {
-            inner.initial_integration(entities, new_state, &forces, dt);
+            inner.initial_integration(entities, new_state, &accelerations, dt);
         } else {
-            inner.integration(entities, new_state, &forces, dt);
+            inner.integration(entities, new_state, &accelerations, dt);
         }
     }
 }

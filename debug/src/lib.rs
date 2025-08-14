@@ -13,7 +13,7 @@ use physim_attribute::{
     initialise_state_element, render_element, synth_element, transform_element, transmute_element,
 };
 use physim_core::{
-    Entity, Force,
+    Acceleration, Entity,
     messages::{MessageClient, MessagePriority},
     msg,
     plugin::{
@@ -95,9 +95,9 @@ pub struct DebugTransform {
 }
 
 impl TransformElement for DebugTransform {
-    fn transform(&self, _: &[Entity], forces: &mut [Force]) {
-        for f in forces {
-            *f += Force::default();
+    fn transform(&self, _: &[Entity], acceleration: &mut [Acceleration]) {
+        for a in acceleration {
+            *a += Acceleration::default();
         }
 
         let msg1 = msg!(self, "debugplugin", "transformed", MessagePriority::Low);
