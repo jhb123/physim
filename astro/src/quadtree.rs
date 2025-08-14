@@ -142,25 +142,30 @@ where
     }
 
     fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
-        if let Some(e) = self.entity {
-            let r = ((location[0] - self.centre[0]).powi(2)
-                + (location[1] - self.centre[1]).powi(2)
-                + (location[2] - self.centre[2]).powi(2))
-            .sqrt();
-            if self.extent / r < bh_factor {
-                return vec![e];
-            }
-        }
+        let mut result = Vec::with_capacity(100);
+        let mut stack = Vec::with_capacity(100);
+        stack.push(self);
 
-        if self.children.iter().all(|x| x.is_none()) {
-            vec![self.entity.unwrap()]
-        } else {
-            let mut elems = vec![];
-            for child in self.children.iter().flatten() {
-                elems.extend(child.get_leaves_with_resolution(location, bh_factor))
+        while let Some(node) = stack.pop() {
+            if let Some(e) = node.entity {
+                let r = ((location[0] - node.centre[0]).powi(2)
+                    + (location[1] - node.centre[1]).powi(2)
+                    + (location[2] - node.centre[2]).powi(2))
+                .sqrt();
+                if node.extent / r < bh_factor {
+                    result.push(e);
+                    continue;
+                }
             }
-            elems
+            if node.children.iter().all(|x| x.is_none()) {
+                result.push(node.entity.unwrap());
+            } else {
+                for child in node.children.iter().flatten() {
+                    stack.push(child)
+                }
+            }
         }
+        result
     }
 
     fn get_octant_id(&self, item_pos: [f64; 3]) -> usize {
