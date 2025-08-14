@@ -35,62 +35,62 @@ pub struct Entity {
 
 #[derive(Clone, Copy, Default, Debug, Serialize)]
 #[repr(C)]
-pub struct Force {
-    pub fx: f64,
-    pub fy: f64,
-    pub fz: f64,
+pub struct Acceleration {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
-impl Force {
+impl Acceleration {
     pub fn zero() -> Self {
         Self {
-            fx: 0.0,
-            fy: 0.0,
-            fz: 0.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
         }
     }
 }
 
-impl Add for Force {
+impl Add for Acceleration {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
-            fx: self.fx + rhs.fx,
-            fy: self.fy + rhs.fy,
-            fz: self.fz + rhs.fz,
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
         }
     }
 }
 
-impl AddAssign for Force {
+impl AddAssign for Acceleration {
     fn add_assign(&mut self, rhs: Self) {
-        self.fx += rhs.fx;
-        self.fy += rhs.fy;
-        self.fz += rhs.fz;
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
     }
 }
 
-impl Sub for Force {
+impl Sub for Acceleration {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self {
-            fx: self.fx - rhs.fx,
-            fy: self.fy - rhs.fy,
-            fz: self.fz - rhs.fz,
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
         }
     }
 }
 
-impl Neg for Force {
+impl Neg for Acceleration {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
         Self {
-            fx: -self.fx,
-            fy: -self.fy,
-            fz: -self.fz,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
         }
     }
 }

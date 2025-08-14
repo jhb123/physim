@@ -11,13 +11,13 @@ use std::{
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{messages::MessageClient, Entity, Force};
+use crate::{messages::MessageClient, Acceleration, Entity};
 
 use super::Element;
 
 pub trait TransformElement: Send + Sync {
     fn new(properties: HashMap<String, Value>) -> Self;
-    fn transform(&self, state: &[Entity], forces: &mut [Force]);
+    fn transform(&self, state: &[Entity], acceleration: &mut [Acceleration]);
     fn set_properties(&self, properties: HashMap<String, Value>);
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> HashMap<String, String>;
@@ -26,8 +26,13 @@ pub trait TransformElement: Send + Sync {
 #[repr(C)]
 pub struct TransformElementAPI {
     pub init: unsafe extern "C" fn(*const u8, usize) -> *mut std::ffi::c_void,
-    pub transform:
-        unsafe extern "C" fn(*const std::ffi::c_void, *const Entity, usize, *mut Force, usize),
+    pub transform: unsafe extern "C" fn(
+        *const std::ffi::c_void,
+        *const Entity,
+        usize,
+        *mut Acceleration,
+        usize,
+    ),
     pub destroy: unsafe extern "C" fn(*mut std::ffi::c_void),
     pub set_properties: unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char),
     pub get_property:
@@ -73,17 +78,23 @@ impl TransformElementHandler {
         }
     }
 
-    pub fn transform(&self, state: &[Entity], forces: &mut [Force]) {
+    pub fn transform(&self, state: &[Entity], acceleration: &mut [Acceleration]) {
         let state_len = state.len();
         let state = state.as_ptr();
-        let forces_len = state_len;
-        let forces_ptr = forces.as_mut_ptr();
+        let acceleration_len = state_len;
+        let acceleration_ptr = acceleration.as_mut_ptr();
         let instance = self.instance.load(Ordering::SeqCst);
         if instance.is_null() {
             eprintln!("Transform is not loaded");
         } else {
             unsafe {
-                (self.api.transform)(instance, state, state_len, forces_ptr, forces_len);
+                (self.api.transform)(
+                    instance,
+                    state,
+                    state_len,
+                    acceleration_ptr,
+                    acceleration_len,
+                );
             }
             // new_state = std::slice::from_raw_parts_mut(new_state_ptr, new_state_len) ;
         }

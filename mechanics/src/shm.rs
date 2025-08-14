@@ -1,7 +1,9 @@
 use std::{collections::HashMap, sync::Mutex};
 
 use physim_attribute::transform_element;
-use physim_core::{Entity, Force, messages::MessageClient, plugin::transform::TransformElement};
+use physim_core::{
+    Acceleration, Entity, messages::MessageClient, plugin::transform::TransformElement,
+};
 use serde_json::Value;
 
 enum ShmTransformMode {
@@ -25,11 +27,13 @@ struct ShmTransformInner {
 }
 
 impl TransformElement for ShmTransform {
-    fn transform(&self, state: &[Entity], forces: &mut [Force]) {
+    fn transform(&self, state: &[Entity], accelerations: &mut [Acceleration]) {
         let mut inner = self.inner.lock().unwrap();
         match inner.mode {
-            ShmTransformMode::GlobalCentre => inner.global_centre_transform(state, forces),
-            ShmTransformMode::ParticleCentre => inner.particle_centre_transform(state, forces),
+            ShmTransformMode::GlobalCentre => inner.global_centre_transform(state, accelerations),
+            ShmTransformMode::ParticleCentre => {
+                inner.particle_centre_transform(state, accelerations)
+            }
         }
     }
 
@@ -84,17 +88,17 @@ impl TransformElement for ShmTransform {
 impl MessageClient for ShmTransform {}
 
 impl ShmTransformInner {
-    fn global_centre_transform(&self, state: &[Entity], forces: &mut [Force]) {
-        for (f, entity) in forces.iter_mut().zip(state) {
-            *f += Force {
-                fx: -self.k * entity.x - self.c * entity.vx,
-                fy: -self.k * entity.y - self.c * entity.vy,
-                fz: -self.k * entity.z - self.c * entity.vz,
+    fn global_centre_transform(&self, state: &[Entity], accelerations: &mut [Acceleration]) {
+        for (f, entity) in accelerations.iter_mut().zip(state) {
+            *f += Acceleration {
+                x: (-self.k * entity.x - self.c * entity.vx) / entity.mass,
+                y: (-self.k * entity.y - self.c * entity.vy) / entity.mass,
+                z: (-self.k * entity.z - self.c * entity.vz) / entity.mass,
             };
         }
     }
 
-    fn particle_centre_transform(&mut self, state: &[Entity], forces: &mut [Force]) {
+    fn particle_centre_transform(&mut self, state: &[Entity], accelerations: &mut [Acceleration]) {
         if self.origins.len() != state.len() {
             self.origins = state.iter().map(|e| [e.x, e.y, e.z]).collect();
         }
@@ -106,11 +110,11 @@ impl ShmTransformInner {
             .map(|(a, b)| [b.x - a[0], b.y - a[1], b.z - a[2]])
             .collect();
 
-        for (f, (delta, entity)) in forces.iter_mut().zip(deltas.iter().zip(state)) {
-            *f += Force {
-                fx: -self.k * delta[0] - self.c * entity.vx,
-                fy: -self.k * delta[1] - self.c * entity.vy,
-                fz: -self.k * delta[2] - self.c * entity.vz,
+        for (f, (delta, entity)) in accelerations.iter_mut().zip(deltas.iter().zip(state)) {
+            *f += Acceleration {
+                x: (-self.k * delta[0] - self.c * entity.vx) / entity.mass,
+                y: (-self.k * delta[1] - self.c * entity.vy) / entity.mass,
+                z: (-self.k * delta[2] - self.c * entity.vz) / entity.mass,
             };
         }
     }
