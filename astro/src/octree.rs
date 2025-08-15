@@ -142,81 +142,79 @@ where
     }
 
     fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
-        if let Some(e) = self.entity {
-            let r = ((location[0] - self.centre[0]).powi(2)
-                + (location[1] - self.centre[1]).powi(2)
-                + (location[2] - self.centre[2]).powi(2))
-            .sqrt();
-            if self.extent / r < bh_factor {
-                return vec![e];
-            }
-        }
+        let mut result = Vec::with_capacity(100);
+        let mut stack = Vec::with_capacity(100);
+        stack.push(self);
 
-        if self.children.iter().all(|x| x.is_none()) {
-            vec![self.entity.unwrap()]
-        } else {
-            let mut elems = vec![];
-            for child in self.children.iter().flatten() {
-                elems.extend(child.get_leaves_with_resolution(location, bh_factor))
+        while let Some(node) = stack.pop() {
+            if let Some(e) = node.entity {
+                let r = ((location[0] - node.centre[0]).powi(2)
+                    + (location[1] - node.centre[1]).powi(2)
+                    + (location[2] - node.centre[2]).powi(2))
+                .sqrt();
+                if node.extent / r < bh_factor {
+                    result.push(e);
+                    continue;
+                }
             }
-            elems
+            if node.children.iter().all(|x| x.is_none()) {
+                result.push(node.entity.unwrap());
+            } else {
+                for child in node.children.iter().flatten() {
+                    stack.push(child)
+                }
+            }
         }
+        result
     }
 
     fn get_octant_id(&self, item_pos: [f64; 3]) -> usize {
-        match item_pos {
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => 0,
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => 1,
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z <= self.centre[2] => 2,
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z <= self.centre[2] => 3,
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z > self.centre[2] => 4,
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z > self.centre[2] => 5,
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z > self.centre[2] => 6,
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z > self.centre[2] => 7,
-            _ => {
-                unreachable!()
-            }
-        }
+        let x_bit = (item_pos[0] > self.centre[0]) as usize;
+        let y_bit = (item_pos[1] > self.centre[1]) as usize;
+        let z_bit = (item_pos[2] > self.centre[2]) as usize;
+        x_bit | (y_bit << 1) | (z_bit << 2)
     }
 
     fn get_octant_id_centre(&self, item_pos: [f64; 3]) -> [f64; 3] {
-        match item_pos {
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => [
+        let id = self.get_octant_id(item_pos);
+
+        match id {
+            0 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2] - self.extent / 2.0,
             ],
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z <= self.centre[2] => [
+            1 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2] - self.extent / 2.0,
             ],
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z <= self.centre[2] => [
+            2 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2] - self.extent / 2.0,
             ],
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z <= self.centre[2] => [
+            3 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2] - self.extent / 2.0,
             ],
-            [x, y, z] if x <= self.centre[0] && y <= self.centre[1] && z > self.centre[2] => [
+            4 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2] + self.extent / 2.0,
             ],
-            [x, y, z] if x > self.centre[0] && y <= self.centre[1] && z > self.centre[2] => [
+            5 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2] + self.extent / 2.0,
             ],
-            [x, y, z] if x <= self.centre[0] && y > self.centre[1] && z > self.centre[2] => [
+            6 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2] + self.extent / 2.0,
             ],
-            [x, y, z] if x > self.centre[0] && y > self.centre[1] && z > self.centre[2] => [
+            7 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2] + self.extent / 2.0,
