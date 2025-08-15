@@ -169,35 +169,30 @@ where
     }
 
     fn get_octant_id(&self, item_pos: [f64; 3]) -> usize {
-        match item_pos {
-            [x, y, _] if x <= self.centre[0] && y <= self.centre[1] => 0,
-            [x, y, _] if x > self.centre[0] && y <= self.centre[1] => 1,
-            [x, y, _] if x <= self.centre[0] && y > self.centre[1] => 2,
-            [x, y, _] if x > self.centre[0] && y > self.centre[1] => 3,
-            _ => {
-                unreachable!()
-            }
-        }
+        let x_bit = (item_pos[0] > self.centre[0]) as usize;
+        let y_bit = (item_pos[1] > self.centre[1]) as usize;
+        x_bit | (y_bit << 1)
     }
 
     fn get_octant_id_centre(&self, item_pos: [f64; 3]) -> [f64; 3] {
-        match item_pos {
-            [x, y, _] if x <= self.centre[0] && y <= self.centre[1] => [
+        let id = self.get_octant_id(item_pos);
+        match id {
+            0 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2],
             ],
-            [x, y, _] if x > self.centre[0] && y <= self.centre[1] => [
+            1 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] - self.extent / 2.0,
                 self.centre[2],
             ],
-            [x, y, _] if x <= self.centre[0] && y > self.centre[1] => [
+            2 => [
                 self.centre[0] - self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2],
             ],
-            [x, y, _] if x > self.centre[0] && y > self.centre[1] => [
+            3 => [
                 self.centre[0] + self.extent / 2.0,
                 self.centre[1] + self.extent / 2.0,
                 self.centre[2],
