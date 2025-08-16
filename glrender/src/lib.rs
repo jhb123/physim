@@ -166,7 +166,13 @@ impl RenderElement for GLRenderElement {
             .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
-        let state = state_recv.recv().unwrap();
+        let mut state = Vec::new();
+        while state.len() == 0 {
+            match state_recv.recv() {
+                Ok(s) => state = s,
+                Err(_) => return,
+            };
+        }
 
         let mut vertices: Vec<Vertex> = state.iter().flat_map(|s| s.vertices()).collect();
 
@@ -296,10 +302,14 @@ impl RenderElement for GLRenderElement {
                         window_target.exit()
                     }
                     vertices.clear();
-                    vertices.extend(state_recv.recv().unwrap().iter().flat_map(|s| s.vertices()));
-                    vertex_buffer.invalidate();
-                    vertex_buffer.slice(0..vertices.len()).unwrap().write(&vertices);
-                    window.request_redraw();
+                    if let Ok(state) = state_recv.recv() {
+                        vertices.extend(state.iter().flat_map(|s| s.vertices()));
+                        vertex_buffer.invalidate();
+                        vertex_buffer.slice(0..vertices.len()).unwrap().write(&vertices);
+                        window.request_redraw();
+                    } else {
+                        window_target.exit();
+                    }
                 },
             _ => (),
         };
