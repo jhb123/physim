@@ -31,6 +31,7 @@ pub struct Entity {
     pub radius: f64,
     pub mass: f64,
     pub id: usize,
+    pub fixed: bool,
 }
 
 #[derive(Clone, Copy, Default, Debug, Serialize)]

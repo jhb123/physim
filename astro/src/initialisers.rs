@@ -7,10 +7,8 @@ use std::{collections::HashMap, f64::consts::PI, sync::Mutex};
 use physim_attribute::initialise_state_element;
 use physim_core::{
     Entity,
-    messages::{MessageClient, MessagePriority},
-    msg,
+    messages::MessageClient,
     plugin::{Element, ElementCreator, generator::GeneratorElement},
-    post_bus_msg,
 };
 use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 use serde_json::Value;
@@ -189,7 +187,6 @@ pub struct SingleStar {
 
 struct SingleStarInner {
     entity: Entity,
-    fixed: bool,
 }
 
 impl ElementCreator for SingleStar {
@@ -217,14 +214,13 @@ impl ElementCreator for SingleStar {
                 .get("id")
                 .and_then(|v| v.as_u64().map(|v| v as usize))
                 .unwrap_or(0),
+            fixed: properties
+                .get("fixed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
         };
 
-        let fixed = properties
-            .get("fixed")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        let inner = SingleStarInner { entity, fixed };
+        let inner = SingleStarInner { entity };
 
         Box::new(Self {
             inner: Mutex::new(inner),
@@ -237,15 +233,6 @@ impl MessageClient for SingleStar {}
 impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
         let inner = self.inner.lock().unwrap();
-        if inner.fixed {
-            let pause = msg!(
-                self,
-                "astro.fixed",
-                format!("{}", inner.entity.id),
-                MessagePriority::RealTime
-            );
-            post_bus_msg!(pause);
-        }
         vec![inner.entity]
     }
 }
@@ -283,8 +270,7 @@ impl Element for SingleStar {
             inner.entity.id = 0
         }
         if let Some(val) = new_props.get("fixed").and_then(|val| val.as_bool()) {
-            println!("setting fixed!");
-            inner.fixed = val
+            inner.entity.fixed = val
         }
     }
 
@@ -300,7 +286,7 @@ impl Element for SingleStar {
             "m" => Ok(serde_json::json!(inner.entity.mass)),
             "r" => Ok(serde_json::json!(inner.entity.radius)),
             "id" => Ok(serde_json::json!(inner.entity.id)),
-            "fixed" => Ok(serde_json::json!(inner.fixed)),
+            "fixed" => Ok(serde_json::json!(inner.entity.fixed)),
             _ => Err("No property".into()),
         }
     }
@@ -554,16 +540,9 @@ impl GeneratorElement for SolarSystem {
             z: 0.5,
             radius: 0.2,
             mass: 1.0,
-            id: 9999,
+            fixed: true,
             ..Default::default()
         };
-        let fixed_msg = msg!(
-            self,
-            "astro.fixed",
-            format!("{}", sun.id),
-            MessagePriority::RealTime
-        );
-        post_bus_msg!(fixed_msg);
         let mut entities = vec![sun];
 
         let m_planets = rand_distr::LogNormal::new(1.1, 0.1)
