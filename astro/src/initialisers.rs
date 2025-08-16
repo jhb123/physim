@@ -31,6 +31,7 @@ struct InnerRandomCube {
     spin: f64,
     centre: [f64; 3],
     size: f64,
+    mass: f64,
 }
 
 impl ElementCreator for RandomCube {
@@ -60,6 +61,11 @@ impl ElementCreator for RandomCube {
                 }
             })
             .unwrap_or([0.0_f64; 3]);
+        let mass = properties
+            .get("mass")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+
         Box::new(Self {
             inner: Mutex::new(InnerRandomCube {
                 n,
@@ -67,6 +73,7 @@ impl ElementCreator for RandomCube {
                 spin,
                 centre,
                 size,
+                mass,
             }),
         })
     }
@@ -77,6 +84,7 @@ impl GeneratorElement for RandomCube {
         let element = self.inner.lock().unwrap();
 
         let mut rng = ChaCha8Rng::seed_from_u64(element.seed);
+        let entity_mass = element.mass / (element.n as f64);
         let mut state = Vec::with_capacity(element.n as usize);
         for _ in 0..element.n {
             let mut e = Entity::random(&mut rng);
@@ -90,6 +98,8 @@ impl GeneratorElement for RandomCube {
             e.x += element.centre[0];
             e.y += element.centre[1];
             e.z += element.centre[2];
+
+            e.mass = entity_mass;
 
             state.push(e);
         }
@@ -112,6 +122,9 @@ impl Element for RandomCube {
         if let Some(size) = new_props.get("size").and_then(|size| size.as_f64()) {
             element.size = size
         }
+        if let Some(mass) = new_props.get("mass").and_then(|size| size.as_f64()) {
+            element.mass = mass
+        }
         if let Some(centre) = new_props.get("centre").and_then(|v| {
             let coords = v.as_array()?;
             if coords.len() != 3 {
@@ -133,6 +146,7 @@ impl Element for RandomCube {
             "spin" => Ok(serde_json::json!(element.spin)),
             "size" => Ok(serde_json::json!(element.size)),
             "centre" => Ok(serde_json::json!(element.centre)),
+            "mass" => Ok(serde_json::json!(element.mass)),
             _ => Err("No property".into()),
         }
     }
@@ -145,6 +159,10 @@ impl Element for RandomCube {
             ("seed".to_string(), "Random seed".to_string()),
             ("spin".to_string(), "Spin factor v = (r*s)".to_string()),
             ("size".to_string(), "side length of cube".to_string()),
+            (
+                "mass".to_string(),
+                "Total mass of cube. Default is 1.0".to_string(),
+            ),
             (
                 "centre".to_string(),
                 "Centre (specify in CLI with \\[x,y,z\\])".to_string(),
