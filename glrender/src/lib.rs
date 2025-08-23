@@ -1,5 +1,6 @@
 #![feature(str_from_raw_parts)]
 use std::io::Write;
+use std::str::FromStr;
 use std::sync::Mutex;
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
@@ -28,9 +29,31 @@ pub struct Vertex {
     velocity: [f32; 3],
 }
 
+#[derive(Default)]
 enum RenderPipelineShader {
+    #[default]
     YellowBlue,
     Velocity,
+    RgbVelocity,
+    Smoke,
+    Twinkle,
+}
+
+static SHADER_DESC: &str = "yellowblue, velocity, rgb-velocity, smoke, twinkle";
+
+impl FromStr for RenderPipelineShader {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "yellowblue" | "yellow-blue" => Ok(RenderPipelineShader::YellowBlue),
+            "velocity" => Ok(RenderPipelineShader::Velocity),
+            "rgbvelocity" | "rgb-velocity" => Ok(RenderPipelineShader::RgbVelocity),
+            "smoke" => Ok(RenderPipelineShader::Smoke),
+            "twinkle" => Ok(RenderPipelineShader::Twinkle),
+            _ => Err(()),
+        }
+    }
 }
 
 trait Renderable {
@@ -77,17 +100,26 @@ impl RenderPipelineShader {
                 include_str!("yellowblue/shader.frag"),
             ),
             Self::Velocity => (
-                include_str!("velocity/shader.vert"),
+                include_str!("velocity/blue-green.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
+            Self::RgbVelocity => (
+                include_str!("velocity/rgb-velocity.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
+            Self::Smoke => (
+                include_str!("velocity/smoke.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
+            Self::Twinkle => (
+                include_str!("velocity/twinkle.vert"),
                 include_str!("velocity/shader.geom"),
                 include_str!("velocity/shader.frag"),
             ),
         }
-    }
-}
-
-impl Default for RenderPipelineShader {
-    fn default() -> Self {
-        Self::YellowBlue
     }
 }
 
@@ -140,11 +172,7 @@ impl ElementCreator for GLRenderElement {
             .and_then(|s| s.as_str())
             .unwrap_or_default();
 
-        let shader = match shader {
-            "yellowblue" => RenderPipelineShader::YellowBlue,
-            "velocity" => RenderPipelineShader::Velocity,
-            _ => RenderPipelineShader::default(),
-        };
+        let shader = RenderPipelineShader::from_str(shader).unwrap_or_default();
 
         Box::new(GLRenderElement {
             inner: Mutex::new(InnerRenderElement {
@@ -210,6 +238,8 @@ impl RenderElement for GLRenderElement {
         let mut zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
+        let mut frame_num = 0;
+
         drop(element);
         // thread::spawn(move || {
         // *vertices.lock().unwrap() = new_state;
@@ -253,12 +283,13 @@ impl RenderElement for GLRenderElement {
                         [0.0, 0.0, zoom, 1.0f32] // move x, move y, zoom, .
                     ];
 
-                    let uniforms = uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]};
+                    let uniforms = uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y], frame_num: frame_num};
 
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
                     target.draw(&vertex_buffer, indices, &program, &uniforms,
                             &params).unwrap();
                     target.finish().unwrap();
+                    frame_num +=1;
                 },
                 WindowEvent::KeyboardInput {
                     device_id: _, event: kin, is_synthetic: _
@@ -354,7 +385,7 @@ impl Element for GLRenderElement {
                 "zoom".to_string(),
                 "Camera zoom (1.0 is default)".to_string(),
             ),
-            ("shader".to_string(), "velocity, yellowblue".to_string()),
+            ("shader".to_string(), SHADER_DESC.to_string()),
         ]))
     }
 }
@@ -398,11 +429,7 @@ impl ElementCreator for StdOutRender {
             .and_then(|s| s.as_str())
             .unwrap_or_default();
 
-        let shader = match shader {
-            "yellowblue" => RenderPipelineShader::YellowBlue,
-            "velocity" => RenderPipelineShader::Velocity,
-            _ => RenderPipelineShader::default(),
-        };
+        let shader = RenderPipelineShader::from_str(shader).unwrap_or_default();
 
         Box::new(StdOutRender {
             inner: Mutex::new(InnerRenderElement {
@@ -573,7 +600,7 @@ impl Element for StdOutRender {
                 "zoom".to_string(),
                 "Camera zoom (1.0 is default)".to_string(),
             ),
-            ("shader".to_string(), "velocity, yellowblue".to_string()),
+            ("shader".to_string(), SHADER_DESC.to_string()),
         ]))
     }
 }
