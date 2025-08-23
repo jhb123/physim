@@ -14,6 +14,7 @@ use physim_attribute::{
 };
 use physim_core::{
     Acceleration, Entity,
+    log::info,
     messages::{MessageClient, MessagePriority},
     msg,
     plugin::{
@@ -96,10 +97,10 @@ pub struct DebugTransform {
 
 impl TransformElement for DebugTransform {
     fn transform(&self, _: &[Entity], acceleration: &mut [Acceleration]) {
+        info!("Debug transform");
         for a in acceleration {
             *a += Acceleration::default();
         }
-
         let msg1 = msg!(self, "debugplugin", "transformed", MessagePriority::Low);
         post_bus_msg!(msg1);
     }
@@ -144,6 +145,7 @@ struct FakeSink {
 
 impl ElementCreator for FakeSink {
     fn create_element(_properties: HashMap<String, Value>) -> Box<Self> {
+        info!("Creating FakeSink");
         Box::new(FakeSink {
             state: Mutex::new(0),
         })
@@ -157,7 +159,7 @@ impl RenderElement for FakeSink {
         state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
     ) {
         while state_recv.recv().is_ok() {
-            println!("Rendering!");
+            info!("Fake Rendering!");
         }
     }
 }

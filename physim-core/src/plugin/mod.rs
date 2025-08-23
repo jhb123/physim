@@ -109,7 +109,8 @@ impl ElementMeta {
     }
 }
 
-/// Registers a plugin by generating a `register_plugin` function and a `set_callback_target` function.
+/// Registers a plugin by generating a `register_plugin`, a
+///  `set_callback_target` function and a `setup_logger` function.
 ///
 /// # Usage
 /// ```ignore
@@ -137,6 +138,19 @@ macro_rules! register_plugin {
                 assert!(!target.is_null());
                 GLOBAL_BUS_TARGET = target;
             }
+        }
+
+        static LOGGER: $crate::once_cell::sync::OnceCell<Result<(), $crate::log::SetLoggerError>> = $crate::once_cell::sync::OnceCell::new();
+
+        #[no_mangle]
+        pub extern "Rust" fn setup_logger(
+            logger: &'static dyn $crate::log::Log,
+            level: $crate::log::LevelFilter,
+        ) -> &Result<(), $crate::log::SetLoggerError> {
+            LOGGER.get_or_init(|| {
+                $crate::log::set_max_level(level);
+                $crate::log::set_logger(logger)
+            })
         }
     };
 }
@@ -218,6 +232,25 @@ pub unsafe fn set_bus(
         lib.get(b"set_callback_target")?;
     let bus_raw_ptr = Arc::into_raw(bus) as *mut core::ffi::c_void;
     set_target(bus_raw_ptr);
+    Ok(())
+}
+
+type SetupLogger = extern "Rust" fn(
+    logger: &'static dyn log::Log,
+    level: log::LevelFilter,
+) -> Result<(), log::SetLoggerError>;
+
+pub fn setup_plugin_logger(element: &RegisteredElement) -> Result<(), Box<dyn std::error::Error>> {
+    unsafe {
+        let lib = libloading::Library::new(&element.lib_path)?;
+        let ret = lib.get::<SetupLogger>(b"setup_logger");
+        if let Ok(setup_logger) = ret {
+            // I think it's basically fine to ignore this error. the global logger
+            // pointer can only be set once, but the the plugins need to also use
+            // the setup function to work.
+            let _ = setup_logger(log::logger(), log::max_level());
+        }
+    }
     Ok(())
 }
 
@@ -442,6 +475,12 @@ impl MessageClient for MetaElement {}
 
 pub fn discover_map() -> HashMap<String, RegisteredElement> {
     let elements = discover();
+    for element in &elements {
+        if setup_plugin_logger(element).is_err() {
+            eprintln!("Plugin doesn't implement setup_logger");
+        };
+    }
+
     elements
         .into_iter()
         .map(|m| (m.element_info.name.clone(), m))

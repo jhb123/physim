@@ -14,4 +14,3 @@ physim-core = { path = "../physim-core" }
 physim_attribute = { path = "../physim_attribute" }
 glium = "0.36.0"
 serde_json = "1.0.140"
-log = "0.4.25"

@@ -5,6 +5,9 @@ pub mod messages;
 pub mod pipeline;
 pub mod plugin;
 
+pub use log;
+pub use once_cell;
+
 use std::ops::{Add, AddAssign, Neg, Sub};
 
 use rand::Rng;
