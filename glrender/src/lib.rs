@@ -27,6 +27,7 @@ register_plugin!("glrender,stdout");
 pub struct Vertex {
     position: [f32; 3],
     velocity: [f32; 3],
+    id: u32,
 }
 
 #[derive(Default)]
@@ -37,9 +38,10 @@ enum RenderPipelineShader {
     RgbVelocity,
     Smoke,
     Twinkle,
+    Id,
 }
 
-static SHADER_DESC: &str = "yellowblue, velocity, rgb-velocity, smoke, twinkle";
+static SHADER_DESC: &str = "yellowblue, velocity, rgb-velocity, smoke, twinkle, id";
 
 impl FromStr for RenderPipelineShader {
     type Err = ();
@@ -51,6 +53,7 @@ impl FromStr for RenderPipelineShader {
             "rgbvelocity" | "rgb-velocity" => Ok(RenderPipelineShader::RgbVelocity),
             "smoke" => Ok(RenderPipelineShader::Smoke),
             "twinkle" => Ok(RenderPipelineShader::Twinkle),
+            "id" => Ok(RenderPipelineShader::Id),
             _ => Err(()),
         }
     }
@@ -70,6 +73,7 @@ impl Renderable for Entity {
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
+                id: self.id as u32,
             },
             Vertex {
                 position: [
@@ -78,6 +82,7 @@ impl Renderable for Entity {
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
+                id: self.id as u32,
             },
             Vertex {
                 position: [
@@ -86,6 +91,7 @@ impl Renderable for Entity {
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
+                id: self.id as u32,
             },
         ]
     }
@@ -119,11 +125,16 @@ impl RenderPipelineShader {
                 include_str!("velocity/shader.geom"),
                 include_str!("velocity/shader.frag"),
             ),
+            Self::Id => (
+                include_str!("id/rgb.vert"),
+                include_str!("id/shader.geom"),
+                include_str!("id/shader.frag"),
+            ),
         }
     }
 }
 
-implement_vertex!(Vertex, position, velocity);
+implement_vertex!(Vertex, position, velocity, id);
 
 #[render_element(name = "glrender", blurb = "Render simulation to a window")]
 pub struct GLRenderElement {
@@ -195,7 +206,7 @@ impl RenderElement for GLRenderElement {
             .build(&event_loop);
 
         let mut state = Vec::new();
-        while state.len() == 0 {
+        while state.is_empty() {
             match state_recv.recv() {
                 Ok(s) => state = s,
                 Err(_) => return,
