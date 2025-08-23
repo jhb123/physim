@@ -30,6 +30,7 @@ struct InnerRandomCube {
     centre: [f64; 3],
     size: f64,
     mass: f64,
+    id: usize,
 }
 
 impl ElementCreator for RandomCube {
@@ -63,7 +64,7 @@ impl ElementCreator for RandomCube {
             .get("mass")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0);
-
+        let id = properties.get("id").and_then(|id| id.as_u64()).unwrap_or(0);
         Box::new(Self {
             inner: Mutex::new(InnerRandomCube {
                 n,
@@ -72,6 +73,7 @@ impl ElementCreator for RandomCube {
                 centre,
                 size,
                 mass,
+                id: id as usize,
             }),
         })
     }
@@ -98,7 +100,7 @@ impl GeneratorElement for RandomCube {
             e.z += element.centre[2];
 
             e.mass = entity_mass;
-
+            e.id = element.id;
             state.push(e);
         }
         state
@@ -134,6 +136,9 @@ impl Element for RandomCube {
         }) {
             element.centre = centre
         }
+        if let Some(id) = new_props.get("id").and_then(|id| id.as_u64()) {
+            element.id = id as usize
+        }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -145,6 +150,7 @@ impl Element for RandomCube {
             "size" => Ok(serde_json::json!(element.size)),
             "centre" => Ok(serde_json::json!(element.centre)),
             "mass" => Ok(serde_json::json!(element.mass)),
+            "id" => Ok(serde_json::json!(element.id)),
             _ => Err("No property".into()),
         }
     }
@@ -164,6 +170,10 @@ impl Element for RandomCube {
             (
                 "centre".to_string(),
                 "Centre (specify in CLI with \\[x,y,z\\])".to_string(),
+            ),
+            (
+                "id".to_string(),
+                "Id assigned to stars in galaxy".to_string(),
             ),
         ]))
     }
@@ -327,6 +337,7 @@ struct InnerPlummer {
     initial_v: [f64; 3],
     plummer_r: f64,
     spin: f64,
+    id: usize,
 }
 
 impl ElementCreator for Plummer {
@@ -372,6 +383,8 @@ impl ElementCreator for Plummer {
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0);
 
+        let id = properties.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+
         Box::new(Self {
             inner: Mutex::new(InnerPlummer {
                 n,
@@ -381,6 +394,7 @@ impl ElementCreator for Plummer {
                 initial_v,
                 plummer_r,
                 spin,
+                id: id as usize,
             }),
         })
     }
@@ -416,6 +430,9 @@ impl GeneratorElement for Plummer {
             e.vx = vx + element.initial_v[0];
             e.vy = vy + element.initial_v[1];
             e.vz = vz + element.initial_v[2];
+
+            e.id = element.id;
+
             state.push(e);
         }
         state
@@ -462,6 +479,9 @@ impl Element for Plummer {
         if let Some(spin) = new_props.get("spin").and_then(|spin| spin.as_f64()) {
             element.spin = spin;
         }
+        if let Some(id) = new_props.get("id").and_then(|id| id.as_u64()) {
+            element.id = id as usize;
+        }
     }
 
     fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
@@ -474,6 +494,7 @@ impl Element for Plummer {
             "mass" => Ok(serde_json::json!(element.mass)),
             "centre" => Ok(serde_json::json!(element.centre)),
             "v" => Ok(serde_json::json!(element.initial_v)),
+            "id" => Ok(serde_json::json!(element.id)),
             _ => Err("No property".into()),
         }
     }
@@ -494,6 +515,10 @@ impl Element for Plummer {
             (
                 "v".to_string(),
                 "velocity (specify in CLI with \\[vx,vy,vz\\])".to_string(),
+            ),
+            (
+                "id".to_string(),
+                "Id assigned to stars in galaxy".to_string(),
             ),
         ]))
     }
