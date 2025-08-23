@@ -36,12 +36,15 @@ enum RenderPipelineShader {
     YellowBlue,
     Velocity,
     RgbVelocity,
+    OrangeBlue,
+    Hot,
     Smoke,
     Twinkle,
     Id,
 }
 
-static SHADER_DESC: &str = "yellowblue, velocity, rgb-velocity, smoke, twinkle, id";
+static SHADER_DESC: &str =
+    "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot";
 
 impl FromStr for RenderPipelineShader {
     type Err = ();
@@ -50,6 +53,8 @@ impl FromStr for RenderPipelineShader {
         match s.to_lowercase().as_str() {
             "yellowblue" | "yellow-blue" => Ok(RenderPipelineShader::YellowBlue),
             "velocity" => Ok(RenderPipelineShader::Velocity),
+            "orange-blue" => Ok(RenderPipelineShader::OrangeBlue),
+            "hot" => Ok(RenderPipelineShader::Hot),
             "rgbvelocity" | "rgb-velocity" => Ok(RenderPipelineShader::RgbVelocity),
             "smoke" => Ok(RenderPipelineShader::Smoke),
             "twinkle" => Ok(RenderPipelineShader::Twinkle),
@@ -129,6 +134,16 @@ impl RenderPipelineShader {
                 include_str!("id/rgb.vert"),
                 include_str!("id/shader.geom"),
                 include_str!("id/shader.frag"),
+            ),
+            Self::OrangeBlue => (
+                include_str!("velocity/orange-blue.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
+            Self::Hot => (
+                include_str!("velocity/hot.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
             ),
         }
     }
