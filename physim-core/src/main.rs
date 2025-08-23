@@ -35,6 +35,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", help_text);
         return Ok(());
     };
-
     pipeline.run()
 }

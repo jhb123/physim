@@ -381,7 +381,6 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 name = "debug"
 version = "0.2.0"
 dependencies = [
- "log",
  "physim-core",
  "physim_attribute",
  "rand",
@@ -560,7 +559,6 @@ name = "glrender"
 version = "0.2.0"
 dependencies = [
  "glium",
- "log",
  "physim-core",
  "physim_attribute",
  "serde_json",
@@ -777,7 +775,6 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 name = "mechanics"
 version = "0.2.0"
 dependencies = [
- "log",
  "physim-core",
  "physim_attribute",
  "rand",
@@ -1093,9 +1090,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.3"
+version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "orbclient"
@@ -1128,6 +1125,7 @@ dependencies = [
  "env_logger",
  "libloading",
  "log",
+ "once_cell",
  "rand",
  "rand_chacha",
  "serde",
