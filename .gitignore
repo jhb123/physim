@@ -6,3 +6,4 @@ flamegraph.svg
 pipeline.toml
 .DS_Store
 /plots
+video_configs/
