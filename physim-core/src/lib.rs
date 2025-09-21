@@ -22,7 +22,7 @@ pub struct UniverseConfiguration {
     // edge_mode: UniverseEdge,
 }
 
-#[derive(Clone, Copy, Default, Debug, Serialize)]
+#[derive(Clone, Copy, Default, Debug, Serialize, PartialEq)]
 #[repr(C)]
 pub struct Entity {
     pub x: f64,
