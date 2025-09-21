@@ -74,7 +74,7 @@ impl Renderable for Entity {
             Vertex {
                 position: [
                     self.x as f32,
-                    self.y as f32 + self.radius as f32,
+                    self.y as f32 + (self.radius * 2.0) as f32,
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
@@ -82,8 +82,8 @@ impl Renderable for Entity {
             },
             Vertex {
                 position: [
-                    (self.x - self.radius * f64::sqrt(3.0) * 0.5) as f32,
-                    (self.y - 0.5 * self.radius) as f32,
+                    (self.x - self.radius * 2.0 * f64::sqrt(3.0) * 0.5) as f32,
+                    (self.y - 0.5 * self.radius * 2.0) as f32,
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
@@ -91,8 +91,8 @@ impl Renderable for Entity {
             },
             Vertex {
                 position: [
-                    (self.x + self.radius * f64::sqrt(3.0) * 0.5) as f32,
-                    (self.y - 0.5 * self.radius) as f32,
+                    (self.x + self.radius * 2.0 * f64::sqrt(3.0) * 0.5) as f32,
+                    (self.y - 0.5 * self.radius * 2.0) as f32,
                     self.z as f32,
                 ],
                 velocity: [self.vx as f32, self.vy as f32, self.vx as f32],
