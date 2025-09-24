@@ -21,15 +21,9 @@ struct Wrapper {
 impl TransmuteElement for Wrapper {
     fn transmute(&self, data: &mut Vec<Entity>) {
         for e in data.iter_mut() {
-            if e.x.abs() > self.xlim {
-                e.x *= -1.0
-            }
-            if e.y.abs() > self.ylim {
-                e.y *= -1.0
-            }
-            if e.z.abs() > self.zlim {
-                e.z *= -1.0
-            }
+            e.x = (e.x + self.xlim).rem_euclid(2.0 * self.xlim) - self.xlim;
+            e.y = (e.y + self.ylim).rem_euclid(2.0 * self.ylim) - self.ylim;
+            e.z = (e.z + self.zlim).rem_euclid(2.0 * self.zlim) - self.zlim;
         }
     }
 }
