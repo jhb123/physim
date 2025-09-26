@@ -563,7 +563,7 @@ impl GeneratorElement for SolarSystem {
             x: 0.0,
             y: 0.0,
             z: 0.5,
-            radius: 0.2,
+            radius: 0.1,
             mass: 1.0,
             fixed: true,
             ..Default::default()
@@ -597,7 +597,7 @@ impl GeneratorElement for SolarSystem {
                     vx,
                     vy,
                     z: 0.5,
-                    radius: 0.08,
+                    radius: 0.05,
                     mass: m * 1e-5,
                     ..Default::default()
                 }
@@ -611,7 +611,7 @@ impl GeneratorElement for SolarSystem {
                 e.mass /= 10.0;
                 e.x += 0.01;
                 e.vy += (e.mass / 0.01).powf(0.5);
-                e.radius = 0.02;
+                e.radius = 0.005;
                 e
             })
             .collect();
@@ -672,7 +672,7 @@ impl GeneratorElement for SolarSystem {
                     vx,
                     vy,
                     z: 0.5,
-                    radius: 0.04,
+                    radius: 0.01,
                     mass: 1e-7,
                     ..Default::default()
                 }
