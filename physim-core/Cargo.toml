@@ -28,13 +28,8 @@ name = "physcan"
 path = "src/bin/scanner.rs"
 
 [[bin]]
-name = "props"
-path = "src/bin/props.rs"
-
-[[bin]]
 name = "physim"
 path = "src/main.rs"
-
 
 [[bin]]
 name = "msg"

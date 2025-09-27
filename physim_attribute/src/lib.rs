@@ -41,8 +41,6 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
     let transform_fn = format_ident!("{}_transform", prefix);
     let destroy_fn = format_ident!("{}_destroy", prefix);
     let api_fn = format_ident!("{}_get_api", prefix);
-    let set_property_fn = format_ident!("{}_set_properties", prefix);
-    let get_property_fn = format_ident!("{}_get_properties", prefix);
     let get_property_descriptions_fn = format_ident!("{}_get_property_descriptions", prefix);
     let recv_message_fn = format_ident!("{}_recv_message", prefix);
 
@@ -85,8 +83,6 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 init: #init_fn,
                 transform: #transform_fn,
                 destroy: #destroy_fn,
-                set_properties: #set_property_fn,
-                get_property: #get_property_fn,
                 get_property_descriptions: #get_property_descriptions_fn,
                 recv_message: #recv_message_fn,
             }))
@@ -104,31 +100,6 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #blurb,
                 env!("CARGO_PKG_REPOSITORY")
             )
-        }
-
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #set_property_fn(obj: *mut std::ffi::c_void, data: *mut std::ffi::c_char) {
-            if obj.is_null() {return};
-            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-
-            let new_props = unsafe { std::ffi::CString::from_raw(data) };
-
-            let properties = match serde_json::from_str(new_props.to_str().unwrap()){
-                Ok(properties) => el.set_properties( properties ),
-                Err(_) => { panic!("handle this properly")},
-            };
-
-        }
-
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #get_property_fn(obj: *mut std::ffi::c_void, prop: *mut std::ffi::c_char) -> *mut std::ffi::c_char {
-            if obj.is_null() {return std::ptr::null_mut()};
-            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-            let prop = unsafe { std::ffi::CString::from_raw(prop) };
-            match el.get_property( prop.to_str().unwrap() ) {
-                Ok(value) => std::ffi::CString::new(value.to_string()).unwrap().into_raw(),
-                Err(_) => std::ptr::null_mut()
-            }
         }
 
         #[unsafe(no_mangle)]

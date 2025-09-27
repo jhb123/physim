@@ -81,12 +81,6 @@ impl ElementCreator for Collisions {
 }
 
 impl Element for Collisions {
-    fn set_properties(&self, _: HashMap<String, Value>) {}
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err(format!("no property {prop}").into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {

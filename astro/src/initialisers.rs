@@ -107,54 +107,6 @@ impl GeneratorElement for RandomCube {
     }
 }
 impl Element for RandomCube {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-
-        if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {
-            element.n = n
-        }
-        if let Some(s) = new_props.get("s").and_then(|s| s.as_f64()) {
-            element.spin = s
-        }
-        if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
-            element.seed = seed
-        }
-        if let Some(size) = new_props.get("size").and_then(|size| size.as_f64()) {
-            element.size = size
-        }
-        if let Some(mass) = new_props.get("mass").and_then(|size| size.as_f64()) {
-            element.mass = mass
-        }
-        if let Some(centre) = new_props.get("centre").and_then(|v| {
-            let coords = v.as_array()?;
-            if coords.len() != 3 {
-                None
-            } else {
-                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
-                Some([coords[0], coords[1], coords[2]])
-            }
-        }) {
-            element.centre = centre
-        }
-        if let Some(id) = new_props.get("id").and_then(|id| id.as_u64()) {
-            element.id = id as usize
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "n" => Ok(serde_json::json!(element.n)),
-            "seed" => Ok(serde_json::json!(element.seed)),
-            "spin" => Ok(serde_json::json!(element.spin)),
-            "size" => Ok(serde_json::json!(element.size)),
-            "centre" => Ok(serde_json::json!(element.centre)),
-            "mass" => Ok(serde_json::json!(element.mass)),
-            "id" => Ok(serde_json::json!(element.id)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -248,59 +200,6 @@ impl GeneratorElement for SingleStar {
 }
 
 impl Element for SingleStar {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut inner = self.inner.lock().unwrap();
-        if let Some(val) = new_props.get("x").and_then(|val| val.as_f64()) {
-            inner.entity.x = val
-        }
-        if let Some(val) = new_props.get("y").and_then(|val| val.as_f64()) {
-            inner.entity.y = val
-        }
-        if let Some(val) = new_props.get("z").and_then(|val| val.as_f64()) {
-            inner.entity.z = val
-        }
-        if let Some(val) = new_props.get("vx").and_then(|val| val.as_f64()) {
-            inner.entity.vx = val
-        }
-        if let Some(val) = new_props.get("vy").and_then(|val| val.as_f64()) {
-            inner.entity.vy = val
-        }
-        if let Some(val) = new_props.get("vz").and_then(|val| val.as_f64()) {
-            inner.entity.vz = val
-        }
-        if let Some(val) = new_props.get("m").and_then(|val| val.as_f64()) {
-            inner.entity.mass = val
-        }
-        if let Some(val) = new_props.get("r").and_then(|val| val.as_f64()) {
-            inner.entity.radius = val
-        }
-        if let Some(val) = new_props.get("id").and_then(|val| val.as_u64()) {
-            inner.entity.id = val as usize
-        } else {
-            inner.entity.id = 0
-        }
-        if let Some(val) = new_props.get("fixed").and_then(|val| val.as_bool()) {
-            inner.entity.fixed = val
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let inner = self.inner.lock().unwrap();
-        match prop {
-            "x" => Ok(serde_json::json!(inner.entity.x)),
-            "y" => Ok(serde_json::json!(inner.entity.y)),
-            "z" => Ok(serde_json::json!(inner.entity.z)),
-            "vx" => Ok(serde_json::json!(inner.entity.vx)),
-            "vy" => Ok(serde_json::json!(inner.entity.vy)),
-            "vz" => Ok(serde_json::json!(inner.entity.vz)),
-            "m" => Ok(serde_json::json!(inner.entity.mass)),
-            "r" => Ok(serde_json::json!(inner.entity.radius)),
-            "id" => Ok(serde_json::json!(inner.entity.id)),
-            "fixed" => Ok(serde_json::json!(inner.entity.fixed)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -440,65 +339,6 @@ impl GeneratorElement for Plummer {
 }
 
 impl Element for Plummer {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-        if let Some(n) = new_props.get("n").and_then(|n| n.as_u64()) {
-            element.n = n
-        }
-        if let Some(m) = new_props.get("mass").and_then(|s| s.as_f64()) {
-            element.mass = m
-        }
-        if let Some(seed) = new_props.get("seed").and_then(|seed| seed.as_u64()) {
-            element.seed = seed
-        }
-        if let Some(a) = new_props.get("a").and_then(|a| a.as_f64()) {
-            element.plummer_r = a
-        }
-        if let Some(centre) = new_props.get("centre").and_then(|v| {
-            let coords = v.as_array()?;
-            if coords.len() != 3 {
-                None
-            } else {
-                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
-                Some([coords[0], coords[1], coords[2]])
-            }
-        }) {
-            element.centre = centre
-        }
-        if let Some(initial_v) = new_props.get("v").and_then(|v| {
-            let coords = v.as_array()?;
-            if coords.len() != 3 {
-                None
-            } else {
-                let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
-                Some([coords[0], coords[1], coords[2]])
-            }
-        }) {
-            element.initial_v = initial_v
-        }
-        if let Some(spin) = new_props.get("spin").and_then(|spin| spin.as_f64()) {
-            element.spin = spin;
-        }
-        if let Some(id) = new_props.get("id").and_then(|id| id.as_u64()) {
-            element.id = id as usize;
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "n" => Ok(serde_json::json!(element.n)),
-            "seed" => Ok(serde_json::json!(element.seed)),
-            "spin" => Ok(serde_json::json!(element.spin)),
-            "a" => Ok(serde_json::json!(element.plummer_r)),
-            "mass" => Ok(serde_json::json!(element.mass)),
-            "centre" => Ok(serde_json::json!(element.centre)),
-            "v" => Ok(serde_json::json!(element.initial_v)),
-            "id" => Ok(serde_json::json!(element.id)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -687,12 +527,6 @@ impl GeneratorElement for SolarSystem {
 }
 
 impl Element for SolarSystem {
-    fn set_properties(&self, _new_props: HashMap<String, Value>) {}
-
-    fn get_property(&self, _prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("Cannot get property".into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {

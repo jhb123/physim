@@ -32,10 +32,9 @@ pub enum ElementKind {
 }
 
 pub trait Element: MessageClient {
-    fn set_properties(&self, new_props: HashMap<String, Value>);
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
 }
+
 pub trait Loadable {
     type Item;
     fn load(
@@ -458,14 +457,6 @@ impl Loadable for MetaElement {
 }
 
 impl Element for MetaElement {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        self.instance.set_properties(new_props);
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
-        self.instance.get_property(prop)
-    }
-
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
         self.instance.get_property_descriptions()
     }
