@@ -160,6 +160,7 @@ mod private {
 pub trait MessageClient: Send + Sync + private::Sealed {
     #[allow(unused_variables)]
     fn recv_message(&self, message: Message) {}
+    fn post_configuration_messages(&self) {}
 }
 
 pub extern "C" fn callback(target: *mut c_void, message: CMessage) {

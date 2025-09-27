@@ -95,4 +95,8 @@ impl Element for EnergySink {
     }
 }
 
-impl MessageClient for EnergySink {}
+impl MessageClient for EnergySink {
+    fn recv_message(&self, message: physim_core::messages::Message) {
+        println!("{:?}", message);
+    }
+}

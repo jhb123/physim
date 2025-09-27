@@ -86,6 +86,12 @@ impl Pipeline {
             size_z: 1.0,
         };
 
+        self.transforms
+            .iter()
+            .for_each(|el| el.post_configuration_messages());
+
+        self.bus.lock().unwrap().pop_messages();
+
         let mut state = Vec::new();
         for el in self.initialisers.iter() {
             state.extend(el.create_entities());
@@ -103,7 +109,7 @@ impl Pipeline {
                 let mut lock = bus_clone.lock().unwrap();
                 lock.pop_messages();
                 drop(lock);
-                thread::sleep(std::time::Duration::from_millis(8)); // don't want to spend literally all our computation on this?
+                thread::sleep(std::time::Duration::from_millis(8));
             }
         });
 
