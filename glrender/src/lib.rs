@@ -6,6 +6,7 @@ use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
 use glium::winit::event::KeyEvent;
 use glium::winit::keyboard::{KeyCode, PhysicalKey};
+use glium::winit::window::Window;
 use glium::{
     Surface, implement_vertex, uniform,
     winit::{
@@ -456,6 +457,7 @@ impl RenderElement for StdOutRender {
 
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+            .set_window_builder(Window::default_attributes().with_visible(false))
             .with_title("PhySim Renderer")
             .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
