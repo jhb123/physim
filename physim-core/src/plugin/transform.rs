@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     error::Error,
-    str::FromStr,
     sync::{
         atomic::{AtomicPtr, Ordering},
         Arc,
@@ -18,8 +17,6 @@ use super::Element;
 pub trait TransformElement: Send + Sync {
     fn new(properties: HashMap<String, Value>) -> Self;
     fn transform(&self, state: &[Entity], acceleration: &mut [Acceleration]);
-    fn set_properties(&self, properties: HashMap<String, Value>);
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>>;
     fn get_property_descriptions(&self) -> HashMap<String, String>;
 }
 
@@ -34,9 +31,6 @@ pub struct TransformElementAPI {
         usize,
     ),
     pub destroy: unsafe extern "C" fn(*mut std::ffi::c_void),
-    pub set_properties: unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char),
-    pub get_property:
-        unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_char) -> *mut std::ffi::c_char,
     pub get_property_descriptions:
         unsafe extern "C" fn(*mut std::ffi::c_void) -> *mut std::ffi::c_char,
     pub recv_message: unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void),
@@ -108,25 +102,6 @@ impl TransformElementHandler {
 }
 
 impl Element for TransformElementHandler {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let json = serde_json::to_string(&new_props).unwrap();
-        let json = std::ffi::CString::new(json).unwrap().into_raw(); // danger!
-
-        unsafe { (self.api.set_properties)(self.instance.load(Ordering::SeqCst), json) }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
-        let prop_ptr = std::ffi::CString::new(prop).unwrap().into_raw(); // danger!
-        let value =
-            unsafe { (self.api.get_property)(self.instance.load(Ordering::SeqCst), prop_ptr) };
-        if value.is_null() {
-            return Err(format!("{prop} is not a property").into());
-        }
-        let value = unsafe { std::ffi::CString::from_raw(value) };
-        let v = value.to_str().map_err(Box::new)?;
-        Ok(Value::from_str(v).map_err(Box::new)?)
-    }
-
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
         let value =
             unsafe { (self.api.get_property_descriptions)(self.instance.load(Ordering::SeqCst)) };

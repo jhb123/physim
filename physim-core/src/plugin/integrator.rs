@@ -29,14 +29,6 @@ impl IntegratorElement for IntegratorElementHandler {
 }
 
 impl Element for IntegratorElementHandler {
-    fn set_properties(&self, new_props: std::collections::HashMap<String, serde_json::Value>) {
-        self.instance.set_properties(new_props);
-    }
-
-    fn get_property(&self, prop: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-        self.instance.get_property(prop)
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<std::collections::HashMap<String, String>, Box<dyn std::error::Error>> {

@@ -84,30 +84,6 @@ impl TransformElement for AstroElement {
         }
     }
 
-    fn set_properties(&self, properties: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-        if let Some(theta) = properties.get("theta").and_then(|theta| theta.as_f64()) {
-            element.theta = theta
-        }
-
-        if let Some(easing_factor) = properties
-            .get("e")
-            .and_then(|v| v.as_f64())
-            .map(|x| x.abs())
-        {
-            element.easing_factor = easing_factor
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "theta" => Ok(serde_json::json!(element.theta)),
-            "e" => Ok(serde_json::json!(element.easing_factor)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(&self) -> HashMap<String, String> {
         HashMap::from([
             (
@@ -194,30 +170,6 @@ impl TransformElement for AstroOctreeElement {
         }
     }
 
-    fn set_properties(&self, properties: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-        if let Some(theta) = properties.get("theta").and_then(|theta| theta.as_f64()) {
-            element.theta = theta
-        }
-
-        if let Some(easing_factor) = properties
-            .get("e")
-            .and_then(|v| v.as_f64())
-            .map(|x| x.abs())
-        {
-            element.easing_factor = easing_factor
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "theta" => Ok(serde_json::json!(element.theta)),
-            "e" => Ok(serde_json::json!(element.easing_factor)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(&self) -> HashMap<String, String> {
         HashMap::from([
             (
@@ -285,23 +237,6 @@ impl TransformElement for SimpleAstroElement {
 
         Self {
             inner: Mutex::new(InnerSimpleAstroElement { easing_factor }),
-        }
-    }
-
-    fn set_properties(&self, properties: HashMap<String, Value>) {
-        if let Some(easing_factor) = properties
-            .get("e")
-            .and_then(|v| v.as_f64())
-            .map(|x| x.abs())
-        {
-            self.inner.lock().unwrap().easing_factor = easing_factor
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        match prop {
-            "e" => Ok(serde_json::json!(self.inner.lock().unwrap().easing_factor)),
-            _ => Err("No property".into()),
         }
     }
 

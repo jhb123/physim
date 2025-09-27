@@ -61,12 +61,6 @@ impl TransformElement for ShmTransform {
         }
     }
 
-    fn set_properties(&self, _properties: HashMap<String, Value>) {}
-
-    fn get_property(&self, _prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("No property".into())
-    }
-
     fn get_property_descriptions(&self) -> HashMap<String, String> {
         HashMap::from([
             (

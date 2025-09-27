@@ -375,30 +375,6 @@ impl RenderElement for GLRenderElement {
 }
 
 impl Element for GLRenderElement {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-        if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
-            match resolution {
-                "1080p" => element.resolution = (1920, 1080),
-                "720p" => element.resolution = (1280, 720),
-                "4k" => element.resolution = (3840, 2160),
-                _ => element.resolution = (1920, 1080),
-            }
-        }
-        if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            element.zoom = zoom as f32
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(element.zoom)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -590,30 +566,6 @@ impl RenderElement for StdOutRender {
 }
 
 impl Element for StdOutRender {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut element = self.inner.lock().unwrap();
-        if let Some(resolution) = new_props.get("resolution").and_then(|theta| theta.as_str()) {
-            match resolution {
-                "1080p" => element.resolution = (1920, 1080),
-                "720p" => element.resolution = (1280, 720),
-                "4k" => element.resolution = (3840, 2160),
-                _ => element.resolution = (1920, 1080),
-            }
-        }
-        if let Some(zoom) = new_props.get("zoom").and_then(|zoom| zoom.as_f64()) {
-            element.zoom = zoom as f32
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let element = self.inner.lock().unwrap();
-        match prop {
-            "resolution" => Ok(serde_json::json!(element.resolution)), // serialise back to 1080p or something?
-            "zoom" => Ok(serde_json::json!(element.zoom)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {

@@ -1,8 +1,5 @@
-use std::{collections::HashMap, error::Error};
-
-use serde_json::Value;
-
 use crate::{messages::MessageClient, plugin::Element, Entity};
+use std::{collections::HashMap, error::Error};
 
 pub trait GeneratorElement: Element + Send + Sync {
     fn create_entities(&self) -> Vec<Entity>;
@@ -27,14 +24,6 @@ impl GeneratorElementHandler {
 }
 
 impl Element for GeneratorElementHandler {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        self.instance.set_properties(new_props);
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn Error>> {
-        self.instance.get_property(prop)
-    }
-
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
         self.instance.get_property_descriptions()
     }

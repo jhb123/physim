@@ -66,12 +66,6 @@ impl GeneratorElement for RandSynth {
 }
 
 impl Element for RandSynth {
-    fn set_properties(&self, _: HashMap<String, Value>) {}
-
-    fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("No property".into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -91,9 +85,7 @@ impl MessageClient for RandSynth {
 }
 
 #[transform_element(name = "debug", blurb = "Pass through data with no effect")]
-pub struct DebugTransform {
-    state: Mutex<u64>,
-}
+pub struct DebugTransform {}
 
 impl TransformElement for DebugTransform {
     fn transform(&self, _: &[Entity], acceleration: &mut [Acceleration]) {
@@ -105,28 +97,8 @@ impl TransformElement for DebugTransform {
         post_bus_msg!(msg1);
     }
 
-    fn new(properties: HashMap<String, Value>) -> Self {
-        DebugTransform {
-            state: Mutex::new(
-                properties
-                    .get("prop")
-                    .and_then(|x| x.as_u64())
-                    .unwrap_or_default(),
-            ),
-        }
-    }
-
-    fn set_properties(&self, properties: HashMap<String, Value>) {
-        if let Some(state) = properties.get("state").and_then(|state| state.as_u64()) {
-            *self.state.lock().unwrap() = state
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        match prop {
-            "state" => Ok(Value::Number((*self.state.lock().unwrap()).into())),
-            _ => Err("No property".into()),
-        }
+    fn new(_properties: HashMap<String, Value>) -> Self {
+        DebugTransform {}
     }
 
     fn get_property_descriptions(&self) -> HashMap<String, String> {
@@ -139,16 +111,12 @@ impl TransformElement for DebugTransform {
 impl MessageClient for DebugTransform {}
 
 #[render_element(name = "fakesink", blurb = "Do nothing with data")]
-struct FakeSink {
-    state: Mutex<u64>,
-}
+struct FakeSink {}
 
 impl ElementCreator for FakeSink {
     fn create_element(_properties: HashMap<String, Value>) -> Box<Self> {
         info!("Creating FakeSink");
-        Box::new(FakeSink {
-            state: Mutex::new(0),
-        })
+        Box::new(FakeSink {})
     }
 }
 
@@ -165,19 +133,6 @@ impl RenderElement for FakeSink {
 }
 
 impl Element for FakeSink {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        if let Some(state) = new_props.get("state").and_then(|state| state.as_u64()) {
-            *self.state.lock().unwrap() = state
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        match prop {
-            "state" => Ok(Value::Number((*self.state.lock().unwrap()).into())),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -203,12 +158,6 @@ impl ElementCreator for MessageDebug {
 }
 
 impl Element for MessageDebug {
-    fn set_properties(&self, _: HashMap<String, Value>) {}
-
-    fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("No property".into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -257,21 +206,6 @@ impl ElementCreator for Void {
 }
 
 impl Element for Void {
-    fn set_properties(&self, new_props: HashMap<String, Value>) {
-        let mut inner = self.inner.lock().unwrap();
-        if let Some(val) = new_props.get("lim").and_then(|val| val.as_f64()) {
-            inner.lim = val
-        }
-    }
-
-    fn get_property(&self, prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        let inner = self.inner.lock().unwrap();
-        match prop {
-            "lim" => Ok(serde_json::json!(inner.lim)),
-            _ => Err("No property".into()),
-        }
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {

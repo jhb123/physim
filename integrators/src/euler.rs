@@ -57,12 +57,6 @@ impl ElementCreator for Euler {
 }
 
 impl Element for Euler {
-    fn set_properties(&self, _: HashMap<String, Value>) {}
-
-    fn get_property(&self, _: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("No property".into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {

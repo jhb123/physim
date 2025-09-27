@@ -76,12 +76,6 @@ fn print_state(mut file: &mut File, state: Vec<Entity>) {
 }
 
 impl Element for CsvSink {
-    fn set_properties(&self, _new_props: HashMap<String, Value>) {}
-
-    fn get_property(&self, _prop: &str) -> Result<Value, Box<dyn std::error::Error>> {
-        Err("No property".into())
-    }
-
     fn get_property_descriptions(
         &self,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
