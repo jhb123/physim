@@ -20,6 +20,8 @@ pub mod render;
 pub mod transform;
 pub mod transmute;
 
+const PHYSIM_PLUGIN_LOADER_RUSTC_VERSION: &str = env!("ABI_INFO");
+
 #[derive(Debug)]
 #[repr(C)]
 pub enum ElementKind {
@@ -120,6 +122,13 @@ impl ElementMeta {
 #[macro_export]
 macro_rules! register_plugin {
     ( $( $x:expr ),* ) => {
+
+        pub const PLUGIN_ABI_INFO: &str = env!("ABI_INFO");
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn get_plugin_abi_info() -> std::ffi::CString {
+            std::ffi::CString::new(PLUGIN_ABI_INFO).unwrap_or_default()
+        }
 
         #[unsafe(no_mangle)]
         fn register_plugin() -> std::ffi::CString{
@@ -392,6 +401,19 @@ pub fn discover() -> Vec<RegisteredElement> {
                 unsafe {
                     let lib_path = entry.path().to_str().expect("msg").to_string();
                     if let Ok(lib) = libloading::Library::new(&lib_path) {
+                        if let Ok(get_plugin_abi_info) = lib.get::<libloading::Symbol<
+                            unsafe extern "C" fn() -> std::ffi::CString,
+                        >>(
+                            b"get_plugin_abi_info"
+                        ) {
+                            let rust_version = get_plugin_abi_info().into_string().unwrap();
+                            if rust_version != PHYSIM_PLUGIN_LOADER_RUSTC_VERSION {
+                                eprintln!("{} was built with a different version of the rust compiler or for a different platform. The plugin compiled with {} but physim compiled with {} ",&lib_path, rust_version,PHYSIM_PLUGIN_LOADER_RUSTC_VERSION);
+                            }
+                        } else {
+                            continue;
+                        }
+
                         if let Ok(register_plugin) = lib.get::<libloading::Symbol<
                             unsafe extern "C" fn() -> std::ffi::CString,
                         >>(
