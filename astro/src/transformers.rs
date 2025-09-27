@@ -3,7 +3,11 @@ use std::{collections::HashMap, sync::Mutex};
 use bumpalo::Bump;
 use physim_attribute::transform_element;
 use physim_core::{
-    Acceleration, Entity, messages::MessageClient, plugin::transform::TransformElement,
+    Acceleration, Entity,
+    messages::{MessageClient, MessagePriority},
+    msg,
+    plugin::transform::TransformElement,
+    post_bus_msg,
 };
 use serde_json::Value;
 
@@ -100,7 +104,12 @@ impl TransformElement for AstroElement {
     }
 }
 
-impl MessageClient for AstroElement {}
+impl MessageClient for AstroElement {
+    fn post_configuration_messages(&self) {
+        let msg = msg!(self, "energysink", "gravity", MessagePriority::Low);
+        post_bus_msg!(msg)
+    }
+}
 
 #[transform_element(
     name = "astro2",

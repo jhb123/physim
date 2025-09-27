@@ -43,6 +43,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
     let api_fn = format_ident!("{}_get_api", prefix);
     let get_property_descriptions_fn = format_ident!("{}_get_property_descriptions", prefix);
     let recv_message_fn = format_ident!("{}_recv_message", prefix);
+    let post_configuration_messages_fn = format_ident!("{}_post_configuration_messages", prefix);
 
     let g = quote! {
         #ast
@@ -85,6 +86,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 destroy: #destroy_fn,
                 get_property_descriptions: #get_property_descriptions_fn,
                 recv_message: #recv_message_fn,
+                post_configuration_messages: #post_configuration_messages_fn,
+
             }))
         }
 
@@ -122,6 +125,13 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 msg.to_message()
              };
             el.recv_message(msg);
+        }
+
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn #post_configuration_messages_fn(obj: *mut std::ffi::c_void) {
+            if obj.is_null() {return };
+            let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
+            el.post_configuration_messages();
         }
     };
     g.into()

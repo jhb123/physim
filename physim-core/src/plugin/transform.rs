@@ -34,6 +34,7 @@ pub struct TransformElementAPI {
     pub get_property_descriptions:
         unsafe extern "C" fn(*mut std::ffi::c_void) -> *mut std::ffi::c_char,
     pub recv_message: unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void),
+    pub post_configuration_messages: unsafe extern "C" fn(obj: *mut std::ffi::c_void),
 }
 
 pub struct TransformElementHandler {
@@ -127,5 +128,8 @@ impl MessageClient for TransformElementHandler {
         let b = Box::new(c_message);
         let msg = Box::into_raw(b) as *mut core::ffi::c_void;
         unsafe { (self.api.recv_message)(self.instance.load(Ordering::SeqCst), msg) }
+    }
+    fn post_configuration_messages(&self) {
+        unsafe { (self.api.post_configuration_messages)(self.instance.load(Ordering::SeqCst)) }
     }
 }
