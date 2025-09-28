@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use physim_attribute::render_element;
@@ -15,6 +15,7 @@ use serde_json::Value;
 struct EnergySink {
     iteration: AtomicUsize,
     print_n: usize,
+    calc_gpe: AtomicBool,
 }
 
 impl ElementCreator for EnergySink {
@@ -26,6 +27,7 @@ impl ElementCreator for EnergySink {
         Box::new(EnergySink {
             iteration: AtomicUsize::new(0),
             print_n,
+            calc_gpe: AtomicBool::new(false),
         })
     }
 }
@@ -39,7 +41,7 @@ impl RenderElement for EnergySink {
         let mut initial_energy = 0.0;
         if let Ok(state) = state_recv.recv() {
             let iteration = self.iteration.fetch_add(1, Ordering::Relaxed);
-            let (potential, kinetic) = calculate_energy(state);
+            let (potential, kinetic) = self.calculate_energy(&state);
             initial_energy = potential + kinetic;
             let delta = 0.0;
             println!(
@@ -48,7 +50,7 @@ impl RenderElement for EnergySink {
         }
 
         while let Ok(state) = state_recv.recv() {
-            let (potential, kinetic) = calculate_energy(state);
+            let (potential, kinetic) = self.calculate_energy(&state);
             let energy = kinetic + potential;
             let energy_delta = initial_energy - energy;
 
@@ -64,9 +66,21 @@ impl RenderElement for EnergySink {
     }
 }
 
-fn calculate_energy(state: Vec<Entity>) -> (f64, f64) {
+impl EnergySink {
+    fn calculate_energy(&self, state: &[Entity]) -> (f64, f64) {
+        let potential = match self.calc_gpe.load(Ordering::Relaxed) {
+            true => calculate_gravitational_potential(state),
+            false => 0.0,
+        };
+
+        let kinetic = calculate_kinetic_energy(state);
+
+        (potential, kinetic)
+    }
+}
+
+fn calculate_gravitational_potential(state: &[Entity]) -> f64 {
     let mut potential = 0.0;
-    let mut kinetic = 0.0;
     for i in 0..state.len() {
         for j in (i + 1)..state.len() {
             let r = ((state[i].x - state[j].x).powi(2)
@@ -76,12 +90,16 @@ fn calculate_energy(state: Vec<Entity>) -> (f64, f64) {
             potential = -state[i].mass * state[j].mass / r;
         }
     }
+    potential
+}
 
+fn calculate_kinetic_energy(state: &[Entity]) -> f64 {
+    let mut kinetic = 0.0;
     for entity in state {
         let v = entity.vx.powi(2) + entity.vy.powi(2) + entity.vz.powi(2);
         kinetic += 0.5 * entity.mass * v;
     }
-    (potential, kinetic)
+    kinetic
 }
 
 impl Element for EnergySink {
@@ -97,6 +115,8 @@ impl Element for EnergySink {
 
 impl MessageClient for EnergySink {
     fn recv_message(&self, message: physim_core::messages::Message) {
-        println!("{:?}", message);
+        if message.topic == "energysink" && message.message == "gravity" {
+            self.calc_gpe.swap(true, Ordering::Relaxed);
+        }
     }
 }
