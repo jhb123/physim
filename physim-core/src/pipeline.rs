@@ -86,9 +86,7 @@ impl Pipeline {
             size_z: 1.0,
         };
 
-        self.transforms
-            .iter()
-            .for_each(|el| el.post_configuration_messages());
+        self.post_configuration_messages();
 
         self.bus.lock().unwrap().pop_messages();
 
@@ -172,6 +170,25 @@ impl Pipeline {
         message_thread.join().unwrap();
         // .map_err(|_e| "Message thread ran into a problem")?;
         Ok(())
+    }
+
+    fn post_configuration_messages(&self) {
+        self.transforms
+            .iter()
+            .for_each(|el| el.post_configuration_messages());
+        self.initialisers
+            .iter()
+            .for_each(|el| el.post_configuration_messages());
+        if let Some(synths) = &self.synths {
+            synths
+                .iter()
+                .for_each(|el| el.post_configuration_messages());
+        }
+        self.transmutes
+            .iter()
+            .for_each(|el| el.post_configuration_messages());
+        self.render.post_configuration_messages();
+        self.integrator.post_configuration_messages();
     }
 
     pub fn new_from_description(pipeline_description: &str) -> Result<Self, Box<dyn Error>> {
