@@ -114,6 +114,9 @@ impl Pipeline {
         });
 
         let (simulation_sender, renderer_receiver) = mpsc::sync_channel(2);
+
+        simulation_sender.send(state.clone()).unwrap();
+
         thread::spawn(move || {
             let dt = self.timestep;
             let mut count = 0;
