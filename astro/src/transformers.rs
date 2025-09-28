@@ -195,7 +195,12 @@ impl TransformElement for AstroOctreeElement {
     }
 }
 
-impl MessageClient for AstroOctreeElement {}
+impl MessageClient for AstroOctreeElement {
+    fn post_configuration_messages(&self) {
+        let msg = msg!(self, "energysink", "gravity", MessagePriority::Low);
+        post_bus_msg!(msg)
+    }
+}
 
 // impl Configurable for
 
@@ -257,4 +262,9 @@ impl TransformElement for SimpleAstroElement {
     }
 }
 
-impl MessageClient for SimpleAstroElement {}
+impl MessageClient for SimpleAstroElement {
+    fn post_configuration_messages(&self) {
+        let msg = msg!(self, "energysink", "gravity", MessagePriority::Low);
+        post_bus_msg!(msg)
+    }
+}
