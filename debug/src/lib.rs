@@ -1,4 +1,7 @@
 #![feature(str_from_raw_parts)]
+
+#[cfg(feature = "crashers")] // codespell:ignore crashers
+mod crashers; // codespell:ignore crashers
 mod energysink;
 
 use std::{
@@ -26,6 +29,7 @@ use physim_core::{
 use rand::Rng;
 use serde_json::Value;
 
+#[cfg(not(feature = "crashers"))] // codespell:ignore crashers
 register_plugin!(
     "randsynth",
     "debug",
@@ -33,6 +37,16 @@ register_plugin!(
     "msgdebug",
     "void",
     "energysink"
+);
+#[cfg(feature = "crashers")] // codespell:ignore crashers
+register_plugin!(
+    "randsynth",
+    "debug",
+    "fakesink",
+    "msgdebug",
+    "void",
+    "energysink",
+    "crashtransform"
 );
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]

@@ -60,8 +60,21 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 Err(_) => return std::ptr::null_mut(),
             };
 
-            let el = Box::new(#struct_name::new( properties ) );
-            Box::into_raw(el) as *mut std::ffi::c_void
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe( || {
+                Box::new(#struct_name::new( properties ) )
+            })) {
+                Ok(el) => {
+                    Box::into_raw(el) as *mut std::ffi::c_void
+                }
+                Err(_) => {
+                    eprintln!(
+                        "Problem encountered in the {} element's new method. Aborting",
+                        #prefix
+                    );
+                    std::process::abort();
+                }
+            }
+
         }
 
         #[unsafe(no_mangle)]
@@ -69,13 +82,26 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             let el: & #struct_name = unsafe { &*(obj as *const #struct_name) };
             let s =  unsafe { std::slice::from_raw_parts(state, state_len) };
             let n =  unsafe {  std::slice::from_raw_parts_mut(acceleration, acceleration_len) };
-            el.transform(s, n);
+            if let Err(_) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { el.transform(s, n)})) {
+                eprintln!("Problem encountered in the {} element's transform method. Aborting", #prefix);
+                std::process::abort();
+            }
         }
 
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn #destroy_fn(obj: *mut std::ffi::c_void) {
-            if obj.is_null() {return};
-            drop(unsafe { Box::from_raw(obj as *mut #struct_name) });
+            if obj.is_null() {
+                return;
+            }
+
+            let result = std::panic::catch_unwind(|| {
+                drop(Box::from_raw(obj as *mut #struct_name));
+            });
+
+            if result.is_err() {
+                eprintln!("Problem encountered in the {} element's drop method. Aborting", #prefix);
+                std::process::abort();
+            }
         }
 
         #[unsafe(no_mangle)]
@@ -87,7 +113,6 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
                 get_property_descriptions: #get_property_descriptions_fn,
                 recv_message: #recv_message_fn,
                 post_configuration_messages: #post_configuration_messages_fn,
-
             }))
         }
 
@@ -109,10 +134,26 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub unsafe extern "C" fn #get_property_descriptions_fn(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_char {
             if obj.is_null() {return std::ptr::null_mut()};
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-            let properties = el.get_property_descriptions();
-            match serde_json::to_string(&properties) {
-                Ok(s) => return std::ffi::CString::new(s).unwrap().into_raw(),
-                Err(_) => return std::ptr::null_mut()
+
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe( || {
+                let properties = el.get_property_descriptions();
+                serde_json::to_string(&properties)
+            })) {
+                    Ok(Ok(s)) => {
+                    // Successful JSON serialization
+                    std::ffi::CString::new(s).unwrap().into_raw()
+                }
+                Ok(Err(_)) => {
+                    // Serialization failed
+                    std::ptr::null_mut()
+                }
+                Err(_) => {
+                    eprintln!(
+                        "Panic encountered in the {} element's get_property_descriptions method.",
+                        #prefix
+                    );
+                    std::ptr::null_mut()
+                }
             }
         }
 
@@ -123,15 +164,21 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             let msg = unsafe {
                 let msg = (*(msg as *mut physim_core::messages::CMessage)).clone();
                 msg.to_message()
-             };
-            el.recv_message(msg);
+            };
+            if let Err(_) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { el.recv_message(msg)})) {
+                eprintln!("Problem encountered in the {} element's recv_message method. Aborting", #prefix);
+                std::process::abort();
+            }
         }
 
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn #post_configuration_messages_fn(obj: *mut std::ffi::c_void) {
             if obj.is_null() {return };
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-            el.post_configuration_messages();
+            if let Err(_) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { el.post_configuration_messages();})) {
+                eprintln!("Problem encountered in the {} element's post_configuration_messages method. Aborting", #prefix);
+                std::process::abort();
+            }
         }
     };
     g.into()

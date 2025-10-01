@@ -91,7 +91,6 @@ impl TransformElementHandler {
                     acceleration_len,
                 );
             }
-            // new_state = std::slice::from_raw_parts_mut(new_state_ptr, new_state_len) ;
         }
     }
 
@@ -107,8 +106,7 @@ impl Element for TransformElementHandler {
         let value =
             unsafe { (self.api.get_property_descriptions)(self.instance.load(Ordering::SeqCst)) };
         if value.is_null() {
-            todo!()
-            // return Err(format!("{prop} is not a property").into());
+            return Err("Unable to load descriptions of properties".into());
         }
         let value = unsafe { std::ffi::CString::from_raw(value) };
         let v = value.to_str().map_err(Box::new)?;
