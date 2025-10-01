@@ -12,7 +12,6 @@ use std::ops::{Add, AddAssign, Neg, Sub};
 
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;
-use serde::Serialize;
 
 #[repr(C)]
 pub struct UniverseConfiguration {
@@ -22,7 +21,7 @@ pub struct UniverseConfiguration {
     // edge_mode: UniverseEdge,
 }
 
-#[derive(Clone, Copy, Default, Debug, Serialize, PartialEq)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 #[repr(C)]
 pub struct Entity {
     pub x: f64,
@@ -37,7 +36,7 @@ pub struct Entity {
     pub fixed: bool,
 }
 
-#[derive(Clone, Copy, Default, Debug, Serialize)]
+#[derive(Clone, Copy, Default, Debug)]
 #[repr(C)]
 pub struct Acceleration {
     pub x: f64,

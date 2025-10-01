@@ -438,7 +438,10 @@ pub fn discover() -> Vec<RegisteredElement> {
                                             HashMap::new(),
                                         )
                                         .unwrap();
-                                        el.get_property_descriptions().unwrap()
+                                        match el.get_property_descriptions() {
+                                            Ok(d) => d,
+                                            Err(_) => continue,
+                                        }
                                     }
                                     _ => {
                                         let el: Arc<MetaElement> = Loadable::load(

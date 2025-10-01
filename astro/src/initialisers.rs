@@ -1,7 +1,6 @@
 use core::f64;
 use rand::Rng;
 use rand_distr::Distribution;
-use serde::Serialize;
 use std::{collections::HashMap, f64::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
@@ -22,7 +21,7 @@ pub struct RandomCube {
     inner: Mutex<InnerRandomCube>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 struct InnerRandomCube {
     n: u64,
     seed: u64,
@@ -128,15 +127,6 @@ impl Element for RandomCube {
                 "Id assigned to stars in galaxy".to_string(),
             ),
         ]))
-    }
-}
-
-impl Serialize for RandomCube {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.lock().unwrap().serialize(serializer)
     }
 }
 
@@ -411,15 +401,15 @@ impl GeneratorElement for SolarSystem {
         let mut entities = vec![sun];
 
         let m_planets = rand_distr::LogNormal::new(1.1, 0.1)
-            .unwrap()
+            .expect("mu and sigma are valid")
             .sample_iter(rng.clone())
             .take(self.planets as usize);
         let r_planets = rand_distr::LogNormal::new(0.2, 0.7)
-            .unwrap()
+            .expect("mu and sigma are valid")
             .sample_iter(rng.clone())
             .take(self.planets as usize);
         let angle = rand_distr::Uniform::new(0.0, 2.0 * f64::consts::PI)
-            .unwrap()
+            .expect("range is not 0 or infinite")
             .sample_iter(rng.clone())
             .take(self.planets as usize);
 
@@ -457,20 +447,20 @@ impl GeneratorElement for SolarSystem {
             .collect();
 
         let r_asteroids = rand_distr::LogNormal::new(0.0, 0.9)
-            .unwrap()
+            .expect("mu and sigma are valid")
             .sample_iter(rng.clone())
             .take(self.asteroids as usize);
         let angle = rand_distr::Uniform::new(0.0, 2.0 * f64::consts::PI)
-            .unwrap()
+            .expect("range is not 0 or infinite")
             .sample_iter(rng.clone())
             .take(self.asteroids as usize);
         let eccentricities = rand_distr::Uniform::new(0.0, 0.6)
-            .unwrap()
+            .expect("range is not 0 or infinite")
             .sample_iter(rng.clone())
             .take(self.asteroids as usize);
 
         let orientations = rand_distr::Uniform::new(0.0, 2.0 * f64::consts::PI)
-            .unwrap()
+            .expect("range is not 0 or infinite")
             .sample_iter(rng.clone())
             .take(self.asteroids as usize);
 
