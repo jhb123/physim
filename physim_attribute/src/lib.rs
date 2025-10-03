@@ -117,17 +117,26 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Transform,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Transform,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
 
         #[unsafe(no_mangle)]
@@ -229,18 +238,27 @@ pub fn render_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             #name::create_element(properties)
         }
 
-        #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Render,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+                #[unsafe(no_mangle)]
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Render,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
     };
     g.into()
@@ -292,17 +310,26 @@ pub fn initialise_state_element(attr: TokenStream, item: TokenStream) -> TokenSt
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Initialiser,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Initialiser,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
     };
     g.into()
@@ -353,18 +380,27 @@ pub fn synth_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             #name::create_element(properties)
         }
 
-        #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Synth,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+                #[unsafe(no_mangle)]
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Synth,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
     };
     g.into()
@@ -415,18 +451,27 @@ pub fn transmute_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             #name::create_element(properties)
         }
 
-        #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Transmute,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+               #[unsafe(no_mangle)]
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Transmute,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
     };
     g.into()
@@ -478,17 +523,26 @@ pub fn integrator_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn() -> ::physim_core::plugin::ElementMeta {
-            ::physim_core::plugin::ElementMeta::new(
-                ::physim_core::plugin::ElementKind::Integrator,
-                #el_name,
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                env!("CARGO_PKG_LICENSE"),
-                env!("CARGO_PKG_AUTHORS"),
-                #blurb,
-                env!("CARGO_PKG_REPOSITORY")
-            )
+        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+            // Create CStrings to get proper *const c_char pointers
+            let el_name = std::ffi::CString::new(#el_name).unwrap();
+            let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
+            let pkg_version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+            let pkg_license = std::ffi::CString::new(env!("CARGO_PKG_LICENSE")).unwrap();
+            let pkg_authors = std::ffi::CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
+            let blurb = std::ffi::CString::new(#blurb).unwrap();
+            let pkg_repo = std::ffi::CString::new(env!("CARGO_PKG_REPOSITORY")).unwrap();
+
+            ::physim_core::plugin::ElementMetaFFI {
+                kind: ::physim_core::plugin::ElementKind::Integrator,
+                name: alloc(el_name.as_ptr()),
+                plugin: alloc(pkg_name.as_ptr()),
+                version: alloc(pkg_version.as_ptr()),
+                license: alloc(pkg_license.as_ptr()),
+                author: alloc(pkg_authors.as_ptr()),
+                blurb: alloc(blurb.as_ptr()),
+                repo: alloc(pkg_repo.as_ptr()),
+            }
         }
     };
     g.into()

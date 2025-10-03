@@ -4,6 +4,7 @@ use physim_core::plugin::{discover, get_plugin_dir};
 use yansi::Paint;
 
 fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
 
     let elements = discover();
