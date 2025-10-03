@@ -16,13 +16,16 @@ use crate::{
 
 pub mod generator;
 pub mod integrator;
+pub mod meta;
 pub mod render;
 pub mod transform;
 pub mod transmute;
 
+pub use meta::*;
+
 const PHYSIM_PLUGIN_LOADER_RUSTC_VERSION: &str = env!("ABI_INFO");
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum ElementKind {
     Initialiser,
@@ -69,45 +72,6 @@ unsafe fn load_from_library<T>(
 
 pub trait ElementCreator {
     fn create_element(properties: HashMap<String, Value>) -> Box<Self>;
-}
-
-// set by library authors, determined at compile time
-#[derive(Debug)]
-#[repr(C)]
-pub struct ElementMeta {
-    kind: ElementKind,
-    name: String,
-    plugin: String,
-    version: String,
-    license: String,
-    author: String,
-    blurb: String,
-    repo: String,
-}
-
-impl ElementMeta {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        kind: ElementKind,
-        name: &str,
-        plugin: &str,
-        version: &str,
-        license: &str,
-        author: &str,
-        blurb: &str,
-        repo: &str,
-    ) -> Self {
-        Self {
-            kind,
-            name: name.to_string(),
-            plugin: plugin.to_string(),
-            version: version.to_string(),
-            license: license.to_string(),
-            author: author.to_string(),
-            blurb: blurb.to_string(),
-            repo: repo.to_string(),
-        }
-    }
 }
 
 /// Registers a plugin by generating a `register_plugin`, a
@@ -387,6 +351,7 @@ pub fn discover() -> Vec<RegisteredElement> {
     let mut elements = Vec::new();
     let plugin_dir = get_plugin_dir();
     let plugin_dir = Path::new(&plugin_dir);
+    log::info!("Scanning for plugins {:?}", plugin_dir);
     if !plugin_dir.is_dir() {
         return Vec::new();
     }
@@ -397,47 +362,56 @@ pub fn discover() -> Vec<RegisteredElement> {
     {
         if let Some(ex) = entry.path().extension().and_then(|x| x.to_str()) {
             if ["dylib", "so", "dll"].contains(&ex) {
-                log::info!("Scanning {:?}", entry);
+                log::debug!("Scanning {:?}", entry);
                 unsafe {
                     let lib_path = entry.path().to_str().expect("msg").to_string();
                     if let Ok(lib) = libloading::Library::new(&lib_path) {
-                        if let Ok(get_plugin_abi_info) = lib.get::<libloading::Symbol<
-                            unsafe extern "C" fn() -> std::ffi::CString,
-                        >>(
-                            b"get_plugin_abi_info"
-                        ) {
-                            let rust_version = get_plugin_abi_info().into_string().unwrap();
+                        log::debug!("Loaded {}", lib_path);
+                        log::debug!("Trying to determine abi info");
+                        if let Ok(get_plugin_abi_info) =
+                            lib.get::<libloading::Symbol<
+                                unsafe extern "C" fn() -> *const std::os::raw::c_char,
+                            >>(b"get_plugin_abi_info")
+                        {
+                            let cstr = std::ffi::CStr::from_ptr(get_plugin_abi_info());
+                            let rust_version = cstr.to_string_lossy().into_owned();
                             if rust_version != PHYSIM_PLUGIN_LOADER_RUSTC_VERSION {
                                 eprintln!("{} was built with a different version of the rust compiler or for a different platform. The plugin compiled with {} but physim compiled with {} ",&lib_path, rust_version,PHYSIM_PLUGIN_LOADER_RUSTC_VERSION);
                             }
                         } else {
+                            log::debug!("get_plugin_abi_info not found");
                             continue;
                         }
 
-                        if let Ok(register_plugin) = lib.get::<libloading::Symbol<
-                            unsafe extern "C" fn() -> std::ffi::CString,
-                        >>(
-                            b"register_plugin"
-                        ) {
-                            let els = register_plugin().into_string().unwrap();
+                        log::debug!("checking register_plugin exists");
+                        if let Ok(register_plugin) =
+                            lib.get::<libloading::Symbol<
+                                unsafe extern "C" fn() -> *const std::os::raw::c_char,
+                            >>(b"register_plugin")
+                        {
+                            log::debug!("calling register_plugin");
+                            let cstr = std::ffi::CStr::from_ptr(register_plugin());
+                            let els = cstr.to_string_lossy().into_owned();
                             for el in els.split(",") {
-                                let register_element =
-                                        lib.get::<libloading::Symbol<
-                                            unsafe extern "C" fn() -> ElementMeta,
-                                        >>(
-                                            format!("{el}_register").as_bytes()
-                                        )
-                                        .unwrap();
-                                let element_info = register_element();
+                                let register_element = lib
+                                    .get::<libloading::Symbol<PluginGetMetaFn>>(
+                                        format!("{el}_register").as_bytes(),
+                                    )
+                                    .unwrap();
+                                log::debug!("found symbol for {el}");
+                                let element_info_ffi = register_element(host_alloc_string);
+                                let element_info = ElementMeta::from_ffi_owned(element_info_ffi);
 
                                 let properties = match element_info.kind {
                                     ElementKind::Transform => {
+                                        log::info!("loading transform");
                                         let el = TransformElementHandler::load(
                                             &lib_path,
                                             &element_info.name,
                                             HashMap::new(),
                                         )
                                         .unwrap();
+                                        log::debug!("Got props");
                                         match el.get_property_descriptions() {
                                             Ok(d) => d,
                                             Err(_) => continue,
@@ -499,6 +473,6 @@ pub fn discover_map() -> HashMap<String, RegisteredElement> {
 
     elements
         .into_iter()
-        .map(|m| (m.element_info.name.clone(), m))
+        .map(|m| (m.element_info.name.to_string(), m))
         .collect()
 }
