@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use libloading::{Library, Symbol};
 use serde_json::Value;
 use yansi::Paint;
 
@@ -63,10 +64,10 @@ unsafe fn load_from_library<T>(
     properties: HashMap<String, Value>,
 ) -> Result<T, Box<dyn Error>> {
     let fn_name = format!("{name}_create_element");
-    let lib = libloading::Library::new(path)?;
+    let lib = Library::new(path)?;
     type GetNewFnType<T> = unsafe extern "Rust" fn(HashMap<String, Value>) -> T;
 
-    let get_new_fn: libloading::Symbol<GetNewFnType<T>> = lib.get(fn_name.as_bytes())?;
+    let get_new_fn: Symbol<GetNewFnType<T>> = lib.get(fn_name.as_bytes())?;
     Ok(get_new_fn(properties))
 }
 
@@ -126,6 +127,8 @@ macro_rules! register_plugin {
         }
     };
 }
+
+type RegisterPluginFn = unsafe extern "C" fn() -> *const std::os::raw::c_char;
 
 /// Sends a message to the global plugin bus target set by `set_callback_target`.
 ///
@@ -199,8 +202,8 @@ pub unsafe fn set_bus(
     element: &RegisteredElement,
     bus: Arc<Mutex<MessageBus>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let lib = libloading::Library::new(&element.lib_path)?;
-    let set_target: libloading::Symbol<unsafe extern "C" fn(*mut core::ffi::c_void)> =
+    let lib = Library::new(&element.lib_path)?;
+    let set_target: Symbol<unsafe extern "C" fn(*mut core::ffi::c_void)> =
         lib.get(b"set_callback_target")?;
     let bus_raw_ptr = Arc::into_raw(bus) as *mut core::ffi::c_void;
     set_target(bus_raw_ptr);
@@ -214,7 +217,7 @@ type SetupLogger = extern "Rust" fn(
 
 pub fn setup_plugin_logger(element: &RegisteredElement) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
-        let lib = libloading::Library::new(&element.lib_path)?;
+        let lib = Library::new(&element.lib_path)?;
         let ret = lib.get::<SetupLogger>(b"setup_logger");
         if let Ok(setup_logger) = ret {
             // I think it's basically fine to ignore this error. the global logger
@@ -343,6 +346,20 @@ impl RegisteredElement {
     }
 }
 
+pub fn discover_map() -> HashMap<String, RegisteredElement> {
+    let elements = discover();
+    for element in &elements {
+        if setup_plugin_logger(element).is_err() {
+            eprintln!("Plugin doesn't implement setup_logger");
+        };
+    }
+
+    elements
+        .into_iter()
+        .map(|m| (m.element_info.name.to_string(), m))
+        .collect()
+}
+
 pub fn get_plugin_dir() -> String {
     env::var("PHYSIM_PLUGIN_DIR").unwrap_or("./".to_string())
 }
@@ -352,95 +369,108 @@ pub fn discover() -> Vec<RegisteredElement> {
     let plugin_dir = get_plugin_dir();
     let plugin_dir = Path::new(&plugin_dir);
     log::info!("Scanning for plugins {:?}", plugin_dir);
-    if !plugin_dir.is_dir() {
-        return Vec::new();
-    }
-    for entry in plugin_dir
-        .read_dir()
-        .expect("read_dir call failed")
-        .flatten()
-    {
-        if let Some(ex) = entry.path().extension().and_then(|x| x.to_str()) {
-            if ["dylib", "so", "dll"].contains(&ex) {
-                log::debug!("Scanning {:?}", entry);
-                unsafe {
-                    let lib_path = entry.path().to_str().expect("msg").to_string();
-                    if let Ok(lib) = libloading::Library::new(&lib_path) {
-                        log::debug!("Loaded {}", lib_path);
-                        log::debug!("Trying to determine abi info");
-                        if let Ok(get_plugin_abi_info) =
-                            lib.get::<libloading::Symbol<
-                                unsafe extern "C" fn() -> *const std::os::raw::c_char,
-                            >>(b"get_plugin_abi_info")
-                        {
-                            let cstr = std::ffi::CStr::from_ptr(get_plugin_abi_info());
-                            let rust_version = cstr.to_string_lossy().into_owned();
-                            if rust_version != PHYSIM_PLUGIN_LOADER_RUSTC_VERSION {
-                                eprintln!("{} was built with a different version of the rust compiler or for a different platform. The plugin compiled with {} but physim compiled with {} ",&lib_path, rust_version,PHYSIM_PLUGIN_LOADER_RUSTC_VERSION);
-                            }
-                        } else {
-                            log::debug!("get_plugin_abi_info not found");
-                            continue;
-                        }
+    for entry in plugin_lib_iter(plugin_dir) {
+        log::debug!("Scanning {:?}", entry);
+        let lib_path = entry.path().to_str().expect("msg").to_string();
+        unsafe {
+            if !validate_plugin_abi(&lib_path) {
+                continue;
+            }
 
-                        log::debug!("checking register_plugin exists");
-                        if let Ok(register_plugin) =
-                            lib.get::<libloading::Symbol<
-                                unsafe extern "C" fn() -> *const std::os::raw::c_char,
-                            >>(b"register_plugin")
-                        {
-                            log::debug!("calling register_plugin");
-                            let cstr = std::ffi::CStr::from_ptr(register_plugin());
-                            let els = cstr.to_string_lossy().into_owned();
-                            for el in els.split(",") {
-                                let register_element = lib
-                                    .get::<libloading::Symbol<PluginGetMetaFn>>(
-                                        format!("{el}_register").as_bytes(),
-                                    )
-                                    .unwrap();
-                                log::debug!("found symbol for {el}");
-                                let element_info_ffi = register_element(host_alloc_string);
-                                let element_info = ElementMeta::from_ffi_owned(element_info_ffi);
+            let Ok(lib) = Library::new(&lib_path) else {
+                continue;
+            };
 
-                                let properties = match element_info.kind {
-                                    ElementKind::Transform => {
-                                        log::info!("loading transform");
-                                        let el = TransformElementHandler::load(
-                                            &lib_path,
-                                            &element_info.name,
-                                            HashMap::new(),
-                                        )
-                                        .unwrap();
-                                        log::debug!("Got props");
-                                        match el.get_property_descriptions() {
-                                            Ok(d) => d,
-                                            Err(_) => continue,
-                                        }
-                                    }
-                                    _ => {
-                                        let el: Arc<MetaElement> = Loadable::load(
-                                            &lib_path,
-                                            &element_info.name,
-                                            HashMap::new(),
-                                        )
-                                        .unwrap();
-                                        el.get_property_descriptions().unwrap()
-                                    }
-                                };
-
-                                elements.push(RegisteredElement::new(
-                                    element_info,
-                                    &lib_path,
-                                    properties,
-                                ));
-                            }
-                        }
-                    };
+            for element_info in get_plugin_meta(&lib) {
+                if let Some(properties) =
+                    get_registered_element_properties(&element_info, &lib_path)
+                {
+                    elements.push(RegisteredElement::new(element_info, &lib_path, properties));
                 }
             }
-        }
+        };
     }
     elements
+}
+
+fn plugin_lib_iter(plugin_dir: &Path) -> impl Iterator<Item = std::fs::DirEntry> {
+    plugin_dir
+        .read_dir()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|ex| {
+            ex.path()
+                .extension()
+                .and_then(|x| x.to_str())
+                .is_some_and(|ex| matches!(ex, "dylib" | "so" | "dll"))
+        })
+}
+
+unsafe fn validate_plugin_abi(lib_path: &str) -> bool {
+    let Ok(lib) = Library::new(lib_path) else {
+        log::debug!("Could not load {lib_path} as plugin");
+        return false;
+    };
+    if let Ok(get_plugin_abi_info) = lib.get::<Symbol<
+        unsafe extern "C" fn() -> *const std::os::raw::c_char,
+    >>(b"get_plugin_abi_info")
+    {
+        let cstr = std::ffi::CStr::from_ptr(get_plugin_abi_info());
+        let rust_version = cstr.to_string_lossy().into_owned();
+        let ret = rust_version == PHYSIM_PLUGIN_LOADER_RUSTC_VERSION;
+
+        if !ret {
+            eprintln!("{} was built with a different version of the rust compiler or for a different platform. The plugin compiled with {} but physim compiled with {} ",&lib_path, rust_version,PHYSIM_PLUGIN_LOADER_RUSTC_VERSION);
+        }
+        ret
+    } else {
+        log::debug!("get_plugin_abi_info not found");
+        return false;
+    }
+}
+
+unsafe fn get_plugin_meta(lib: &Library) -> Vec<ElementMeta> {
+    let mut element_metas = vec![];
+    let Ok(register_plugin) = lib.get::<Symbol<RegisterPluginFn>>(b"register_plugin") else {
+        return element_metas;
+    };
+
+    log::debug!("calling register_plugin");
+    let cstr = std::ffi::CStr::from_ptr(register_plugin());
+    let els = cstr.to_string_lossy().into_owned();
+    for el in els.split(",") {
+        let Ok(register_element) =
+            lib.get::<Symbol<PluginGetMetaFn>>(format!("{el}_register").as_bytes())
+        else {
+            log::warn!("Could not load meta data for {el}");
+            continue;
+        };
+        let element_info_ffi = register_element(host_alloc_string);
+        let element_info = ElementMeta::from_ffi_owned(element_info_ffi);
+        element_metas.push(element_info);
+    }
+    element_metas
+}
+
+fn get_registered_element_properties(
+    element_info: &ElementMeta,
+    lib_path: &str,
+) -> Option<HashMap<String, String>> {
+    match element_info.kind {
+        ElementKind::Transform => {
+            log::info!("loading transform");
+            let el = TransformElementHandler::load(lib_path, &element_info.name, HashMap::new())
+                .unwrap();
+            log::debug!("Got props");
+            el.get_property_descriptions().ok()
+        }
+        _ => {
+            let el: Arc<MetaElement> =
+                Loadable::load(&lib_path, &element_info.name, HashMap::new()).unwrap();
+            el.get_property_descriptions().ok()
+        }
+    }
 }
 
 /// Struct for determining metadata
@@ -462,17 +492,3 @@ impl Element for MetaElement {
 }
 
 impl MessageClient for MetaElement {}
-
-pub fn discover_map() -> HashMap<String, RegisteredElement> {
-    let elements = discover();
-    for element in &elements {
-        if setup_plugin_logger(element).is_err() {
-            eprintln!("Plugin doesn't implement setup_logger");
-        };
-    }
-
-    elements
-        .into_iter()
-        .map(|m| (m.element_info.name.to_string(), m))
-        .collect()
-}
