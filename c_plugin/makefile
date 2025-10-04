@@ -47,8 +47,8 @@ rebuild: clean all
 
 # Install (optional - adjust path as needed)
 install: $(TARGET)
-	cp $(TARGET) /usr/local/lib/
-	@echo "Installed $(TARGET) to /usr/local/lib/"
+	cp $(TARGET) ../target/release
+	@echo "Installed $(TARGET) to ../target/release"
 
 # Show information about the built library
 info: $(TARGET)

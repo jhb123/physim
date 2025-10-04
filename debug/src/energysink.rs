@@ -114,7 +114,7 @@ impl Element for EnergySink {
 }
 
 impl MessageClient for EnergySink {
-    fn recv_message(&self, message: physim_core::messages::Message) {
+    fn recv_message(&self, message: &physim_core::messages::Message) {
         if message.topic == "energysink" && message.message == "gravity" {
             self.calc_gpe.swap(true, Ordering::Relaxed);
         }

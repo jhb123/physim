@@ -141,7 +141,7 @@ pub unsafe extern "C" fn host_free_string(s: *mut c_char) {
     }
 }
 
+pub type RustStringAllocFn = unsafe extern "C" fn(*const c_char) -> *mut c_char;
+
 // Type definitions for plugin functions
-pub type PluginGetMetaFn = unsafe extern "C" fn(
-    alloc: unsafe extern "C" fn(*const c_char) -> *mut c_char,
-) -> ElementMetaFFI;
+pub type PluginGetMetaFn = unsafe extern "C" fn(alloc: RustStringAllocFn) -> ElementMetaFFI;

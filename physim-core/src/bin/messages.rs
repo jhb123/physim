@@ -13,7 +13,7 @@ use physim_core::{
 
 struct TestClient {}
 impl MessageClient for TestClient {
-    fn recv_message(&self, message: Message) {
+    fn recv_message(&self, message: &Message) {
         println!("{:?}", message)
     }
 }

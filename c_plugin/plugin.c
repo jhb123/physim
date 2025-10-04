@@ -6,13 +6,18 @@
 // These are placeholder definitions - adjust based on your actual C headers
 typedef struct Entity Entity;
 typedef struct Acceleration Acceleration;
-typedef struct Message Message;
-typedef struct CMessage CMessage;
+
+// This is for allocating strings onto the heap using rust rather than C.
+typedef char* (*AllocStringFn)(const char*);
+
 
 typedef enum {
-    MESSAGE_PRIORITY_LOW = 0,
-    MESSAGE_PRIORITY_NORMAL = 1,
-    MESSAGE_PRIORITY_HIGH = 2,
+    MESSAGE_PRIORITY_BACKGROUND = 0,
+    MESSAGE_PRIORITY_LOW = 1,
+    MESSAGE_PRIORITY_NORMAL = 2,
+    MESSAGE_PRIORITY_HIGH = 3,
+    MESSAGE_PRIORITY_REALTIME = 4,
+    MESSAGE_PRIORITY_CRITICAL = 5,
 } MessagePriority;
 
 typedef enum {
@@ -29,6 +34,13 @@ typedef struct {
     const char* blurb;
     const char* repo;
 } ElementMeta;
+
+typedef struct {
+    MessagePriority priority;
+    const char* topic;
+    const char* message;
+    size_t sender_id;
+} Message;
 
 // Function pointer types
 typedef void* (*InitFn)(const uint8_t* config, size_t len);
@@ -53,7 +65,7 @@ typedef struct {
 static void* GLOBAL_BUS_TARGET = NULL;
 
 // External callback function (provided by the host)
-extern void physim_core_messages_callback(void* target, CMessage msg);
+extern void physim_core_messages_callback(void* target, Message msg);
 
 // The DebugTransform structure (empty in this case)
 typedef struct {
@@ -144,23 +156,22 @@ void cdebug_destroy(void* obj) {
 }
 
 // Get property descriptions
-char* cdebug_get_property_descriptions(void* obj) {
+char* cdebug_get_property_descriptions(void* obj, AllocStringFn alloc) {
     if (obj == NULL) {
         return NULL;
     }
     
     // Return empty JSON object since cdebug has no properties
-    return strdup("{}");
+    return alloc("{\"foo\": \"bar\"}");
 }
 
 // Receive message
-void cdebug_recv_message(void* obj, void* msg) {
+void cdebug_recv_message(void* obj, Message* msg) {
     if (obj == NULL) {
         return;
     }
-    
-    // Debug element doesn't process messages
-    // In a real implementation, you'd handle incoming messages here
+
+    printf("[MESSAGE] - sender: %zx - topic: %s - priority: %d\n", msg->sender_id, msg->topic , msg->priority);    
 }
 
 // Post configuration messages
@@ -185,7 +196,6 @@ const TransformElementAPI* cdebug_get_api(void) {
     return &api;
 }
 
-typedef char* (*AllocStringFn)(const char*);
 
 ElementMeta cdebug_register(AllocStringFn alloc) {
     ElementMeta meta;

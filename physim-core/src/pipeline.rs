@@ -56,7 +56,7 @@ impl PipelineMessageClient {
     }
 }
 impl MessageClient for PipelineMessageClient {
-    fn recv_message(&self, message: Message) {
+    fn recv_message(&self, message: &Message) {
         if &message.topic == "pipeline" {
             match message.message.as_str() {
                 "pause_toggle" => {

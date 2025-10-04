@@ -117,7 +117,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        unsafe extern "C" fn #register_fn(alloc: extern "C" fn(*const std::ffi::c_char) -> *mut std::ffi::c_char) -> ::physim_core::plugin::ElementMetaFFI {
+        unsafe extern "C" fn #register_fn(alloc: ::physim_core::plugin::RustStringAllocFn) -> ::physim_core::plugin::ElementMetaFFI {
             // Create CStrings to get proper *const c_char pointers
             let el_name = std::ffi::CString::new(#el_name).unwrap();
             let pkg_name = std::ffi::CString::new(env!("CARGO_PKG_NAME")).unwrap();
@@ -140,7 +140,7 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #get_property_descriptions_fn(obj: *mut std::ffi::c_void) -> *mut std::ffi::c_char {
+        pub unsafe extern "C" fn #get_property_descriptions_fn(obj: *mut std::ffi::c_void, alloc: ::physim_core::plugin::RustStringAllocFn) -> *mut std::ffi::c_char {
             if obj.is_null() {return std::ptr::null_mut()};
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
 
@@ -150,7 +150,8 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
             })) {
                     Ok(Ok(s)) => {
                     // Successful JSON serialization
-                    std::ffi::CString::new(s).unwrap().into_raw()
+                    let c_s = std::ffi::CString::new(s).unwrap();
+                    alloc(c_s.as_ptr())
                 }
                 Ok(Err(_)) => {
                     // Serialization failed
@@ -167,14 +168,12 @@ pub fn transform_element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn #recv_message_fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void) {
+        pub unsafe extern "C" fn #recv_message_fn(obj: *mut std::ffi::c_void, msg: *const ::physim_core::messages::CMessage) {
             if obj.is_null() {return };
             let el: &mut #struct_name = unsafe { &mut *(obj as *mut #struct_name) };
-            let msg = unsafe {
-                let msg = (*(msg as *mut physim_core::messages::CMessage)).clone();
-                msg.to_message()
-            };
-            if let Err(_) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { el.recv_message(msg)})) {
+            let msg = unsafe{::physim_core::messages::Message::from_c_ptr(msg)};
+
+            if let Err(_) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { el.recv_message(&msg)})) {
                 eprintln!("Problem encountered in the {} element's recv_message method. Aborting", #prefix);
                 std::process::abort();
             }

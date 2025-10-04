@@ -394,7 +394,7 @@ impl Element for GLRenderElement {
 }
 
 impl MessageClient for GLRenderElement {
-    fn recv_message(&self, message: physim_core::messages::Message) {
+    fn recv_message(&self, message: &physim_core::messages::Message) {
         if &message.topic == "pipeline" && &message.message == "finished" {
             self.inner.lock().unwrap().running = false
         }
