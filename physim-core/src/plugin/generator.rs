@@ -30,7 +30,7 @@ impl Element for GeneratorElementHandler {
 }
 
 impl MessageClient for GeneratorElementHandler {
-    fn recv_message(&self, message: crate::messages::Message) {
+    fn recv_message(&self, message: &crate::messages::Message) {
         self.instance.recv_message(message)
     }
     fn post_configuration_messages(&self) {

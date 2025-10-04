@@ -32,7 +32,7 @@ impl super::Loadable for TransmuteElementHandler {
 }
 
 impl MessageClient for TransmuteElementHandler {
-    fn recv_message(&self, message: crate::messages::Message) {
+    fn recv_message(&self, message: &crate::messages::Message) {
         self.instance.recv_message(message);
     }
     fn post_configuration_messages(&self) {

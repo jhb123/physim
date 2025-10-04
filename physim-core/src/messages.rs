@@ -35,7 +35,8 @@ pub struct CMessage {
 }
 
 impl Message {
-    pub fn to_c_message(self) -> CMessage {
+    /// You must call CMesssage::to_message() to prevent memory leaks
+    pub fn to_c_message(&self) -> CMessage {
         let topic_c = CString::new(self.topic.clone()).unwrap();
         let message_c = CString::new(self.message.clone()).unwrap();
 
@@ -44,6 +45,22 @@ impl Message {
             topic: topic_c.into_raw(),
             message: message_c.into_raw(),
             sender_id: self.sender_id,
+        }
+    }
+
+    /// this creates a clone of the underlying data in the CMessage without
+    /// without consuming it. A Message is returned, and its memory is
+    /// managed independently of the original CMessage
+    pub unsafe fn from_c_ptr(c_msg: *const CMessage) -> Message {
+        let c_msg = &*c_msg;
+        let topic = CStr::from_ptr(c_msg.topic).to_string_lossy().into_owned();
+        let message = CStr::from_ptr(c_msg.message).to_string_lossy().into_owned();
+
+        Message {
+            priority: c_msg.priority,
+            topic,
+            message,
+            sender_id: c_msg.sender_id,
         }
     }
 }
@@ -102,24 +119,17 @@ macro_rules! msg {
     };
 }
 
-impl Drop for CMessage {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.topic.is_null() {
-                drop(CString::from_raw(self.topic as *mut i8));
-            }
-            if !self.message.is_null() {
-                drop(CString::from_raw(self.message as *mut i8));
-            }
-        }
-    }
-}
-
 impl CMessage {
     pub fn to_message(self) -> Message {
         unsafe {
-            let topic = CStr::from_ptr(self.topic).to_str().unwrap().to_string();
-            let message = CStr::from_ptr(self.message).to_str().unwrap().to_string();
+            let topic = CString::from_raw(self.topic as *mut i8)
+                .to_str()
+                .unwrap()
+                .to_string();
+            let message = CString::from_raw(self.message as *mut i8)
+                .to_str()
+                .unwrap()
+                .to_string();
 
             Message {
                 priority: self.priority,
@@ -152,14 +162,14 @@ mod private {
         fn recv_message_filtered(&self, message: super::Message) {
             let sender_id = self as *const Self as *const () as usize;
             if message.sender_id != sender_id {
-                self.recv_message(message)
+                self.recv_message(&message)
             }
         }
     }
 }
 pub trait MessageClient: Send + Sync + private::Sealed {
     #[allow(unused_variables)]
-    fn recv_message(&self, message: Message) {}
+    fn recv_message(&self, message: &Message) {}
     fn post_configuration_messages(&self) {}
 }
 
@@ -227,7 +237,7 @@ mod tests {
     struct TestClient {}
 
     impl MessageClient for TestClient {
-        fn recv_message(&self, message: super::Message) {
+        fn recv_message(&self, message: &super::Message) {
             println!(
                 "Priority: {:?} - topic {} - message: {}",
                 message.priority, message.topic, message.message

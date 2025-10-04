@@ -10,7 +10,11 @@ use std::{
 use libloading::Library;
 use serde_json::Value;
 
-use crate::{messages::MessageClient, Acceleration, Entity};
+use crate::{
+    messages::{CMessage, MessageClient},
+    plugin::host_alloc_string,
+    Acceleration, Entity,
+};
 
 use super::Element;
 
@@ -31,9 +35,12 @@ pub struct TransformElementAPI {
         usize,
     ),
     pub destroy: unsafe extern "C" fn(*mut std::ffi::c_void),
-    pub get_property_descriptions:
-        unsafe extern "C" fn(*mut std::ffi::c_void) -> *mut std::ffi::c_char,
-    pub recv_message: unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *mut std::ffi::c_void),
+    pub get_property_descriptions: unsafe extern "C" fn(
+        *mut std::ffi::c_void,
+        crate::plugin::RustStringAllocFn,
+    ) -> *mut std::ffi::c_char,
+    pub recv_message:
+        unsafe extern "C" fn(obj: *mut std::ffi::c_void, msg: *const crate::messages::CMessage),
     pub post_configuration_messages: unsafe extern "C" fn(obj: *mut std::ffi::c_void),
 }
 
@@ -103,8 +110,12 @@ impl TransformElementHandler {
 
 impl Element for TransformElementHandler {
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
-        let value =
-            unsafe { (self.api.get_property_descriptions)(self.instance.load(Ordering::SeqCst)) };
+        let value = unsafe {
+            (self.api.get_property_descriptions)(
+                self.instance.load(Ordering::SeqCst),
+                host_alloc_string,
+            )
+        };
         if value.is_null() {
             return Err("Unable to load descriptions of properties".into());
         }
@@ -121,12 +132,17 @@ impl Drop for TransformElementHandler {
 }
 
 impl MessageClient for TransformElementHandler {
-    fn recv_message(&self, message: crate::messages::Message) {
+    fn recv_message(&self, message: &crate::messages::Message) {
         let c_message = message.to_c_message();
-        let b = Box::new(c_message);
-        let msg = Box::into_raw(b) as *mut core::ffi::c_void;
-        unsafe { (self.api.recv_message)(self.instance.load(Ordering::SeqCst), msg) }
+        unsafe {
+            (self.api.recv_message)(
+                self.instance.load(Ordering::SeqCst),
+                &c_message as *const CMessage,
+            )
+        }
+        c_message.to_message();
     }
+
     fn post_configuration_messages(&self) {
         unsafe { (self.api.post_configuration_messages)(self.instance.load(Ordering::SeqCst)) }
     }

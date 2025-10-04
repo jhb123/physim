@@ -524,6 +524,4 @@ impl Element for SolarSystem {
     }
 }
 
-impl MessageClient for SolarSystem {
-    fn recv_message(&self, _message: physim_core::messages::Message) {}
-}
+impl MessageClient for SolarSystem {}

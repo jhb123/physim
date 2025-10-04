@@ -1,15 +1,15 @@
 [global]
 dt = 0.00001
-iterations = 1
+iterations = 1000000
 
 [elements]
 
 [[elements.cube]]
 
+[[elements.cdebug]]
 [[elements.msgdebug]]
+mode="brief"
 
-[[elements.debug]]
-
-[[elements.euler]]
+[[elements.fintegrate]]
 
 [[elements.fakesink]]

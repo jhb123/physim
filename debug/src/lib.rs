@@ -13,7 +13,8 @@ use std::{
 };
 
 use physim_attribute::{
-    initialise_state_element, render_element, synth_element, transform_element, transmute_element,
+    initialise_state_element, integrator_element, render_element, synth_element, transform_element,
+    transmute_element,
 };
 use physim_core::{
     Acceleration, Entity,
@@ -21,8 +22,8 @@ use physim_core::{
     messages::{MessageClient, MessagePriority},
     msg,
     plugin::{
-        Element, ElementCreator, generator::GeneratorElement, render::RenderElement,
-        transform::TransformElement, transmute::TransmuteElement,
+        Element, ElementCreator, generator::GeneratorElement, integrator::IntegratorElement,
+        render::RenderElement, transform::TransformElement, transmute::TransmuteElement,
     },
     post_bus_msg, register_plugin,
 };
@@ -36,7 +37,8 @@ register_plugin!(
     "fakesink",
     "msgdebug",
     "void",
-    "energysink"
+    "energysink",
+    "fintegrate"
 );
 #[cfg(feature = "crashers")] // codespell:ignore crashers
 register_plugin!(
@@ -46,6 +48,7 @@ register_plugin!(
     "msgdebug",
     "void",
     "energysink",
+    "fintegrate",
     "crashtransform"
 );
 
@@ -88,7 +91,7 @@ impl Element for RandSynth {
 }
 
 impl MessageClient for RandSynth {
-    fn recv_message(&self, message: physim_core::messages::Message) {
+    fn recv_message(&self, message: &physim_core::messages::Message) {
         if &message.topic == "keyboard.press" {
             match message.message.as_str() {
                 "t" => self.active.fetch_xor(true, Ordering::Relaxed),
@@ -142,6 +145,9 @@ impl RenderElement for FakeSink {
     ) {
         while state_recv.recv().is_ok() {
             info!("Fake Rendering!");
+            let large_message = "x".repeat(10_000_000);
+            let msg = msg!(self, "fakesink", large_message, MessagePriority::Low);
+            post_bus_msg!(msg);
         }
     }
 }
@@ -156,8 +162,15 @@ impl Element for FakeSink {
 
 impl MessageClient for FakeSink {}
 
+enum MessageDebugMode {
+    Verbose,
+    Brief,
+}
+
 #[initialise_state_element(name = "msgdebug", blurb = "Print messages")]
-struct MessageDebug {}
+struct MessageDebug {
+    mode: MessageDebugMode,
+}
 
 impl GeneratorElement for MessageDebug {
     fn create_entities(&self) -> Vec<Entity> {
@@ -166,8 +179,18 @@ impl GeneratorElement for MessageDebug {
 }
 
 impl ElementCreator for MessageDebug {
-    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
-        Box::new(Self {})
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
+        let mode: MessageDebugMode = properties
+            .get("mode")
+            .and_then(|x| x.as_str())
+            .map(|mode_str| match mode_str {
+                "verbose" => MessageDebugMode::Verbose,
+                "brief" => MessageDebugMode::Brief,
+                _ => MessageDebugMode::Verbose,
+            })
+            .unwrap_or(MessageDebugMode::Verbose);
+
+        Box::new(Self { mode })
     }
 }
 
@@ -180,11 +203,21 @@ impl Element for MessageDebug {
 }
 
 impl MessageClient for MessageDebug {
-    fn recv_message(&self, message: physim_core::messages::Message) {
-        println!(
-            "[MSGDEBUG] Priority: {:?} - topic {} - message: {}",
-            message.priority, message.topic, message.message
-        )
+    fn recv_message(&self, message: &physim_core::messages::Message) {
+        match self.mode {
+            MessageDebugMode::Verbose => {
+                println!(
+                    "[MSGDEBUG] Priority: {:?} - topic {} - message: {}",
+                    message.priority, message.topic, message.message
+                )
+            }
+            MessageDebugMode::Brief => {
+                println!(
+                    "[MSGDEBUG] Priority: {:?} - topic {}",
+                    message.priority, message.topic
+                )
+            }
+        }
     }
 }
 
@@ -227,5 +260,44 @@ impl Element for Void {
             "lim".to_string(),
             "Maximum distance from origin in x,y, or z an entity can be s".to_string(),
         )]))
+    }
+}
+
+#[integrator_element(name = "fintegrate", blurb = "Do nothing")]
+struct FIntergrate {}
+
+impl IntegratorElement for FIntergrate {
+    fn integrate(
+        &self,
+        entities: &[Entity],
+        _: &mut [Entity],
+        acc_fn: &dyn Fn(&[Entity], &mut [Acceleration]),
+        _: f64,
+    ) {
+        let mut accelerations = vec![Acceleration::zero(); entities.len()];
+        acc_fn(entities, &mut accelerations);
+    }
+}
+
+impl MessageClient for FIntergrate {
+    fn recv_message(&self, message: &physim_core::messages::Message) {
+        println!(
+            "[FINTEGRATE] Priority: {:?} - topic {}",
+            message.priority, message.topic
+        )
+    }
+}
+
+impl ElementCreator for FIntergrate {
+    fn create_element(_: HashMap<String, Value>) -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+
+impl Element for FIntergrate {
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::new())
     }
 }
