@@ -64,10 +64,10 @@ impl TransformElementHandler {
             let api_fn_name = format!("{name}_get_api");
             let properties = serde_json::to_string(&properties)
                 .expect("serde::Value and String can definely be serialised");
-            let lib = LibLoader::get(path).map_err(|e| TransformElementLoadError::DylibError(e))?;
+            let lib = LibLoader::get(path).map_err(TransformElementLoadError::DylibError)?;
             let get_api: libloading::Symbol<unsafe extern "C" fn() -> *const TransformElementAPI> =
                 lib.get(api_fn_name.as_bytes())
-                    .map_err(|e| TransformElementLoadError::DylibError(e))?;
+                    .map_err(TransformElementLoadError::DylibError)?;
             let api = get_api();
             let (c, u, _l) = properties.into_raw_parts();
             let instance = ((*api).init)(c, u);

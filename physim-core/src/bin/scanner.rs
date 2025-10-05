@@ -1,13 +1,17 @@
 use std::env;
 
-use physim_core::plugin::{discover, get_plugin_dir};
+use physim_core::plugin::{element_db, get_plugin_dir, RegisteredElement};
 use yansi::Paint;
 
 fn main() {
     env_logger::init();
     let args: Vec<String> = env::args().collect();
 
-    let elements = discover();
+    let element_db = element_db();
+
+    let mut elements: Vec<RegisteredElement> = element_db.values().cloned().collect();
+    elements.sort_by_key(|k| k.get_lib_path().to_string());
+
     if args.len() == 1 {
         if elements.is_empty() {
             println!("No elements found in {}", get_plugin_dir())
@@ -19,7 +23,7 @@ fn main() {
         println!("help")
     } else {
         let element_name = &*args[1];
-        if let Some(element) = elements.iter().find(|el| el.get_name() == element_name) {
+        if let Some(element) = element_db.get(element_name) {
             element.print_element_info_verbose();
         } else {
             println!(
@@ -30,10 +34,3 @@ fn main() {
         }
     }
 }
-
-// fn mutate(v: *mut i32,n: usize,c: usize) {
-//     let v = unsafe { std::slice::from_raw_parts_mut(v, n) };
-//     v[0] = 2;
-//     println!("{:?}",v);
-
-// }
