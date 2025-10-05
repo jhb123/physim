@@ -7,16 +7,21 @@ use std::{
     },
 };
 
-use libloading::Library;
 use serde_json::Value;
 
 use crate::{
     messages::{CMessage, MessageClient},
-    plugin::host_alloc_string,
+    plugin::{host_alloc_string, LibLoader},
     Acceleration, Entity,
 };
 
 use super::Element;
+
+#[derive(Debug)]
+pub enum TransformElementLoadError {
+    DylibError(libloading::Error),
+    NullElement,
+}
 
 pub trait TransformElement: Send + Sync {
     fn new(properties: HashMap<String, Value>) -> Self;
@@ -47,7 +52,6 @@ pub struct TransformElementAPI {
 pub struct TransformElementHandler {
     api: &'static TransformElementAPI,
     instance: AtomicPtr<std::ffi::c_void>,
-    _lib: Library,
 }
 
 impl TransformElementHandler {
@@ -55,26 +59,24 @@ impl TransformElementHandler {
         path: &str,
         name: &str,
         properties: HashMap<String, Value>,
-    ) -> Result<Arc<Self>, Box<dyn std::error::Error>> {
+    ) -> Result<Arc<Self>, TransformElementLoadError> {
         unsafe {
             let api_fn_name = format!("{name}_get_api");
-            let properties = match serde_json::to_string(&properties) {
-                Ok(s) => s,
-                Err(_) => return Err("Invalid config. Must be JSON".into()),
-            };
-            let lib = libloading::Library::new(path)?;
+            let properties = serde_json::to_string(&properties)
+                .expect("serde::Value and String can definely be serialised");
+            let lib = LibLoader::get(path).map_err(|e| TransformElementLoadError::DylibError(e))?;
             let get_api: libloading::Symbol<unsafe extern "C" fn() -> *const TransformElementAPI> =
-                lib.get(api_fn_name.as_bytes())?;
+                lib.get(api_fn_name.as_bytes())
+                    .map_err(|e| TransformElementLoadError::DylibError(e))?;
             let api = get_api();
             let (c, u, _l) = properties.into_raw_parts();
             let instance = ((*api).init)(c, u);
             if instance.is_null() {
-                return Err("Could not create_entities element".into());
+                return Err(TransformElementLoadError::NullElement);
             }
             let element = Arc::new(Self {
                 api: &*api,
                 instance: AtomicPtr::new(instance),
-                _lib: lib,
             });
             Ok(element)
         }

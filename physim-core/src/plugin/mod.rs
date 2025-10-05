@@ -7,6 +7,7 @@ use std::{
 };
 
 use libloading::{Library, Symbol};
+use once_cell::sync::OnceCell;
 use serde_json::Value;
 use yansi::Paint;
 
@@ -25,6 +26,38 @@ pub mod transmute;
 pub use meta::*;
 
 const PHYSIM_PLUGIN_LOADER_RUSTC_VERSION: &str = env!("ABI_INFO");
+
+static LIBRARY_LOADER: OnceCell<LibLoader> = OnceCell::new();
+
+#[derive(Default, Debug)]
+struct LibLoader {
+    libraries: Mutex<HashMap<String, Arc<Library>>>,
+}
+
+impl LibLoader {
+    fn initialise() -> &'static Self {
+        LIBRARY_LOADER.get_or_init(|| Self {
+            libraries: Mutex::new(HashMap::new()),
+        })
+    }
+
+    pub unsafe fn get(path: &str) -> Result<Arc<Library>, libloading::Error> {
+        let lib_loader = LibLoader::initialise();
+        let mut libraries = match lib_loader.libraries.lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                eprintln!("Fatal: library cache lock poisoned. Exiting.");
+                std::process::exit(1);
+            }
+        };
+        if let Some(lib) = libraries.get(path) {
+            return Ok(Arc::clone(lib));
+        }
+        let lib = Arc::new(unsafe { Library::new(path)? });
+        libraries.insert(path.to_string(), Arc::clone(&lib));
+        Ok(lib)
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -62,9 +95,9 @@ unsafe fn load_from_library<T>(
     path: &str,
     name: &str,
     properties: HashMap<String, Value>,
-) -> Result<T, Box<dyn Error>> {
+) -> Result<T, libloading::Error> {
     let fn_name = format!("{name}_create_element");
-    let lib = Library::new(path)?;
+    let lib = LibLoader::get(path)?;
     type GetNewFnType<T> = unsafe extern "Rust" fn(HashMap<String, Value>) -> T;
 
     let get_new_fn: Symbol<GetNewFnType<T>> = lib.get(fn_name.as_bytes())?;
@@ -201,8 +234,8 @@ macro_rules! post_bus_msg {
 pub unsafe fn set_bus(
     element: &RegisteredElement,
     bus: Arc<Mutex<MessageBus>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let lib = Library::new(&element.lib_path)?;
+) -> Result<(), libloading::Error> {
+    let lib = LibLoader::get(&element.lib_path)?;
     let set_target: Symbol<unsafe extern "C" fn(*mut core::ffi::c_void)> =
         lib.get(b"set_callback_target")?;
     let bus_raw_ptr = Arc::into_raw(bus) as *mut core::ffi::c_void;
@@ -215,9 +248,9 @@ type SetupLogger = extern "Rust" fn(
     level: log::LevelFilter,
 ) -> Result<(), log::SetLoggerError>;
 
-pub fn setup_plugin_logger(element: &RegisteredElement) -> Result<(), Box<dyn std::error::Error>> {
+pub fn setup_plugin_logger(element: &RegisteredElement) -> Result<(), libloading::Error> {
     unsafe {
-        let lib = Library::new(&element.lib_path)?;
+        let lib = LibLoader::get(&element.lib_path)?;
         let ret = lib.get::<SetupLogger>(b"setup_logger");
         if let Ok(setup_logger) = ret {
             // I think it's basically fine to ignore this error. the global logger
@@ -377,7 +410,7 @@ pub fn discover() -> Vec<RegisteredElement> {
                 continue;
             }
 
-            let Ok(lib) = Library::new(&lib_path) else {
+            let Ok(lib) = LibLoader::get(&lib_path) else {
                 continue;
             };
 
@@ -408,7 +441,7 @@ fn plugin_lib_iter(plugin_dir: &Path) -> impl Iterator<Item = std::fs::DirEntry>
 }
 
 unsafe fn validate_plugin_abi(lib_path: &str) -> bool {
-    let Ok(lib) = Library::new(lib_path) else {
+    let Ok(lib) = LibLoader::get(lib_path) else {
         log::debug!("Could not load {lib_path} as plugin");
         return false;
     };
@@ -460,14 +493,14 @@ fn get_registered_element_properties(
     match element_info.kind {
         ElementKind::Transform => {
             log::info!("loading transform");
-            let el = TransformElementHandler::load(lib_path, &element_info.name, HashMap::new())
-                .unwrap();
+            let el =
+                TransformElementHandler::load(lib_path, &element_info.name, HashMap::new()).ok()?;
             log::debug!("Got props");
             el.get_property_descriptions().ok()
         }
         _ => {
             let el: Arc<MetaElement> =
-                Loadable::load(&lib_path, &element_info.name, HashMap::new()).unwrap();
+                Loadable::load(&lib_path, &element_info.name, HashMap::new()).ok()?;
             el.get_property_descriptions().ok()
         }
     }
