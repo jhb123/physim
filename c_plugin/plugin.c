@@ -40,7 +40,11 @@ typedef struct {
     const char* topic;
     const char* message;
     size_t sender_id;
+    int origin
 } Message;
+
+#define MESSAGE_ORIGIN 1
+ 
 
 // Function pointer types
 typedef void* (*InitFn)(const uint8_t* config, size_t len);
@@ -65,7 +69,7 @@ typedef struct {
 static void* GLOBAL_BUS_TARGET = NULL;
 
 // External callback function (provided by the host)
-extern void physim_core_messages_callback(void* target, Message msg);
+extern void post_bus_callback(void* target, Message msg);
 
 // The DebugTransform structure (empty in this case)
 typedef struct {
@@ -78,11 +82,11 @@ const char* PLUGIN_ABI_INFO = "rustc:1.86.0-nightly|target:aarch64-apple-darwin"
 const char* ELEMENT_NAME = "cdebug";
 
 
-char* get_plugin_abi_info(void) {
+const char* get_plugin_abi_info(void) {
     return PLUGIN_ABI_INFO;
 }
 
-char* register_plugin(void) {
+const char* register_plugin(void) {
     return ELEMENT_NAME;
 }
 
@@ -121,7 +125,6 @@ void cdebug_transform(const void* obj, const Entity* state, size_t state_len,
     (void)state_len; // Unused
     
     // Log transform (you'll need to implement logging based on your system)
-    printf("cDebug transform\n");
     
     // The acceleration array is already initialized, we just pass through
     // In the Rust version, it adds default acceleration (which is zero)
@@ -132,18 +135,13 @@ void cdebug_transform(const void* obj, const Entity* state, size_t state_len,
     
     // Post message to bus
     if (GLOBAL_BUS_TARGET != NULL) {
-        // Create message - you'll need to implement CMessage creation
-        // based on your actual message structure
-        /*
         Message msg;
-        msg.topic = "debugplugin";
+        msg.topic = "cDebugTransform";
         msg.message = "transformed";
         msg.priority = MESSAGE_PRIORITY_LOW;
         msg.sender_id = (size_t)obj;
-        
-        CMessage cmsg = message_to_c_message(&msg);
-        physim_core_messages_callback(GLOBAL_BUS_TARGET, cmsg);
-        */
+        msg.origin = MESSAGE_ORIGIN;
+        post_bus_callback(GLOBAL_BUS_TARGET, msg);
     }
 }
 

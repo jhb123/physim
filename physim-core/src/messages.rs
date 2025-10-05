@@ -1,6 +1,7 @@
 use std::{
     collections::BinaryHeap,
     ffi::{c_void, CStr, CString},
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -26,31 +27,48 @@ pub struct Message {
 }
 
 #[repr(C)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug, Copy, Default)]
+enum MessageOrigin {
+    #[default]
+    Rust = 0,
+    #[allow(dead_code)]
+    C = 1,
+}
+
+#[repr(C)]
 #[derive(Clone, Debug)]
 pub struct CMessage {
     pub priority: MessagePriority,
     pub topic: *const std::ffi::c_char,
     pub message: *const std::ffi::c_char,
     pub sender_id: usize,
+    origin: MessageOrigin,
 }
 
 impl Message {
     /// You must call CMesssage::to_message() to prevent memory leaks
     pub fn to_c_message(&self) -> CMessage {
-        let topic_c = CString::new(self.topic.clone()).unwrap();
-        let message_c = CString::new(self.message.clone()).unwrap();
+        let topic_c = CString::from_str(&self.topic).unwrap_or_else(|_| {
+            CString::new(self.topic.replace("\0", "")).expect("Just removed Null chars")
+        });
+        let message_c = CString::from_str(&self.message).unwrap_or_else(|_| {
+            CString::new(self.message.replace("\0", "")).expect("Just removed Null chars")
+        });
 
         CMessage {
             priority: self.priority,
             topic: topic_c.into_raw(),
             message: message_c.into_raw(),
             sender_id: self.sender_id,
+            origin: MessageOrigin::Rust,
         }
     }
 
     /// this creates a clone of the underlying data in the CMessage without
     /// without consuming it. A Message is returned, and its memory is
     /// managed independently of the original CMessage
+    /// # Safety
+    ///  Consult [`CStr::from_ptr`]
     pub unsafe fn from_c_ptr(c_msg: *const CMessage) -> Message {
         let c_msg = &*c_msg;
         let topic = CStr::from_ptr(c_msg.topic).to_string_lossy().into_owned();
@@ -122,21 +140,28 @@ macro_rules! msg {
 impl CMessage {
     pub fn to_message(self) -> Message {
         unsafe {
-            let topic = CString::from_raw(self.topic as *mut i8)
-                .to_str()
-                .unwrap()
-                .to_string();
-            let message = CString::from_raw(self.message as *mut i8)
-                .to_str()
-                .unwrap()
-                .to_string();
-
-            Message {
-                priority: self.priority,
-                topic,
-                message,
-                sender_id: self.sender_id,
+            match self.origin {
+                MessageOrigin::Rust => self.to_message_from_rust(),
+                MessageOrigin::C => Message::from_c_ptr(&self as *const CMessage),
             }
+        }
+    }
+
+    /// # Safety
+    ///  Consult [`CString::from_raw`]
+    unsafe fn to_message_from_rust(&self) -> Message {
+        let topic = CString::from_raw(self.topic as *mut i8)
+            .to_string_lossy()
+            .to_string();
+        let message = CString::from_raw(self.message as *mut i8)
+            .to_string_lossy()
+            .to_string();
+
+        Message {
+            priority: self.priority,
+            topic,
+            message,
+            sender_id: self.sender_id,
         }
     }
 }
@@ -173,21 +198,30 @@ pub trait MessageClient: Send + Sync + private::Sealed {
     fn post_configuration_messages(&self) {}
 }
 
-pub extern "C" fn callback(target: *mut c_void, message: CMessage) {
+#[unsafe(no_mangle)]
+pub extern "C" fn post_bus_callback(target: *mut c_void, message: CMessage) {
     unsafe {
-        let arc = Arc::from_raw(target as *const Mutex<MessageBus>);
+        // Physim sets the message bus up with this Arc<Mutex<MessageBus>>.
+        // and that it was passed as target using Arc::into_raw()
+        let mutex = Arc::from_raw(target as *mut Mutex<MessageBus>);
         {
-            let mut obj = arc.lock().unwrap();
+            let mut message_bus = match mutex.lock() {
+                Ok(message_bus) => message_bus,
+                Err(_) => {
+                    eprintln!("Error, message bus was poisoned");
+                    std::process::exit(1);
+                }
+            };
             if message.message.is_null() || message.topic.is_null() {
-                eprintln!("ERROR, message contents is null");
+                eprintln!("Error, message contents are null");
             } else {
                 let message = message.to_message();
-                (*obj).post_message(message);
+                message_bus.post_message(message);
             }
         }
         // Just above, we create the Arc. To prevent dropping the message bus,
         // turn it back into raw pointer.
-        let _ = Arc::into_raw(arc);
+        let _ = Arc::into_raw(mutex);
     }
 }
 
@@ -198,16 +232,29 @@ pub struct MessageBus {
 
 impl MessageBus {
     pub fn post_message(&mut self, message: Message) {
-        self.queue.lock().unwrap().push(message);
+        match self.queue.lock() {
+            Ok(mut queue) => queue.push(message),
+            Err(_) => {
+                eprintln!("Error, failed to post message. Message queue panicked");
+                std::process::exit(1)
+            }
+        }
     }
 
     pub fn pop_messages(&mut self) {
-        let mut queue = self.queue.lock().unwrap();
-        while let Some(msg) = queue.pop() {
-            for observer in self.clients.iter() {
-                observer.recv_message_filtered(msg.clone());
+        match self.queue.lock() {
+            Ok(mut queue) => {
+                while let Some(msg) = queue.pop() {
+                    for observer in self.clients.iter() {
+                        observer.recv_message_filtered(msg.clone());
+                    }
+                }
             }
-        }
+            Err(_) => {
+                eprintln!("Error, failed to pop message. Message queue panicked");
+                std::process::exit(1)
+            }
+        };
     }
 
     pub fn add_client(&mut self, client: Arc<dyn MessageClient>) {
