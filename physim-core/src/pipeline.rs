@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::{
     messages::{Message, MessageBus, MessageClient, MessagePriority},
     plugin::{
-        discover_map,
+        element_db,
         generator::GeneratorElementHandler,
         integrator::{IntegratorElement, IntegratorElementHandler},
         render::RenderElementHandler,
@@ -302,7 +302,7 @@ impl PipelineBuilder {
             transmutes: vec![],
             render: None,
             integrator: None,
-            element_db: discover_map(),
+            element_db: element_db(),
             timestep: 0.000001,
             iterations: 10000,
             bus: Arc::new(Mutex::new(MessageBus::new())),
@@ -334,7 +334,7 @@ impl PipelineBuilder {
         match element_data.get_element_kind() {
             ElementKind::Initialiser => {
                 let element =
-                    GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
+                    GeneratorElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load initialiser element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
@@ -343,7 +343,7 @@ impl PipelineBuilder {
             }
             ElementKind::Transform => {
                 let element =
-                    TransformElementHandler::load(&element_data.lib_path, el_name, properties)
+                    TransformElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
@@ -352,7 +352,7 @@ impl PipelineBuilder {
             }
             ElementKind::Render => {
                 let element =
-                    RenderElementHandler::load(&element_data.lib_path, el_name, properties)
+                    RenderElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
@@ -361,7 +361,7 @@ impl PipelineBuilder {
             }
             ElementKind::Synth => {
                 let element =
-                    GeneratorElementHandler::load(&element_data.lib_path, el_name, properties)
+                    GeneratorElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load synth element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
@@ -377,7 +377,7 @@ impl PipelineBuilder {
             }
             ElementKind::Transmute => {
                 let element =
-                    TransmuteElementHandler::load(&element_data.lib_path, el_name, properties)
+                    TransmuteElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transmute element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
@@ -385,9 +385,12 @@ impl PipelineBuilder {
                 self.transmutes.push(element);
             }
             ElementKind::Integrator => {
-                let element =
-                    IntegratorElementHandler::load(&element_data.lib_path, el_name, properties)
-                        .map_err(|_| "Failed to load transmute element")?;
+                let element = IntegratorElementHandler::load(
+                    element_data.get_lib_path(),
+                    el_name,
+                    properties,
+                )
+                .map_err(|_| "Failed to load transmute element")?;
                 let mut b = self.bus.lock().unwrap();
                 b.add_client(element.clone());
                 drop(b);

@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bus = Arc::new(Mutex::new(MessageBus::new()));
     bus.lock().unwrap().add_client(Arc::new(TestClient {}));
 
-    let elements_db = physim_core::plugin::discover_map();
+    let elements_db = physim_core::plugin::element_db();
 
     let element_meta = elements_db.get("debug").expect("plugins not loaded");
     unsafe {
@@ -30,7 +30,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let element =
-        TransformElementHandler::load(&element_meta.lib_path, "debug", HashMap::default()).unwrap();
+        TransformElementHandler::load(element_meta.get_lib_path(), "debug", HashMap::default())
+            .unwrap();
 
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {
