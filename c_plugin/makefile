@@ -19,7 +19,7 @@ OBJECTS = $(SOURCES:.c=.o)
 CFLAGS = -Wall -Wextra -O2 -fPIC -arch $(ARCH)
 
 # Linker flags for creating a dynamic library on macOS
-LDFLAGS = -dynamiclib -arch $(ARCH)
+LDFLAGS = -dynamiclib -arch $(ARCH) -L../target/release -lphysim_core
 
 
 # Libraries to link against (if needed)

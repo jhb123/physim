@@ -7,7 +7,7 @@ use std::{
 };
 
 use physim_core::{
-    messages::{callback, Message, MessageBus, MessageClient, MessagePriority},
+    messages::{post_bus_callback, Message, MessageBus, MessageClient, MessagePriority},
     plugin::{set_bus, transform::TransformElementHandler},
 };
 
@@ -61,10 +61,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             priority: MessagePriority::Critical,
             sender_id: c1_id,
         };
-        callback(bus_raw_ptr, msg1.to_c_message());
-        callback(bus_raw_ptr, msg2.to_c_message());
-        callback(bus_raw_ptr, msg3.to_c_message());
-        callback(bus_raw_ptr, msg4.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg1.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg2.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg3.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg4.to_c_message());
         unsafe { Arc::from_raw(bus_raw_ptr as *mut usize) };
     });
     let b2 = bus.clone();
@@ -96,10 +96,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             priority: MessagePriority::Critical,
             sender_id: c2_id,
         };
-        callback(bus_raw_ptr, msg1.to_c_message());
-        callback(bus_raw_ptr, msg2.to_c_message());
-        callback(bus_raw_ptr, msg3.to_c_message());
-        callback(bus_raw_ptr, msg4.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg1.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg2.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg3.to_c_message());
+        post_bus_callback(bus_raw_ptr, msg4.to_c_message());
         unsafe { Arc::from_raw(bus_raw_ptr as *mut usize) };
     });
 

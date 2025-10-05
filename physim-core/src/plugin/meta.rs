@@ -39,6 +39,8 @@ impl ElementMeta {
     }
 
     /// Convert from FFI into owned Rust ElementMeta (borrows strings)
+    /// # Safety
+    /// Consult [`CStr::from_ptr`]
     pub unsafe fn from_ffi_borrowed(meta: &ElementMetaFFI) -> Self {
         ElementMeta {
             kind: meta.kind,
@@ -53,6 +55,8 @@ impl ElementMeta {
     }
 
     /// Convert from FFI and take ownership (consumes the FFI struct)
+    /// # Safety
+    /// Consult [`CStr::from_ptr`]
     pub unsafe fn from_ffi_owned(meta: ElementMetaFFI) -> Self {
         let result = Self::from_ffi_borrowed(&meta);
         meta.free();
@@ -99,6 +103,8 @@ pub struct ElementMetaFFI {
 
 impl ElementMetaFFI {
     /// Free all string memory - called by host
+    /// # Safety
+    ///  Consult [`CString::from_raw`]
     pub unsafe fn free(self) {
         if !self.name.is_null() {
             drop(CString::from_raw(self.name));
@@ -125,6 +131,8 @@ impl ElementMetaFFI {
 }
 
 /// Host allocator functions to pass to plugins
+/// # Safety
+///  Consult [`CStr::from_ptr`]
 #[no_mangle]
 pub unsafe extern "C" fn host_alloc_string(s: *const c_char) -> *mut c_char {
     if s.is_null() {
@@ -134,6 +142,8 @@ pub unsafe extern "C" fn host_alloc_string(s: *const c_char) -> *mut c_char {
     CString::new(cstr.to_bytes()).unwrap().into_raw()
 }
 
+/// # Safety
+///  Consult [`CString::from_raw`]
 #[no_mangle]
 pub unsafe extern "C" fn host_free_string(s: *mut c_char) {
     if !s.is_null() {

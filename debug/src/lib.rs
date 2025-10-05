@@ -146,7 +146,7 @@ impl RenderElement for FakeSink {
         while state_recv.recv().is_ok() {
             info!("Fake Rendering!");
             let large_message = "x".repeat(10_000_000);
-            let msg = msg!(self, "fakesink", large_message, MessagePriority::Low);
+            let msg = msg!(self, "fake\0sink", large_message, MessagePriority::Low);
             post_bus_msg!(msg);
         }
     }

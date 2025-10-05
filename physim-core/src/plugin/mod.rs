@@ -189,7 +189,9 @@ type RegisterPluginFn = unsafe extern "C" fn() -> *const std::os::raw::c_char;
 #[allow(clippy::crate_in_macro_def)]
 macro_rules! post_bus_msg {
     ($msg:expr) => {
-        unsafe { physim_core::messages::callback(crate::GLOBAL_BUS_TARGET, $msg.to_c_message()) }
+        unsafe {
+            physim_core::messages::post_bus_callback(crate::GLOBAL_BUS_TARGET, $msg.to_c_message())
+        }
     };
 }
 
