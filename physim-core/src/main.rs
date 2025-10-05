@@ -3,7 +3,7 @@ use std::env;
 
 use physim_core::pipeline::Pipeline;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), String> {
     env_logger::init();
 
     let mut args = env::args().peekable();
@@ -24,11 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "-f" | "--file" => {
                 args.next();
                 let file = args.next().ok_or("No file provided")?;
-                Pipeline::new_from_file(&file)?
+                Pipeline::new_from_file(&file).map_err(|e| format!("{:?}", e))?
             }
             _ => {
                 let desc: String = args.intersperse(" ".to_string()).collect();
-                Pipeline::new_from_description(&desc)?
+                Pipeline::new_from_description(&desc).map_err(|e| format!("{:?}", e))?
             }
         }
     } else {

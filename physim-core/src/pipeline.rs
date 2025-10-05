@@ -72,23 +72,26 @@ impl MessageClient for PipelineMessageClient {
 }
 
 impl Pipeline {
-    pub fn run(self) -> Result<(), Box<dyn Error>> {
-        // cannot be reference since it'd break renderer
-        let pipeline_messages = Arc::new(PipelineMessageClient::new());
-        self.bus
-            .lock()
-            .unwrap()
-            .add_client(pipeline_messages.clone());
-
+    pub fn run(self) -> Result<(), String> {
         let config = UniverseConfiguration {
             size_x: 2.0,
             size_y: 1.0,
             size_z: 1.0,
         };
 
-        self.post_configuration_messages();
-
-        self.bus.lock().unwrap().pop_messages();
+        // cannot be reference since it'd break renderer
+        let pipeline_messages = Arc::new(PipelineMessageClient::new());
+        match self.bus.lock() {
+            Ok(mut bus) => {
+                bus.add_client(pipeline_messages.clone());
+                self.post_configuration_messages();
+                bus.pop_messages();
+            }
+            Err(_) => {
+                eprintln!("Failed to add pipeline to message bus. Message bus poisoned");
+                std::process::exit(1)
+            }
+        }
 
         let mut state = Vec::new();
         for el in self.initialisers.iter() {
@@ -104,16 +107,23 @@ impl Pipeline {
         let bus_clone = self.bus.clone();
         let message_thread = thread::spawn(move || {
             while msg_flag_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                let mut lock = bus_clone.lock().unwrap();
-                lock.pop_messages();
-                drop(lock);
-                thread::sleep(std::time::Duration::from_millis(8));
+                match bus_clone.lock() {
+                    Ok(mut bus) => {
+                        bus.pop_messages();
+                        thread::sleep(std::time::Duration::from_millis(8));
+                    }
+                    Err(_) => {
+                        eprintln!("Message event loop failed. Message bus poisoned");
+                        std::process::exit(1)
+                    }
+                }
             }
         });
 
         let (simulation_sender, renderer_receiver) = mpsc::sync_channel(2);
-
-        simulation_sender.send(state.clone()).unwrap();
+        simulation_sender
+            .send(state.clone())
+            .expect("The renderer has definitely not been dropped");
 
         thread::spawn(move || {
             let dt = self.timestep;
@@ -130,7 +140,9 @@ impl Pipeline {
                 }
                 if pipeline_messages.paused.load(Ordering::Relaxed) {
                     thread::sleep(Duration::from_millis(1));
-                    simulation_sender.send(new_state.clone()).unwrap();
+                    if let Err(_) = simulation_sender.send(new_state.clone()) {
+                        return;
+                    };
                     continue;
                 } else {
                     count += 1;
@@ -158,18 +170,26 @@ impl Pipeline {
                     start.elapsed().as_millis(),
                     state.len()
                 );
-                simulation_sender.send(new_state.clone()).unwrap();
+                if let Err(_) = simulation_sender.send(new_state.clone()) {
+                    return;
+                }
             }
 
             let msg = msg!(1, "pipeline", "finished", MessagePriority::RealTime);
-            self.bus.lock().unwrap().post_message(msg)
+            match self.bus.lock() {
+                Ok(mut bus) => bus.post_message(msg),
+                Err(_) => {
+                    eprintln!("Failed to post exit message");
+                    std::process::exit(1)
+                }
+            }
         });
 
         self.render.render(config, renderer_receiver);
         msg_flag.store(false, std::sync::atomic::Ordering::Relaxed);
-        message_thread.join().unwrap();
-        // .map_err(|_e| "Message thread ran into a problem")?;
-        Ok(())
+        message_thread
+            .join()
+            .map_err(|e| format!("Failed join message thread {:?}", e))
     }
 
     fn post_configuration_messages(&self) {
@@ -336,36 +356,28 @@ impl PipelineBuilder {
                 let element =
                     GeneratorElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load initialiser element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 self.initialisers.push(element);
             }
             ElementKind::Transform => {
                 let element =
                     TransformElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 self.transforms.push(element);
             }
             ElementKind::Render => {
                 let element =
                     RenderElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transform element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 self.render = Some(element);
             }
             ElementKind::Synth => {
                 let element =
                     GeneratorElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load synth element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 match self.synths.as_mut() {
                     Some(els) => {
                         els.push(element);
@@ -379,9 +391,7 @@ impl PipelineBuilder {
                 let element =
                     TransmuteElementHandler::load(element_data.get_lib_path(), el_name, properties)
                         .map_err(|_| "Failed to load transmute element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 self.transmutes.push(element);
             }
             ElementKind::Integrator => {
@@ -391,9 +401,7 @@ impl PipelineBuilder {
                     properties,
                 )
                 .map_err(|_| "Failed to load transmute element")?;
-                let mut b = self.bus.lock().unwrap();
-                b.add_client(element.clone());
-                drop(b);
+                self.add_element_to_bus(element.clone());
                 self.integrator = Some(element);
             }
         }
@@ -421,6 +429,16 @@ impl PipelineBuilder {
                 iterations: self.iterations,
                 bus: self.bus,
             })
+        }
+    }
+
+    fn add_element_to_bus(&self, element: Arc<dyn MessageClient>) {
+        match self.bus.lock() {
+            Ok(mut b) => b.add_client(element.clone()),
+            Err(_) => {
+                eprintln!("Failed to add element to message bus. Message bus poisoned");
+                std::process::exit(1)
+            }
         }
     }
 }
