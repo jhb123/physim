@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::info;
+use log::{debug, info};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -84,7 +84,17 @@ impl Pipeline {
         match self.bus.lock() {
             Ok(mut bus) => {
                 bus.add_client(pipeline_messages.clone());
-                self.post_configuration_messages();
+            }
+            Err(_) => {
+                eprintln!("Failed to add pipeline to message bus. Message bus poisoned");
+                std::process::exit(1)
+            }
+        }
+
+        self.post_configuration_messages();
+
+        match self.bus.lock() {
+            Ok(mut bus) => {
                 bus.pop_messages();
             }
             Err(_) => {
@@ -101,11 +111,13 @@ impl Pipeline {
         for _ in 0..state.len() {
             new_state.push(Entity::default());
         }
+        debug!("Set up initial state");
 
         let msg_flag = Arc::new(AtomicBool::new(true));
         let msg_flag_clone = msg_flag.clone();
         let bus_clone = self.bus.clone();
         let message_thread = thread::spawn(move || {
+            debug!("Spawning message thread");
             while msg_flag_clone.load(std::sync::atomic::Ordering::Relaxed) {
                 match bus_clone.lock() {
                     Ok(mut bus) => {
@@ -193,6 +205,7 @@ impl Pipeline {
     }
 
     fn post_configuration_messages(&self) {
+        debug!("Posting configuration messages");
         self.transforms
             .iter()
             .for_each(|el| el.post_configuration_messages());
@@ -209,6 +222,7 @@ impl Pipeline {
             .for_each(|el| el.post_configuration_messages());
         self.render.post_configuration_messages();
         self.integrator.post_configuration_messages();
+        debug!("Finished posting configuration messages");
     }
 
     pub fn new_from_description(pipeline_description: &str) -> Result<Self, Box<dyn Error>> {
