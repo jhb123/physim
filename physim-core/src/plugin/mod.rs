@@ -16,6 +16,9 @@ pub mod meta;
 pub mod render;
 pub mod transform;
 pub mod transmute;
+pub mod deps {
+    pub use ::serde_json;
+}
 
 mod discover;
 
