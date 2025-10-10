@@ -232,7 +232,7 @@ struct VoidInner {
 
 impl TransmuteElement for Void {
     fn transmute(&self, data: &mut Vec<Entity>) {
-        let lim = self.inner.lock().unwrap().lim;
+        let lim = self.inner.lock().unwrap_or_else(|e| e.into_inner()).lim;
         data.retain(|entity| entity.x.abs() < lim && entity.y.abs() < lim);
     }
 }

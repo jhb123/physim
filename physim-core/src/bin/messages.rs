@@ -20,7 +20,9 @@ impl MessageClient for TestClient {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bus = Arc::new(Mutex::new(MessageBus::new()));
-    bus.lock().unwrap().add_client(Arc::new(TestClient {}));
+    bus.lock()
+        .expect("failed to get lock on bus")
+        .add_client(Arc::new(TestClient {}));
 
     let elements_db = physim_core::plugin::element_db();
 
@@ -31,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let element =
         TransformElementHandler::load(element_meta.get_lib_path(), "debug", HashMap::default())
-            .unwrap();
+            .expect("plugins not loaded");
 
     let b1 = bus.clone();
     let t1 = thread::spawn(move || {
@@ -105,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let t3 = thread::spawn(move || {
         for _ in 0..100 {
-            let mut lock = bus.lock().unwrap();
+            let mut lock = bus.lock().expect("failed to get lock on bus mutex");
             lock.pop_messages();
             drop(lock);
             thread::sleep(Duration::from_millis(8)); // don't want to spend literally all our computation on this?

@@ -5,12 +5,12 @@ use physim_core::{
     plugin::{Element, ElementCreator, render::RenderElement},
 };
 use serde_json::Value;
-use std::io::Write;
 use std::{
     collections::HashMap,
     fs::File,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use std::{io::Write, process::exit};
 
 #[render_element(
     name = "csvsink",
@@ -46,12 +46,19 @@ impl RenderElement for CsvSink {
         _config: physim_core::UniverseConfiguration,
         state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
     ) {
-        let mut file = File::options()
+        let res = File::options()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&self.file)
-            .unwrap();
+            .open(&self.file);
+
+        let mut file = match res {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error opening {}: {}", self.file, e);
+                std::process::exit(1)
+            }
+        };
 
         if let Ok(state) = state_recv.recv() {
             self.iteration.fetch_add(1, Ordering::Relaxed);
