@@ -28,7 +28,7 @@ struct ShmTransformInner {
 
 impl TransformElement for ShmTransform {
     fn transform(&self, state: &[Entity], accelerations: &mut [Acceleration]) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         match inner.mode {
             ShmTransformMode::GlobalCentre => inner.global_centre_transform(state, accelerations),
             ShmTransformMode::ParticleCentre => {

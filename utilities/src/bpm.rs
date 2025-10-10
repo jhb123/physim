@@ -30,7 +30,13 @@ struct BpmInner {
 
 impl TransmuteElement for Bpm {
     fn transmute(&self, data: &mut Vec<Entity>) {
-        let mut element = self.inner.lock().unwrap();
+        let mut element = match self.inner.lock() {
+            Ok(element) => element,
+            Err(_) => {
+                eprintln!("BPM mutex poisoned");
+                std::process::exit(1);
+            }
+        };
         element.current_frame += 1;
         if element.current_frame % element.n != 0 {
             return;
