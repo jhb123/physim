@@ -15,6 +15,7 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
+use physim_core::log::error;
 use physim_core::messages::{Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::RenderElement;
 use physim_core::plugin::{Element, ElementCreator};
@@ -44,8 +45,10 @@ enum RenderPipelineShader {
     Id,
 }
 
-static SHADER_DESC: &str =
+const SHADER_DESC: &str =
     "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot";
+
+const MAX_BUFFER_SIZE: usize = 10_000_000;
 
 impl FromStr for RenderPipelineShader {
     type Err = ();
@@ -214,7 +217,7 @@ impl ElementCreator for GLRenderElement {
 
 impl RenderElement for GLRenderElement {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
-        let element = self.inner.lock().unwrap();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("PhySim Renderer")
@@ -231,25 +234,36 @@ impl RenderElement for GLRenderElement {
 
         let mut vertices: Vec<Vertex> = state.iter().flat_map(|s| s.vertices()).collect();
 
-        let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
+        let vertex_buffer = match glium::VertexBuffer::empty_dynamic(&display, MAX_BUFFER_SIZE) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to create vertex buffer: {}", e);
+                std::process::exit(1)
+            }
+        };
+        let slice_len = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
         vertex_buffer
-            .slice(0..vertices.len())
-            .unwrap()
-            .write(&vertices);
-
+            .slice(0..slice_len)
+            .expect("Failed to get slice for vertex buffer")
+            .write(&vertices[0..slice_len]);
         // vertex_buffer.write(vertices2);
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
             element.shader.get_shader();
 
-        let program = glium::Program::from_source(
+        let program = match glium::Program::from_source(
             &display,
             vertex_shader_src,
             fragment_shader_src,
             Some(geometry_shader_src),
-        )
-        .unwrap();
+        ) {
+            Ok(program) => program,
+            Err(e) => {
+                eprintln!("Failed to created shader program: {}", e);
+                std::process::exit(1)
+            }
+        };
 
         let params = glium::DrawParameters {
             blend: glium::Blend::alpha_blending(),
@@ -268,9 +282,6 @@ impl RenderElement for GLRenderElement {
         let mut frame_num = 0;
 
         drop(element);
-        // thread::spawn(move || {
-        // *vertices.lock().unwrap() = new_state;
-        // });
 
         // this avoids a lot of boiler plate.
         #[allow(deprecated)]
@@ -313,9 +324,12 @@ impl RenderElement for GLRenderElement {
                     let uniforms = uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y], frame_num: frame_num};
 
                     target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-                    target.draw(&vertex_buffer, indices, &program, &uniforms,
-                            &params).unwrap();
-                    target.finish().unwrap();
+                    if let Err(e) = target.draw(&vertex_buffer, indices, &program, &uniforms,
+                            &params) {
+                                eprintln!("Failed to render {}",e);
+                                std::process::exit(1);
+                            };
+                    target.finish().expect("Unlikely. This can fail on mobile");
                     frame_num +=1;
                 },
                 WindowEvent::KeyboardInput {
@@ -356,14 +370,15 @@ impl RenderElement for GLRenderElement {
                     _ => (),
                 },
                 Event::AboutToWait => {
-                    if !self.inner.lock().unwrap().running {
+                    if !self.inner.lock().unwrap_or_else(|e| e.into_inner()).running {
                         window_target.exit()
                     }
                     vertices.clear();
                     if let Ok(state) = state_recv.recv() {
                         vertices.extend(state.iter().flat_map(|s| s.vertices()));
+                        let max_rendered = std::cmp::min(vertex_buffer.len() ,vertices.len());
                         vertex_buffer.invalidate();
-                        vertex_buffer.slice(0..vertices.len()).unwrap().write(&vertices);
+                        vertex_buffer.slice(0..max_rendered).expect("Failed to slice vertex buffer").write(&vertices[0..max_rendered] );
                         window.request_redraw();
                     } else {
                         window_target.exit();
@@ -396,7 +411,7 @@ impl Element for GLRenderElement {
 impl MessageClient for GLRenderElement {
     fn recv_message(&self, message: &physim_core::messages::Message) {
         if &message.topic == "pipeline" && &message.message == "finished" {
-            self.inner.lock().unwrap().running = false
+            self.inner.lock().unwrap_or_else(|e| e.into_inner()).running = false
         }
     }
 }
@@ -447,13 +462,14 @@ impl ElementCreator for StdOutRender {
 
 impl RenderElement for StdOutRender {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
-        let element = self.inner.lock().unwrap();
-        let mut vertices: Vec<Vertex> = state_recv
-            .recv()
-            .unwrap()
-            .iter()
-            .flat_map(|s| s.vertices())
-            .collect();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut vertices: Vec<Vertex> = match state_recv.recv() {
+            Ok(state) => state.iter().flat_map(|s| s.vertices()).collect(),
+            Err(e) => {
+                error!("Failed to receive state {}", e);
+                return;
+            }
+        };
 
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
@@ -462,24 +478,36 @@ impl RenderElement for StdOutRender {
             .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
-        let vertex_buffer = glium::VertexBuffer::empty_dynamic(&display, 10_000_000).unwrap();
+        let vertex_buffer = match glium::VertexBuffer::empty_dynamic(&display, MAX_BUFFER_SIZE) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to create vertex buffer: {}", e);
+                std::process::exit(1)
+            }
+        };
+        let slice_len = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
         vertex_buffer
-            .slice(0..vertices.len())
-            .unwrap()
-            .write(&vertices);
+            .slice(0..slice_len)
+            .expect("Failed to get slice for vertex buffer")
+            .write(&vertices[0..slice_len]);
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
             element.shader.get_shader();
 
-        let program = glium::Program::from_source(
+        let program = match glium::Program::from_source(
             &display,
             vertex_shader_src,
             fragment_shader_src,
             Some(geometry_shader_src),
-        )
-        .unwrap();
+        ) {
+            Ok(program) => program,
+            Err(e) => {
+                eprintln!("Failed to created shader program: {}", e);
+                std::process::exit(1)
+            }
+        };
 
         let params = glium::DrawParameters {
             blend: glium::Blend::alpha_blending(),
@@ -524,7 +552,7 @@ impl RenderElement for StdOutRender {
             [0.0, 0.0, zoom, 1.0f32], // move x, move y, zoom, .
         ];
         display.resize(window_size);
-        target.finish().unwrap();
+        target.finish().expect("Unlikely. This can fail on mobile");
 
         let stdout = std::io::stdout();
 
@@ -538,26 +566,47 @@ impl RenderElement for StdOutRender {
                     break;
                 }
             }
+            let max_rendered = std::cmp::min(vertex_buffer.len(), vertices.len());
             vertex_buffer.invalidate();
             vertex_buffer
-                .slice(0..vertices.len())
-                .unwrap()
-                .write(&vertices);
+                .slice(0..max_rendered)
+                .expect("Failed to slice vertex buffer")
+                .write(&vertices[0..max_rendered]);
 
             target = display.draw();
             target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-            target.draw(&vertex_buffer, indices, &program, &uniform! { matrix: matrix, perspective: perspective, resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]},
-                            &params).unwrap();
-            target.finish().unwrap();
+            if let Err(e) = target.draw(
+                &vertex_buffer,
+                indices,
+                &program,
+                &uniform! {
+                    matrix: matrix,
+                    perspective: perspective,
+                    resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]
+                },
+                &params,
+            ) {
+                eprintln!("Failed to render {}", e);
+                std::process::exit(1);
+            };
+
+            target
+                .finish()
+                .expect("Unlikely, this can happen on mobile");
             #[allow(clippy::type_complexity)]
-            let pixels: Result<Vec<Vec<(u8, u8, u8, u8)>>, _> = display.read_front_buffer();
-            let pixels: Vec<u8> = pixels
-                .unwrap()
-                .iter()
-                .rev()
-                .flatten()
-                .flat_map(|&(r, g, b, a)| vec![b, g, r, a])
-                .collect();
+            let pixels: Vec<u8> = match display.read_front_buffer::<Vec<Vec<(u8, u8, u8, u8)>>>() {
+                Ok(pixels) => pixels
+                    .iter()
+                    .rev()
+                    .flatten()
+                    .flat_map(|&(r, g, b, a)| vec![b, g, r, a])
+                    .collect(),
+                Err(e) => {
+                    error!("Failed to collect pixels: {e}");
+                    std::process::exit(1)
+                }
+            };
+
             let mut handle = stdout.lock();
             handle
                 .write_all(&pixels)
