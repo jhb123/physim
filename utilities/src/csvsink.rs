@@ -5,12 +5,12 @@ use physim_core::{
     plugin::{Element, ElementCreator, render::RenderElement},
 };
 use serde_json::Value;
+use std::io::Write;
 use std::{
     collections::HashMap,
     fs::File,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use std::{io::Write, process::exit};
 
 #[render_element(
     name = "csvsink",
