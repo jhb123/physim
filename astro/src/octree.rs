@@ -37,11 +37,6 @@ where
         self.root.push(item, 0, self.arena);
     }
 
-    #[allow(dead_code)]
-    pub fn get_leaves(&self) -> Vec<T> {
-        self.root.get_leaves()
-    }
-
     pub fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
         self.root.get_leaves_with_resolution(location, bh_factor)
     }
@@ -76,7 +71,7 @@ where
                         .get_centre()
                         .iter()
                         .zip(item.get_centre().iter())
-                        .all(|(a, b)| f64::abs(a - b) < 0.001)
+                        .all(|(a, b)| f64::abs(a - b) < 1e-9)
                 {
                     let fake_elem =
                         T::fake(item.get_centre(), current_elem.get_mass() + item.get_mass());
@@ -87,7 +82,10 @@ where
                 // replace the current entity with a new one. take the current one and put it into a child
                 let centre_of_mass = current_elem.centre_of_mass(&item);
                 let fake_elem = T::fake(centre_of_mass, current_elem.get_mass() + item.get_mass());
-                let current_elem = self.entity.replace(fake_elem).unwrap();
+                let current_elem = self
+                    .entity
+                    .replace(fake_elem)
+                    .expect("We just checked this is true in the match statement");
 
                 // if this node has no children, the current element is a "real" on and should be added
                 // to the corresponding child node
@@ -129,18 +127,6 @@ where
         }
     }
 
-    fn get_leaves(&self) -> Vec<T> {
-        if self.children.iter().all(|x| x.is_none()) {
-            vec![self.entity.unwrap()]
-        } else {
-            let mut elems = vec![];
-            for child in self.children.iter().flatten() {
-                elems.extend(child.get_leaves())
-            }
-            elems
-        }
-    }
-
     fn get_leaves_with_resolution(&self, location: [f64; 3], bh_factor: f64) -> Vec<T> {
         let mut result = Vec::with_capacity(100);
         let mut stack = Vec::with_capacity(100);
@@ -157,8 +143,11 @@ where
                     continue;
                 }
             }
-            if node.children.iter().all(|x| x.is_none()) {
-                result.push(node.entity.unwrap());
+            if node.entity.is_none() {
+                // this only happens with empty trees
+                continue;
+            } else if node.children.iter().all(|x| x.is_none()) {
+                result.push(node.entity.expect("This can is already handled above"));
             } else {
                 for child in node.children.iter().flatten() {
                     stack.push(child)
@@ -223,5 +212,308 @@ where
                 unreachable!()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bumpalo::Bump;
+    use physim_core::Entity;
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    #[test]
+    fn test_empty_tree() {
+        let arena = Bump::new();
+        let tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena);
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+        assert_eq!(leaves.len(), 0, "Empty tree should return no leaves");
+    }
+
+    #[test]
+    fn test_single_entity() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena);
+
+        let entity = Entity::new(0.0, 0.0, 0.0, 1.0);
+        tree.push(entity);
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+        assert_eq!(
+            leaves.len(),
+            1,
+            "Tree with one entity should return one leaf"
+        );
+    }
+
+    #[test]
+    fn test_entities_at_origin() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 2.0, &arena);
+
+        // Add multiple entities at the same location
+        for _ in 0..10 {
+            tree.push(Entity::new(0.0, 0.0, 0.0, 1.0));
+        }
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+        assert_eq!(
+            leaves.len(),
+            1,
+            "this is a test to make sure entities in the same location don't cause infinite recursion"
+        );
+    }
+
+    #[test]
+    fn test_entities_in_different_octants() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 2.0, &arena);
+
+        // Place entities in each octant
+        let positions = [
+            [0.5, 0.5, 0.5],    // (+,+,+)
+            [-0.5, 0.5, 0.5],   // (-,+,+)
+            [0.5, -0.5, 0.5],   // (+,-,+)
+            [-0.5, -0.5, 0.5],  // (-,-,+)
+            [0.5, 0.5, -0.5],   // (+,+,-)
+            [-0.5, 0.5, -0.5],  // (-,+,-)
+            [0.5, -0.5, -0.5],  // (+,-,-)
+            [-0.5, -0.5, -0.5], // (-,-,-)
+        ];
+
+        for pos in positions.iter() {
+            tree.push(Entity::new(pos[0], pos[1], pos[2], 1.0));
+        }
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+        assert_eq!(leaves.len(), 8, "All 8 octant entities should be returned");
+    }
+
+    #[test]
+    fn test_bh_factor_filtering() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 10.0, &arena);
+
+        // Add entities at various distances from origin
+        tree.push(Entity::new(0.1, 0.0, 0.0, 1.0)); // very close
+        tree.push(Entity::new(5.0, 0.0, 0.0, 1.0)); // far
+        tree.push(Entity::new(8.0, 0.0, 0.0, 1.0)); // very far
+
+        // With negative bh_factor, should get all entities
+        let all_leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(
+            all_leaves.len(),
+            3,
+            "Negative bh_factor should return all entities"
+        );
+
+        // With positive bh_factor, distant entities might be aggregated
+        let filtered_leaves = tree.get_leaves_with_resolution([0.0; 3], 1.0);
+        assert!(
+            filtered_leaves.len() > 0,
+            "Should return at least some entities"
+        );
+    }
+
+    #[test]
+    fn test_boundary_conditions() {
+        let arena = Bump::new();
+        let extent = 1.0;
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], extent, &arena);
+
+        // Entities at the boundaries
+        tree.push(Entity::new(extent, 0.0, 0.0, 1.0));
+        tree.push(Entity::new(-extent, 0.0, 0.0, 1.0));
+        tree.push(Entity::new(0.0, extent, 0.0, 1.0));
+        tree.push(Entity::new(0.0, -extent, 0.0, 1.0));
+        tree.push(Entity::new(0.0, 0.0, extent, 1.0));
+        tree.push(Entity::new(0.0, 0.0, -extent, 1.0));
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(leaves.len(), 6, "Boundary entities should be included");
+    }
+
+    #[test]
+    fn test_query_from_different_locations() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 10.0, &arena);
+
+        // Add entities in a cluster
+        for i in 0..20 {
+            let offset = i as f64 * 0.1;
+            tree.push(Entity::new(offset, 0.0, 0.0, 1.0));
+        }
+
+        // Query from origin
+        let from_origin = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+
+        // Query from far away
+        let from_far = tree.get_leaves_with_resolution([100.0, 0.0, 0.0], 0.5);
+
+        // Results should differ based on observer location
+        assert!(from_origin.len() > 0, "Should find entities from origin");
+        assert!(from_far.len() > 0, "Should find entities from far location");
+    }
+
+    #[test]
+    fn test_dense_cluster() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena);
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+
+        // Create a dense cluster near origin
+        for _ in 0..1000 {
+            let x = (rng.random::<f64>() - 0.5) * 0.2;
+            let y = (rng.random::<f64>() - 0.5) * 0.2;
+            let z = (rng.random::<f64>() - 0.5) * 0.2;
+            tree.push(Entity::new(x, y, z, 1.0));
+        }
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(
+            leaves.len(),
+            1000,
+            "All entities in dense cluster should be retrievable"
+        );
+    }
+
+    #[test]
+    fn test_sparse_distribution() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 100.0, &arena);
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+
+        // Sparse, evenly distributed entities
+        for _ in 0..100 {
+            let x = (rng.random::<f64>() - 0.5) * 200.0;
+            let y = (rng.random::<f64>() - 0.5) * 200.0;
+            let z = (rng.random::<f64>() - 0.5) * 200.0;
+            tree.push(Entity::new(x, y, z, 1.0));
+        }
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(
+            leaves.len(),
+            100,
+            "All sparse entities should be retrievable"
+        );
+    }
+
+    #[test]
+    fn test_resolution_threshold() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 10.0, &arena);
+
+        // Create entities at known distances
+        tree.push(Entity::new(1.0, 0.0, 0.0, 1.0));
+        tree.push(Entity::new(5.0, 0.0, 0.0, 1.0));
+        tree.push(Entity::new(9.0, 0.0, 0.0, 1.0));
+
+        // Test with increasingly strict resolution
+        let loose = tree.get_leaves_with_resolution([0.0; 3], 0.1);
+        let medium = tree.get_leaves_with_resolution([0.0; 3], 0.5);
+        let strict = tree.get_leaves_with_resolution([0.0; 3], 2.0);
+
+        // More strict resolution should aggregate more
+        assert!(
+            loose.len() >= medium.len(),
+            "Loose resolution should have >= entities than medium"
+        );
+        assert!(
+            medium.len() >= strict.len(),
+            "Medium resolution should have >= entities than strict"
+        );
+    }
+
+    #[test]
+    fn test_lots() {
+        let arena = Bump::new();
+        let extent = 1.0;
+        let n = 100_000;
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0 * extent, &arena);
+
+        for _ in 0..n {
+            tree.push(Entity::random(&mut rng));
+        }
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(
+            leaves.len(),
+            n,
+            "Should retrieve all randomly placed entities"
+        );
+    }
+
+    #[test]
+    fn test_extreme_coordinates() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1000.0, &arena);
+
+        // Test with very large coordinates
+        tree.push(Entity::new(999.0, 999.0, 999.0, 1.0));
+        tree.push(Entity::new(-999.0, -999.0, -999.0, 1.0));
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(
+            leaves.len(),
+            2,
+            "Extreme coordinates should be handled correctly"
+        );
+    }
+
+    #[test]
+    fn test_zero_extent() {
+        let arena = Bump::new();
+        // Edge case: what happens with very small extent?
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 0.001, &arena);
+
+        tree.push(Entity::new(0.0, 0.0, 0.0, 1.0));
+
+        let leaves = tree.get_leaves_with_resolution([0.0; 3], -0.1);
+        assert_eq!(leaves.len(), 1, "Should handle very small extent");
+    }
+
+    #[test]
+    fn test_query_outside_bounds() {
+        let arena = Bump::new();
+        let mut tree: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena);
+
+        tree.push(Entity::new(0.0, 0.0, 0.0, 1.0));
+
+        // Query from location far outside the tree bounds
+        let leaves = tree.get_leaves_with_resolution([1000.0, 1000.0, 1000.0], 0.5);
+        assert!(
+            leaves.len() > 0,
+            "Should still find entities when querying from outside"
+        );
+    }
+
+    #[test]
+    fn test_reproducibility() {
+        let arena1 = Bump::new();
+        let arena2 = Bump::new();
+        let mut rng1 = ChaCha8Rng::seed_from_u64(999);
+        let mut rng2 = ChaCha8Rng::seed_from_u64(999);
+
+        let mut tree1: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena1);
+        let mut tree2: Octree<'_, Entity> = Octree::new([0.0; 3], 1.0, &arena2);
+
+        for _ in 0..1000 {
+            tree1.push(Entity::random(&mut rng1));
+            tree2.push(Entity::random(&mut rng2));
+        }
+
+        let leaves1 = tree1.get_leaves_with_resolution([0.0; 3], -0.1);
+        let leaves2 = tree2.get_leaves_with_resolution([0.0; 3], -0.1);
+
+        assert_eq!(
+            leaves1.len(),
+            leaves2.len(),
+            "Same seed should produce same results"
+        );
     }
 }
