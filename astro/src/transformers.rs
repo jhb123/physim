@@ -42,7 +42,7 @@ impl TransformElement for AstroElement {
         for star in state.iter() {
             tree.push(*star);
         }
-        let element = self.inner.lock().unwrap();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         for (i, star_a) in state.iter().enumerate() {
             if star_a.fixed {
                 continue;
@@ -134,7 +134,7 @@ impl TransformElement for AstroOctreeElement {
             tree.push(*star);
         }
 
-        let element = self.inner.lock().unwrap();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         for (i, star_a) in state.iter().enumerate() {
             if star_a.fixed {
                 continue;
@@ -218,7 +218,8 @@ struct InnerSimpleAstroElement {
 
 impl TransformElement for SimpleAstroElement {
     fn transform(&self, state: &[Entity], accelerations: &mut [Acceleration]) {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+
         for (i, star_a) in state.iter().enumerate() {
             if star_a.fixed {
                 continue;

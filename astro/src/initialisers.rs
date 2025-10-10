@@ -80,7 +80,7 @@ impl ElementCreator for RandomCube {
 
 impl GeneratorElement for RandomCube {
     fn create_entities(&self) -> Vec<Entity> {
-        let element = self.inner.lock().unwrap();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
 
         let mut rng = ChaCha8Rng::seed_from_u64(element.seed);
         let entity_mass = element.mass / (element.n as f64);
@@ -137,6 +137,7 @@ pub struct SingleStar {
     inner: Mutex<SingleStarInner>,
 }
 
+#[derive(Debug)]
 struct SingleStarInner {
     entity: Entity,
 }
@@ -184,7 +185,7 @@ impl MessageClient for SingleStar {}
 
 impl GeneratorElement for SingleStar {
     fn create_entities(&self) -> Vec<Entity> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         vec![inner.entity]
     }
 }
@@ -291,7 +292,7 @@ impl ElementCreator for Plummer {
 
 impl GeneratorElement for Plummer {
     fn create_entities(&self) -> Vec<Entity> {
-        let element = self.inner.lock().unwrap();
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let rng = ChaCha8Rng::seed_from_u64(element.seed);
         let mut state = Vec::with_capacity(element.n as usize);
 
