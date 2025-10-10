@@ -122,13 +122,13 @@ impl Pipeline {
                 match bus_clone.lock() {
                     Ok(mut bus) => {
                         bus.pop_messages();
-                        thread::sleep(std::time::Duration::from_millis(8));
                     }
                     Err(_) => {
                         eprintln!("Message event loop failed. Message bus poisoned");
                         std::process::exit(1)
                     }
                 }
+                thread::sleep(std::time::Duration::from_millis(8));
             }
         });
 
