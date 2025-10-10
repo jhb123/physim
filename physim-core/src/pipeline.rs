@@ -186,7 +186,7 @@ impl Pipeline {
                     return;
                 }
             }
-
+            info!("Finalising pipeline");
             let msg = msg!(1, "pipeline", "finished", MessagePriority::RealTime);
             match self.bus.lock() {
                 Ok(mut bus) => bus.post_message(msg),
