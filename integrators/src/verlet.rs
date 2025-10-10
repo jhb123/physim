@@ -57,7 +57,10 @@ impl VerletInner {
         dt: f64,
     ) {
         for (idx, (entity, a)) in entities.iter().zip(accelerations).enumerate() {
-            let prev = self.previous_state.get(idx).unwrap();
+            let prev = self
+                .previous_state
+                .get(idx)
+                .expect("verlet integration lengths are checked by caller");
             let x = 2_f64 * entity.x - prev.x + a.x * (dt.powi(2));
             let y = 2_f64 * entity.y - prev.y + a.y * (dt.powi(2));
             let z = 2_f64 * entity.z - prev.z + a.z * (dt.powi(2));
@@ -89,7 +92,13 @@ impl IntegratorElement for Verlet {
     ) {
         let mut accelerations = vec![Acceleration::zero(); entities.len()];
         acc_fn(entities, &mut accelerations);
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = match self.inner.lock() {
+            Ok(inner) => inner,
+            Err(_) => {
+                eprintln!("Verlet mutex poisoned");
+                std::process::exit(1)
+            }
+        };
         if inner.previous_state.len() != entities.len() {
             inner.initial_integration(entities, new_state, &accelerations, dt);
         } else {
