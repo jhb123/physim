@@ -15,7 +15,7 @@ use glium::{
     },
 };
 use physim_attribute::render_element;
-use physim_core::log::error;
+use physim_core::log::{debug, error, warn};
 use physim_core::messages::{Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::RenderElement;
 use physim_core::plugin::{Element, ElementCreator};
@@ -224,13 +224,10 @@ impl RenderElement for GLRenderElement {
             .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
             .build(&event_loop);
 
-        let mut state = Vec::new();
-        while state.is_empty() {
-            match state_recv.recv() {
-                Ok(s) => state = s,
-                Err(_) => return,
-            };
-        }
+        let state: Vec<Entity> = match state_recv.recv() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
 
         let mut vertices: Vec<Vertex> = state.iter().flat_map(|s| s.vertices()).collect();
 
@@ -241,12 +238,13 @@ impl RenderElement for GLRenderElement {
                 std::process::exit(1)
             }
         };
-        let slice_len = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
-        vertex_buffer
-            .slice(0..slice_len)
-            .expect("Failed to get slice for vertex buffer")
-            .write(&vertices[0..slice_len]);
-        // vertex_buffer.write(vertices2);
+        let max_rendered = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
+        if max_rendered > 0 {
+            vertex_buffer
+                .slice(0..max_rendered)
+                .expect("Failed to get slice for vertex buffer")
+                .write(&vertices[0..max_rendered]);
+        }
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
@@ -282,7 +280,6 @@ impl RenderElement for GLRenderElement {
         let mut frame_num = 0;
 
         drop(element);
-
         // this avoids a lot of boiler plate.
         #[allow(deprecated)]
         let _ = event_loop.run(move |event, window_target| {
@@ -373,12 +370,18 @@ impl RenderElement for GLRenderElement {
                     if !self.inner.lock().unwrap_or_else(|e| e.into_inner()).running {
                         window_target.exit()
                     }
+                    debug!("Waiting for next state update");
                     vertices.clear();
                     if let Ok(state) = state_recv.recv() {
                         vertices.extend(state.iter().flat_map(|s| s.vertices()));
                         let max_rendered = std::cmp::min(vertex_buffer.len() ,vertices.len());
                         vertex_buffer.invalidate();
-                        vertex_buffer.slice(0..max_rendered).expect("Failed to slice vertex buffer").write(&vertices[0..max_rendered] );
+                        if max_rendered > 0 {
+                        vertex_buffer
+                            .slice(0..max_rendered)
+                            .expect("Failed to get slice for vertex buffer")
+                            .write(&vertices[0..max_rendered]);
+                        }
                         window.request_redraw();
                     } else {
                         window_target.exit();
@@ -462,120 +465,128 @@ impl ElementCreator for StdOutRender {
 
 impl RenderElement for StdOutRender {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
-        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        let mut vertices: Vec<Vertex> = match state_recv.recv() {
-            Ok(state) => state.iter().flat_map(|s| s.vertices()).collect(),
-            Err(e) => {
-                error!("Failed to receive state {}", e);
-                return;
+        match std::panic::catch_unwind(|| {
+            let mut pixels: Vec<u8> = Vec::with_capacity(4 * 3840 * 2160);
+
+            let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut vertices: Vec<Vertex> = match state_recv.recv() {
+                Ok(state) => state.iter().flat_map(|s| s.vertices()).collect(),
+                Err(e) => {
+                    error!("Failed to receive state {}", e);
+                    return;
+                }
+            };
+
+            let event_loop = EventLoop::builder().build().expect("event loop building");
+            let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+                .set_window_builder(Window::default_attributes().with_visible(false))
+                .with_title("PhySim Renderer")
+                .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
+                .build(&event_loop);
+
+            let vertex_buffer = match glium::VertexBuffer::empty_dynamic(&display, MAX_BUFFER_SIZE)
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Failed to create vertex buffer: {}", e);
+                    std::process::exit(1)
+                }
+            };
+            let max_rendered = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
+            if max_rendered > 0 {
+                vertex_buffer
+                    .slice(0..max_rendered)
+                    .expect("Failed to get slice for vertex buffer")
+                    .write(&vertices[0..max_rendered]);
             }
-        };
 
-        let event_loop = EventLoop::builder().build().expect("event loop building");
-        let (_, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-            .set_window_builder(Window::default_attributes().with_visible(false))
-            .with_title("PhySim Renderer")
-            .with_inner_size(element.resolution.0 as u32, element.resolution.1 as u32)
-            .build(&event_loop);
+            let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-        let vertex_buffer = match glium::VertexBuffer::empty_dynamic(&display, MAX_BUFFER_SIZE) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Failed to create vertex buffer: {}", e);
-                std::process::exit(1)
-            }
-        };
-        let slice_len = std::cmp::min(MAX_BUFFER_SIZE, vertices.len());
-        vertex_buffer
-            .slice(0..slice_len)
-            .expect("Failed to get slice for vertex buffer")
-            .write(&vertices[0..slice_len]);
+            let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
+                element.shader.get_shader();
 
-        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+            let program = match glium::Program::from_source(
+                &display,
+                vertex_shader_src,
+                fragment_shader_src,
+                Some(geometry_shader_src),
+            ) {
+                Ok(program) => program,
+                Err(e) => {
+                    eprintln!("Failed to created shader program: {}", e);
+                    std::process::exit(1)
+                }
+            };
 
-        let (vertex_shader_src, geometry_shader_src, fragment_shader_src) =
-            element.shader.get_shader();
-
-        let program = match glium::Program::from_source(
-            &display,
-            vertex_shader_src,
-            fragment_shader_src,
-            Some(geometry_shader_src),
-        ) {
-            Ok(program) => program,
-            Err(e) => {
-                eprintln!("Failed to created shader program: {}", e);
-                std::process::exit(1)
-            }
-        };
-
-        let params = glium::DrawParameters {
-            blend: glium::Blend::alpha_blending(),
-            depth: glium::Depth {
-                test: glium::draw_parameters::DepthTest::IfLess,
-                write: true,
+            let params = glium::DrawParameters {
+                blend: glium::Blend::alpha_blending(),
+                depth: glium::Depth {
+                    test: glium::draw_parameters::DepthTest::IfLess,
+                    write: true,
+                    ..Default::default()
+                },
+                backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
                 ..Default::default()
-            },
-            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise, // Do I actually need this?
-            ..Default::default()
-        };
+            };
 
-        let zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
-        let pos_x: f32 = 0.0;
-        let pos_y: f32 = 0.0;
+            let zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
+            let pos_x: f32 = 0.0;
+            let pos_y: f32 = 0.0;
 
-        drop(element);
+            drop(element);
 
-        let window_size = display.get_framebuffer_dimensions();
-        let mut target = display.draw();
-        let perspective = {
-            let (width, height) = target.get_dimensions();
-            let aspect_ratio = height as f32 / width as f32;
+            let window_size = display.get_framebuffer_dimensions();
+            let mut target = display.draw();
+            let perspective = {
+                let (width, height) = target.get_dimensions();
+                let aspect_ratio = height as f32 / width as f32;
 
-            let fov: f32 = PI / 3.0;
-            let zfar = 8.0;
-            let znear = 0.01;
-            let f = 1.0 / (fov / 3.0).tan();
+                let fov: f32 = PI / 3.0;
+                let zfar = 8.0;
+                let znear = 0.01;
+                let f = 1.0 / (fov / 3.0).tan();
 
-            [
-                [f * aspect_ratio, 0.0, 0.0, 0.0],
-                [0.0, f, 0.0, 0.0],
-                [0.0, 0.0, (zfar + znear) / (zfar - znear), 1.0],
-                [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
-            ]
-        };
-        let n = config.size_x.max(config.size_y) as f32;
-        let matrix = [
-            [1.0 / n, 0.0, 0.0, 0.0],
-            [0.0, 1.0 / n, 0.0, 0.0],
-            [0.0, 0.0, 1.0 / n, 0.0],
-            [0.0, 0.0, zoom, 1.0f32], // move x, move y, zoom, .
-        ];
-        display.resize(window_size);
-        target.finish().expect("Unlikely. This can fail on mobile");
+                [
+                    [f * aspect_ratio, 0.0, 0.0, 0.0],
+                    [0.0, f, 0.0, 0.0],
+                    [0.0, 0.0, (zfar + znear) / (zfar - znear), 1.0],
+                    [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
+                ]
+            };
+            let n = config.size_x.max(config.size_y) as f32;
+            let matrix = [
+                [1.0 / n, 0.0, 0.0, 0.0],
+                [0.0, 1.0 / n, 0.0, 0.0],
+                [0.0, 0.0, 1.0 / n, 0.0],
+                [0.0, 0.0, zoom, 1.0f32], // move x, move y, zoom, .
+            ];
+            display.resize(window_size);
+            target.finish().expect("Unlikely. This can fail on mobile");
 
-        let stdout = std::io::stdout();
+            let stdout = std::io::stdout();
 
-        loop {
-            vertices.clear();
-            match state_recv.recv() {
-                Ok(state) => {
-                    vertices.extend(state.iter().flat_map(|s| s.vertices()));
+            loop {
+                vertices.clear();
+                match state_recv.recv() {
+                    Ok(state) => {
+                        vertices.extend(state.iter().flat_map(|s| s.vertices()));
+                    }
+                    Err(_) => {
+                        break;
+                    }
                 }
-                Err(_) => {
-                    break;
+                let max_rendered = std::cmp::min(vertex_buffer.len(), vertices.len());
+                vertex_buffer.invalidate();
+                if max_rendered > 0 {
+                    vertex_buffer
+                        .slice(0..max_rendered)
+                        .expect("Failed to get slice for vertex buffer")
+                        .write(&vertices[0..max_rendered]);
                 }
-            }
-            let max_rendered = std::cmp::min(vertex_buffer.len(), vertices.len());
-            vertex_buffer.invalidate();
-            vertex_buffer
-                .slice(0..max_rendered)
-                .expect("Failed to slice vertex buffer")
-                .write(&vertices[0..max_rendered]);
 
-            target = display.draw();
-            target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
-            if let Err(e) = target.draw(
+                target = display.draw();
+                target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
+                if let Err(e) = target.draw(
                 &vertex_buffer,
                 indices,
                 &program,
@@ -590,28 +601,33 @@ impl RenderElement for StdOutRender {
                 std::process::exit(1);
             };
 
-            target
-                .finish()
-                .expect("Unlikely, this can happen on mobile");
-            #[allow(clippy::type_complexity)]
-            let pixels: Vec<u8> = match display.read_front_buffer::<Vec<Vec<(u8, u8, u8, u8)>>>() {
-                Ok(pixels) => pixels
-                    .iter()
-                    .rev()
-                    .flatten()
-                    .flat_map(|&(r, g, b, a)| vec![b, g, r, a])
-                    .collect(),
-                Err(e) => {
-                    error!("Failed to collect pixels: {e}");
-                    std::process::exit(1)
-                }
-            };
+                target
+                    .finish()
+                    .expect("Unlikely, this can happen on mobile");
+                #[allow(clippy::type_complexity)]
+                match display.read_front_buffer::<Vec<Vec<(u8, u8, u8, u8)>>>() {
+                    Ok(disp) => {
+                        for &(r, g, b, a) in disp.iter().rev().flatten() {
+                            pixels.extend_from_slice(&[r, g, b, a]);
+                        }
+                    }
 
-            let mut handle = stdout.lock();
-            handle
-                .write_all(&pixels)
-                .expect("Failed to write to stdout");
-            handle.flush().expect("Failed to flush stdout");
+                    Err(e) => {
+                        error!("Failed to collect pixels: {e}");
+                        std::process::exit(1)
+                    }
+                };
+                let mut handle = stdout.lock();
+                if let Err(_) = handle.write_all(&pixels) {
+                    warn!("Failed to write pixels to stdout");
+                    break;
+                }
+                handle.flush().expect("Failed to flush stdout");
+                pixels.clear();
+            }
+        }) {
+            Ok(_) => return,
+            Err(e) => eprintln!("{:?}", e),
         }
     }
 }
