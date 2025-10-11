@@ -4,6 +4,7 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
+use glium::texture::RawImage2d;
 use glium::winit::event::KeyEvent;
 use glium::winit::keyboard::{KeyCode, PhysicalKey};
 use glium::winit::window::Window;
@@ -425,6 +426,43 @@ impl MessageClient for GLRenderElement {
 )]
 pub struct StdOutRender {
     inner: Mutex<InnerRenderElement>,
+    buffer_size: usize,
+}
+
+struct FrameBuffer {
+    buffer: Vec<u8>,
+    buffered_frames: usize,
+    stdout: std::io::Stdout,
+    max_frames: usize,
+}
+
+impl FrameBuffer {
+    fn new(frames: usize) -> Self {
+        Self {
+            buffer: Vec::with_capacity(4 * 3840 * 2160 * frames),
+            buffered_frames: 0,
+            max_frames: frames,
+            stdout: std::io::stdout(),
+        }
+    }
+
+    fn push(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
+        self.buffered_frames += 1;
+        if self.buffered_frames == self.max_frames {
+            self.flush();
+        }
+    }
+
+    fn flush(&mut self) {
+        let mut handle = std::io::BufWriter::new(self.stdout.lock());
+        if let Err(e) = handle.write_all(&self.buffer) {
+            warn!("Failed to write pixels to stdout: {}", e);
+        }
+        handle.flush().expect("Failed to flush stdout");
+        self.buffer.clear();
+        self.buffered_frames = 0;
+    }
 }
 
 impl ElementCreator for StdOutRender {
@@ -450,6 +488,11 @@ impl ElementCreator for StdOutRender {
             .and_then(|s| s.as_str())
             .unwrap_or_default();
 
+        let buffer_size = properties
+            .get("buffer")
+            .and_then(|v| v.as_u64().map(|x| x as usize))
+            .unwrap_or(30);
+
         let shader = RenderPipelineShader::from_str(shader).unwrap_or_default();
 
         Box::new(StdOutRender {
@@ -459,6 +502,7 @@ impl ElementCreator for StdOutRender {
                 shader,
                 running: true,
             }),
+            buffer_size,
         })
     }
 }
@@ -466,7 +510,7 @@ impl ElementCreator for StdOutRender {
 impl RenderElement for StdOutRender {
     fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
         match std::panic::catch_unwind(|| {
-            let mut pixels: Vec<u8> = Vec::with_capacity(4 * 3840 * 2160);
+            let mut pixel_buffer = FrameBuffer::new(self.buffer_size);
 
             let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             let mut vertices: Vec<Vertex> = match state_recv.recv() {
@@ -563,8 +607,6 @@ impl RenderElement for StdOutRender {
             display.resize(window_size);
             target.finish().expect("Unlikely. This can fail on mobile");
 
-            let stdout = std::io::stdout();
-
             loop {
                 vertices.clear();
                 match state_recv.recv() {
@@ -572,6 +614,7 @@ impl RenderElement for StdOutRender {
                         vertices.extend(state.iter().flat_map(|s| s.vertices()));
                     }
                     Err(_) => {
+                        pixel_buffer.flush();
                         break;
                     }
                 }
@@ -585,48 +628,37 @@ impl RenderElement for StdOutRender {
                 }
 
                 target = display.draw();
-                target.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
+                target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
                 if let Err(e) = target.draw(
-                &vertex_buffer,
-                indices,
-                &program,
-                &uniform! {
-                    matrix: matrix,
-                    perspective: perspective,
-                    resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]
-                },
-                &params,
-            ) {
-                eprintln!("Failed to render {}", e);
-                std::process::exit(1);
-            };
+                    &vertex_buffer,
+                    indices,
+                    &program,
+                    &uniform! {
+                        matrix: matrix,
+                        perspective: perspective,
+                        resolution: [window_size.0 as f32,window_size.1 as f32], xy_off: [pos_x,pos_y]
+                    },
+                    &params,
+                ) {
+                    eprintln!("Failed to render {}", e);
+                    std::process::exit(1);
+                };
 
                 target
                     .finish()
                     .expect("Unlikely, this can happen on mobile");
-                #[allow(clippy::type_complexity)]
-                match display.read_front_buffer::<Vec<Vec<(u8, u8, u8, u8)>>>() {
-                    Ok(disp) => {
-                        for &(r, g, b, a) in disp.iter().rev().flatten() {
-                            pixels.extend_from_slice(&[r, g, b, a]);
-                        }
+                match display.read_front_buffer::<RawImage2d<u8>>() {
+                    Ok(image) => {
+                        pixel_buffer.push(&image.data);
                     }
-
                     Err(e) => {
                         error!("Failed to collect pixels: {e}");
                         std::process::exit(1)
                     }
                 };
-                let mut handle = stdout.lock();
-                if let Err(_) = handle.write_all(&pixels) {
-                    warn!("Failed to write pixels to stdout");
-                    break;
-                }
-                handle.flush().expect("Failed to flush stdout");
-                pixels.clear();
             }
         }) {
-            Ok(_) => return,
+            Ok(_) => (),
             Err(e) => eprintln!("{:?}", e),
         }
     }
@@ -646,6 +678,10 @@ impl Element for StdOutRender {
                 "Camera zoom (1.0 is default)".to_string(),
             ),
             ("shader".to_string(), SHADER_DESC.to_string()),
+            (
+                "buffer_size".to_string(),
+                "Number of frames to buffer before writing".to_string(),
+            ),
         ]))
     }
 }

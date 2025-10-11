@@ -182,7 +182,7 @@ impl Pipeline {
                     start.elapsed().as_millis(),
                     state.len()
                 );
-                if let Err(_) = simulation_sender.send(new_state.clone()) {
+                if simulation_sender.send(new_state.clone()).is_err() {
                     return;
                 }
             }
