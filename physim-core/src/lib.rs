@@ -13,14 +13,6 @@ use std::ops::{Add, AddAssign, Neg, Sub};
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;
 
-#[repr(C)]
-pub struct UniverseConfiguration {
-    pub size_x: f64,
-    pub size_y: f64,
-    pub size_z: f64,
-    // edge_mode: UniverseEdge,
-}
-
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
 #[repr(C)]
 pub struct Entity {

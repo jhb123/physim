@@ -138,11 +138,7 @@ impl ElementCreator for FakeSink {
 }
 
 impl RenderElement for FakeSink {
-    fn render(
-        &self,
-        _config: physim_core::UniverseConfiguration,
-        state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
-    ) {
+    fn render(&self, state_recv: std::sync::mpsc::Receiver<Vec<Entity>>) {
         while state_recv.recv().is_ok() {
             info!("Fake Rendering!");
             let large_message = "x".repeat(10_000_000);

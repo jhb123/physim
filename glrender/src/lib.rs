@@ -20,10 +20,25 @@ use physim_core::log::{debug, error, warn};
 use physim_core::messages::{Message, MessageClient, MessagePriority};
 use physim_core::plugin::render::RenderElement;
 use physim_core::plugin::{Element, ElementCreator};
-use physim_core::{Entity, UniverseConfiguration, msg, post_bus_msg, register_plugin};
+use physim_core::{Entity, msg, post_bus_msg, register_plugin};
 use serde_json::Value;
 
 register_plugin!("glrender,stdout");
+
+const SHADER_DESC: &str =
+    "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot";
+
+const MAX_BUFFER_SIZE: usize = 10_000_000;
+
+struct RenderConfiguration {
+    size_x: f64,
+    size_y: f64,
+}
+
+const RENDER_CONFIG: RenderConfiguration = RenderConfiguration {
+    size_x: 2.0,
+    size_y: 1.0,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -45,11 +60,6 @@ enum RenderPipelineShader {
     Twinkle,
     Id,
 }
-
-const SHADER_DESC: &str =
-    "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot";
-
-const MAX_BUFFER_SIZE: usize = 10_000_000;
 
 impl FromStr for RenderPipelineShader {
     type Err = ();
@@ -217,7 +227,7 @@ impl ElementCreator for GLRenderElement {
 }
 
 impl RenderElement for GLRenderElement {
-    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, state_recv: Receiver<Vec<Entity>>) {
         let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let event_loop = EventLoop::builder().build().expect("event loop building");
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
@@ -275,7 +285,7 @@ impl RenderElement for GLRenderElement {
             ..Default::default()
         };
 
-        let mut zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
+        let mut zoom = (RENDER_CONFIG.size_x.max(RENDER_CONFIG.size_y) as f32) * element.zoom;
         let mut pos_x = 0.0;
         let mut pos_y = 0.0;
         let mut frame_num = 0;
@@ -311,7 +321,7 @@ impl RenderElement for GLRenderElement {
                             [         0.0         ,    0.0, -(2.0*zfar*znear)/(zfar-znear),   0.0],
                         ]
                     };
-                    let n = config.size_x.max(config.size_y) as f32;
+                    let n = RENDER_CONFIG.size_x.max(RENDER_CONFIG.size_y) as f32;
                     let matrix = [
                         [1.0/n, 0.0, 0.0, 0.0],
                         [0.0, 1.0/n, 0.0, 0.0],
@@ -508,7 +518,7 @@ impl ElementCreator for StdOutRender {
 }
 
 impl RenderElement for StdOutRender {
-    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
+    fn render(&self, state_recv: Receiver<Vec<Entity>>) {
         match std::panic::catch_unwind(|| {
             let mut pixel_buffer = FrameBuffer::new(self.buffer_size);
 
@@ -573,7 +583,7 @@ impl RenderElement for StdOutRender {
                 ..Default::default()
             };
 
-            let zoom = (config.size_x.max(config.size_y) as f32) * element.zoom;
+            let zoom = (RENDER_CONFIG.size_x.max(RENDER_CONFIG.size_y) as f32) * element.zoom;
             let pos_x: f32 = 0.0;
             let pos_y: f32 = 0.0;
 
@@ -597,7 +607,7 @@ impl RenderElement for StdOutRender {
                     [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
                 ]
             };
-            let n = config.size_x.max(config.size_y) as f32;
+            let n = RENDER_CONFIG.size_x.max(RENDER_CONFIG.size_y) as f32;
             let matrix = [
                 [1.0 / n, 0.0, 0.0, 0.0],
                 [0.0, 1.0 / n, 0.0, 0.0],

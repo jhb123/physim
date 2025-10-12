@@ -41,11 +41,7 @@ impl ElementCreator for CsvSink {
 }
 
 impl RenderElement for CsvSink {
-    fn render(
-        &self,
-        _config: physim_core::UniverseConfiguration,
-        state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
-    ) {
+    fn render(&self, state_recv: std::sync::mpsc::Receiver<Vec<Entity>>) {
         let res = File::options()
             .create(true)
             .write(true)
