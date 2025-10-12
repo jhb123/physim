@@ -1,11 +1,11 @@
 use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
 
-use crate::{messages::MessageClient, Entity, UniverseConfiguration};
+use crate::{messages::MessageClient, Entity};
 
 use super::Element;
 
 pub trait RenderElement: Element + Send + Sync + MessageClient {
-    fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>);
+    fn render(&self, state_recv: Receiver<Vec<Entity>>);
 }
 pub struct RenderElementHandler {
     instance: Box<dyn RenderElement>,
@@ -20,8 +20,8 @@ impl super::Loadable for RenderElementHandler {
 }
 
 impl RenderElementHandler {
-    pub fn render(&self, config: UniverseConfiguration, state_recv: Receiver<Vec<Entity>>) {
-        self.instance.render(config, state_recv);
+    pub fn render(&self, state_recv: Receiver<Vec<Entity>>) {
+        self.instance.render(state_recv);
     }
 }
 

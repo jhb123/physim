@@ -33,11 +33,7 @@ impl ElementCreator for EnergySink {
 }
 
 impl RenderElement for EnergySink {
-    fn render(
-        &self,
-        _config: physim_core::UniverseConfiguration,
-        state_recv: std::sync::mpsc::Receiver<Vec<Entity>>,
-    ) {
+    fn render(&self, state_recv: std::sync::mpsc::Receiver<Vec<Entity>>) {
         let mut initial_energy = 0.0;
         if let Ok(state) = state_recv.recv() {
             let iteration = self.iteration.fetch_add(1, Ordering::Relaxed);

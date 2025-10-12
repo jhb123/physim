@@ -26,7 +26,7 @@ use crate::{
         transmute::{TransmuteElement, TransmuteElementHandler},
         ElementKind, Loadable, RegisteredElement,
     },
-    Acceleration, Entity, UniverseConfiguration,
+    Acceleration, Entity,
 };
 
 use crate::msg;
@@ -73,12 +73,6 @@ impl MessageClient for PipelineMessageClient {
 
 impl Pipeline {
     pub fn run(self) -> Result<(), String> {
-        let config = UniverseConfiguration {
-            size_x: 2.0,
-            size_y: 1.0,
-            size_z: 1.0,
-        };
-
         // cannot be reference since it'd break renderer
         let pipeline_messages = Arc::new(PipelineMessageClient::new());
         match self.bus.lock() {
@@ -197,7 +191,7 @@ impl Pipeline {
             }
         });
 
-        self.render.render(config, renderer_receiver);
+        self.render.render(renderer_receiver);
         msg_flag.store(false, std::sync::atomic::Ordering::Relaxed);
         message_thread
             .join()
