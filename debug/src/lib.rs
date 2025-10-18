@@ -49,7 +49,8 @@ register_plugin!(
     "void",
     "energysink",
     "fintegrate",
-    "crashtransform"
+    "crashtransform",
+    "crashinit"
 );
 
 #[synth_element(name = "randsynth", blurb = "Generate a random entity")]

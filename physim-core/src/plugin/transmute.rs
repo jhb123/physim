@@ -20,7 +20,7 @@ impl Element for TransmuteElementHandler {
     fn get_property_descriptions(
         &self,
     ) -> Result<std::collections::HashMap<String, String>, Box<dyn std::error::Error>> {
-        self.instance.get_property_descriptions()
+        self.instance.get_property_descriptions_wrapped()
     }
 }
 

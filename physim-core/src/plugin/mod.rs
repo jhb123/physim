@@ -68,8 +68,34 @@ pub enum ElementKind {
     Integrator,
 }
 
-pub trait Element: MessageClient {
+pub trait Element: MessageClient + private::Sealed {
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>>;
+}
+
+mod private {
+    use std::{collections::HashMap, error::Error};
+
+    pub trait Sealed {
+        fn get_property_descriptions_wrapped(
+            &self,
+        ) -> Result<HashMap<String, String>, Box<dyn Error>>;
+    }
+
+    impl<T: super::Element> Sealed for T {
+        fn get_property_descriptions_wrapped(
+            &self,
+        ) -> Result<HashMap<String, String>, Box<dyn Error>> {
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.get_property_descriptions()
+            })) {
+                Ok(state) => return state,
+                Err(_) => {
+                    eprintln!("Exiting...");
+                    std::process::exit(1)
+                }
+            }
+        }
+    }
 }
 
 pub trait Loadable {

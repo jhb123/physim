@@ -1,8 +1,29 @@
 use crate::{messages::MessageClient, plugin::Element, Entity};
 use std::{collections::HashMap, error::Error};
 
-pub trait GeneratorElement: Element + Send + Sync {
+pub trait GeneratorElement: Element + Send + Sync + private::Sealed {
     fn create_entities(&self) -> Vec<Entity>;
+}
+
+mod private {
+    use crate::Entity;
+
+    pub trait Sealed {
+        fn create_entities_wrapped(&self) -> Vec<Entity>;
+    }
+
+    impl<T: super::GeneratorElement> Sealed for T {
+        fn create_entities_wrapped(&self) -> Vec<Entity> {
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.create_entities()))
+            {
+                Ok(state) => return state,
+                Err(_) => {
+                    eprintln!("Exiting...");
+                    std::process::exit(1)
+                }
+            }
+        }
+    }
 }
 
 pub struct GeneratorElementHandler {
@@ -19,13 +40,13 @@ impl super::Loadable for GeneratorElementHandler {
 
 impl GeneratorElementHandler {
     pub fn create_entities(&self) -> Vec<Entity> {
-        self.instance.create_entities()
+        self.instance.create_entities_wrapped()
     }
 }
 
 impl Element for GeneratorElementHandler {
     fn get_property_descriptions(&self) -> Result<HashMap<String, String>, Box<dyn Error>> {
-        self.instance.get_property_descriptions()
+        self.instance.get_property_descriptions_wrapped()
     }
 }
 

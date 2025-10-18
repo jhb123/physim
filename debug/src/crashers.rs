@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use physim_attribute::transform_element;
+use physim_attribute::{initialise_state_element, transform_element};
 use physim_core::{
-    Acceleration, Entity, messages::MessageClient, plugin::transform::TransformElement,
+    Acceleration, Entity,
+    messages::MessageClient,
+    plugin::{Element, ElementCreator, generator::GeneratorElement, transform::TransformElement},
 };
 use serde_json::Value;
 
@@ -39,3 +41,29 @@ impl MessageClient for CrashTransform {}
 //         todo!("Lets see what happens!")
 //     }
 // }
+
+#[initialise_state_element(name = "crashinit", blurb = "Crash on init")]
+struct CrashInit {}
+
+impl GeneratorElement for CrashInit {
+    fn create_entities(&self) -> Vec<Entity> {
+        panic!("Cannot create entities");
+        vec![]
+    }
+}
+
+impl ElementCreator for CrashInit {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+
+impl Element for CrashInit {
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([]))
+    }
+}
+
+impl MessageClient for CrashInit {}

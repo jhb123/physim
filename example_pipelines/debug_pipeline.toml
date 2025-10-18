@@ -4,7 +4,7 @@ iterations = 1000000
 
 [elements]
 
-[[elements.cube]]
+[[elements.crashinit]]
 
 [[elements.cdebug]]
 [[elements.msgdebug]]
