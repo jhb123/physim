@@ -38,6 +38,6 @@ path = "src/bin/scanner.rs"
 name = "physim"
 path = "src/main.rs"
 
-[[bin]]
+[[example]]
 name = "msg"
-path = "src/bin/messages.rs"
+path = "src/examples/messages.rs"
