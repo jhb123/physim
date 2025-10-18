@@ -149,7 +149,13 @@ pub fn element_db() -> HashMap<String, RegisteredElement> {
 }
 
 pub fn get_plugin_dir() -> String {
-    env::var("PHYSIM_PLUGIN_DIR").unwrap_or("./".to_string())
+    let binary_path = env::current_exe().expect("Failed to get current executable path");
+    let binary_dir = binary_path
+        .parent()
+        .expect("Executable has no parent directory")
+        .to_string_lossy();
+
+    env::var("PHYSIM_PLUGIN_DIR").unwrap_or(binary_dir.to_string())
 }
 
 fn discover() -> Vec<RegisteredElement> {
