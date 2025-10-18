@@ -144,7 +144,7 @@ impl Grid {
         ]
     }
 
-    fn iter(&self) -> GridIter {
+    fn iter(&self) -> GridIter<'_> {
         GridIter {
             grid: self,
             keys: self.cells.keys().cloned().collect(),
