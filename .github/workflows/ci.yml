@@ -17,6 +17,14 @@ jobs:
       - run: rustup component add clippy rustfmt
       - run: cargo fmt
       - run: cargo clippy
+
+  spelling:
+    name: Spelling
+    runs-on: ubuntu-latest  
+    steps:    
+    - uses: codespell-project/actions-codespell@v2
+      with:
+        check_filenames: true
     
   build_and_test:
     name: Rust project - latest
@@ -45,4 +53,3 @@ jobs:
       - run: cargo update --verbose
       - run: cargo build --verbose
       - run: cargo test --verbose
-  
