@@ -8,6 +8,12 @@
 ```
 An extensible framework for performing N-body simulations.
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=csHEy_l4Nsg">
+    <img src="https://img.youtube.com/vi/csHEy_l4Nsg/0.jpg" alt="N Body Simulation example" />
+  </a>
+</p>
+
 # Overview
 Physim provides a framework for users to run N-body simulations. Users can build pipelines from the command line or from a configuration file. 
 
