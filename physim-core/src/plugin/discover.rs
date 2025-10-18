@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     env,
     error::Error,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
@@ -259,41 +259,53 @@ pub fn element_db() -> HashMap<String, RegisteredElement> {
         .collect()
 }
 
-pub fn get_plugin_dir() -> String {
+fn get_plugin_dirs() -> Vec<PathBuf> {
     let binary_path = env::current_exe().expect("Failed to get current executable path");
     let binary_dir = binary_path
         .parent()
         .expect("Executable has no parent directory")
-        .to_string_lossy();
+        .to_path_buf();
 
-    env::var("PHYSIM_PLUGIN_DIR").unwrap_or(binary_dir.to_string())
+    let mut dirs = vec![binary_dir];
+
+    if let Ok(extra_plugin_dir) = env::var("PHYSIM_PLUGIN_DIR") {
+        for dir in extra_plugin_dir.split(":") {
+            let d = PathBuf::from(dir);
+            if d.exists() {
+                dirs.push(d);
+            }
+        }
+    }
+
+    dirs
 }
 
 fn discover() -> Vec<RegisteredElement> {
     let mut elements = Vec::new();
-    let plugin_dir = get_plugin_dir();
-    let plugin_dir = Path::new(&plugin_dir);
-    log::info!("Scanning for plugins {:?}", plugin_dir);
-    for entry in plugin_lib_iter(plugin_dir) {
-        log::debug!("Scanning {:?}", entry);
-        let lib_path = entry.path().to_str().expect("msg").to_string();
-        unsafe {
-            if !validate_plugin_abi(&lib_path) {
-                continue;
-            }
-
-            let Ok(lib) = LibLoader::get(&lib_path) else {
-                continue;
-            };
-
-            for element_info in get_plugin_meta(&lib) {
-                if let Some(properties) =
-                    get_registered_element_properties(&element_info, &lib_path)
-                {
-                    elements.push(RegisteredElement::new(element_info, &lib_path, properties));
+    let plugin_dirs = get_plugin_dirs();
+    for plugin_dir in plugin_dirs {
+        log::info!("Scanning for plugins {:?}", plugin_dir);
+        for entry in plugin_lib_iter(&plugin_dir) {
+            log::debug!("Scanning {:?}", entry);
+            let lib_path = entry.path().to_str().expect("msg").to_string();
+            unsafe {
+                if !validate_plugin_abi(&lib_path) {
+                    continue;
                 }
-            }
-        };
+
+                let Ok(lib) = LibLoader::get(&lib_path) else {
+                    continue;
+                };
+
+                for element_info in get_plugin_meta(&lib) {
+                    if let Some(properties) =
+                        get_registered_element_properties(&element_info, &lib_path)
+                    {
+                        elements.push(RegisteredElement::new(element_info, &lib_path, properties));
+                    }
+                }
+            };
+        }
     }
     elements
 }

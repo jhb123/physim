@@ -22,7 +22,7 @@ pub mod deps {
 
 mod discover;
 
-pub use discover::{element_db, get_plugin_dir, RegisteredElement};
+pub use discover::{element_db, RegisteredElement};
 pub use meta::*;
 
 static LIBRARY_LOADER: OnceCell<LibLoader> = OnceCell::new();

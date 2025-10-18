@@ -1,6 +1,6 @@
 use std::env;
 
-use physim_core::plugin::{element_db, get_plugin_dir, RegisteredElement};
+use physim_core::plugin::{element_db, RegisteredElement};
 use yansi::Paint;
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
 
     if args.len() == 1 {
         if elements.is_empty() {
-            println!("No elements found in {}", get_plugin_dir())
+            println!("No elements found")
         }
         for element in elements {
             element.print_element_info_brief();
@@ -26,11 +26,7 @@ fn main() {
         if let Some(element) = element_db.get(element_name) {
             element.print_element_info_verbose();
         } else {
-            println!(
-                "No element called {} found in {}",
-                element_name.bold(),
-                get_plugin_dir()
-            )
+            println!("No element called {}", element_name.bold(),)
         }
     }
 }
