@@ -1,6 +1,13 @@
-use std::{collections::HashMap, env, error::Error, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    env,
+    error::Error,
+    path::Path,
+    sync::{Arc, LazyLock},
+};
 
 use libloading::{Library, Symbol};
+use terminal_colorsaurus::{theme_mode, QueryOptions, ThemeMode};
 use yansi::Paint;
 
 use crate::{
@@ -12,6 +19,9 @@ use crate::{
 };
 
 const PHYSIM_PLUGIN_LOADER_RUSTC_VERSION: &str = env!("ABI_INFO");
+
+static THEME_MODE: LazyLock<ThemeMode> =
+    LazyLock::new(|| theme_mode(QueryOptions::default()).unwrap());
 
 // determined at run time
 #[derive(Debug, Clone)]
@@ -43,6 +53,54 @@ impl RegisteredElement {
     }
 
     pub fn print_element_info_brief(&self) {
+        match *THEME_MODE {
+            ThemeMode::Dark => self.print_element_info_brief_dark(),
+            ThemeMode::Light => self.print_element_info_brief_light(),
+        };
+    }
+
+    fn print_element_info_brief_light(&self) {
+        match self.element_info.kind {
+            ElementKind::Initialiser => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().cyan(),
+                "initialiser".cyan()
+            ),
+            ElementKind::Transform => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().green(),
+                "transform".green()
+            ),
+            ElementKind::Render => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().yellow(),
+                "renderer".yellow()
+            ),
+            ElementKind::Synth => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().red(),
+                "synth".red()
+            ),
+            ElementKind::Transmute => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().black(),
+                "transmute".black()
+            ),
+            ElementKind::Integrator => println!(
+                "{:>15}: {} {}",
+                self.element_info.plugin.magenta(),
+                self.element_info.name.bold().blue(),
+                "integrator".blue()
+            ),
+        }
+    }
+
+    fn print_element_info_brief_dark(&self) {
         match self.element_info.kind {
             ElementKind::Initialiser => println!(
                 "{:>15}: {} {}",
@@ -84,6 +142,13 @@ impl RegisteredElement {
     }
 
     pub fn print_element_info_verbose(&self) {
+        match *THEME_MODE {
+            ThemeMode::Dark => self.print_element_info_verbose_dark(),
+            ThemeMode::Light => self.print_element_info_verbose_light(),
+        };
+    }
+
+    fn print_element_info_verbose_dark(&self) {
         println!("{}", "Overview".bold().underline().bright_blue());
         println!("{:>10} - {}", "Name".bold(), self.element_info.name.green());
         println!(
@@ -130,6 +195,52 @@ impl RegisteredElement {
             "Loaded from the {} plugin located in {}",
             self.element_info.plugin.green(),
             self.lib_path.green()
+        );
+    }
+
+    fn print_element_info_verbose_light(&self) {
+        println!("{}", "Overview".bold().underline().bright_blue());
+        println!("{:>10} - {}", "Name".bold(), self.element_info.name.red());
+        println!("{:>10} - {}", "Blurb".bold(), self.element_info.blurb.red());
+        println!(
+            "{:>10} - {:#?}",
+            "Kind".bold(),
+            self.element_info.kind.red()
+        );
+        if !self.properties.is_empty() {
+            println!();
+            println!("{}", "Properties".underline().bold().bright_blue());
+        }
+        for (key, desc) in self.properties.iter() {
+            println!("{:>10} - {}", key.bold(), desc.red());
+        }
+        println!();
+        println!("{}", "Meta data".underline().bold().bright_blue());
+        println!(
+            "{:>10} - {}",
+            "Authors".bold(),
+            self.element_info.author.red()
+        );
+        println!(
+            "{:>10} - {}",
+            "License".bold(),
+            self.element_info.license.red()
+        );
+        println!(
+            "{:>10} - {}",
+            "Version".bold(),
+            self.element_info.version.red()
+        );
+        println!(
+            "{:>10} - {}",
+            "Repository".bold(),
+            self.element_info.repo.red()
+        );
+        println!();
+        println!(
+            "Loaded from the {} plugin located in {}",
+            self.element_info.plugin.red(),
+            self.lib_path.red()
         );
     }
 }
