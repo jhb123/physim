@@ -113,6 +113,10 @@ cargo run -r --bin physcan cube
 
 # Development
 
+## cbindgen
+
+Run `cbindgen --lang c --crate physim-core --output physim.h` to generate a header file.
+
 ## Git
 
 Commits should follow the [conventional commits

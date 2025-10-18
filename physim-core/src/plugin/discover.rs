@@ -211,6 +211,12 @@ unsafe fn validate_plugin_abi(lib_path: &str) -> bool {
 
     let cstr = std::ffi::CStr::from_ptr(get_plugin_abi_info());
     let rust_version = cstr.to_string_lossy().into_owned();
+    // This is basically a hack for C plugins. I think the ABI for
+    // C is stable. If you'r making a C plugin, you probably know
+    // about all the terrible things that can happen in physim.
+    if rust_version == "C" {
+        return true;
+    }
     let ret = rust_version == PHYSIM_PLUGIN_LOADER_RUSTC_VERSION;
     if !ret {
         eprintln!("{} was built with a different version of the rust compiler or for a different platform. The plugin compiled with {} but physim compiled with {} ",&lib_path, rust_version,PHYSIM_PLUGIN_LOADER_RUSTC_VERSION);
