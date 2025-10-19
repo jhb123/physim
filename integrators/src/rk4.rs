@@ -158,15 +158,25 @@ impl IntegratorElement for Rk4 {
             .zip(new_state.iter_mut())
             .zip(k1.iter().zip(&k2).zip(&k3).zip(&k4))
         {
-            ns.x = e.x + (k1.x + 2.0 * k2.x + 2.0 * k3.x + k4.x) / 6.0;
-            ns.y = e.y + (k1.y + 2.0 * k2.y + 2.0 * k3.y + k4.y) / 6.0;
-            ns.z = e.z + (k1.z + 2.0 * k2.z + 2.0 * k3.z + k4.z) / 6.0;
-            ns.vx = e.vx + (k1.vx + 2.0 * k2.vx + 2.0 * k3.vx + k4.vx) / 6.0;
-            ns.vy = e.vy + (k1.vy + 2.0 * k2.vy + 2.0 * k3.vy + k4.vy) / 6.0;
-            ns.vz = e.vz + (k1.vz + 2.0 * k2.vz + 2.0 * k3.vz + k4.vz) / 6.0;
+            if !e.fixed {
+                ns.x = e.x + (k1.x + 2.0 * k2.x + 2.0 * k3.x + k4.x) / 6.0;
+                ns.y = e.y + (k1.y + 2.0 * k2.y + 2.0 * k3.y + k4.y) / 6.0;
+                ns.z = e.z + (k1.z + 2.0 * k2.z + 2.0 * k3.z + k4.z) / 6.0;
+                ns.vx = e.vx + (k1.vx + 2.0 * k2.vx + 2.0 * k3.vx + k4.vx) / 6.0;
+                ns.vy = e.vy + (k1.vy + 2.0 * k2.vy + 2.0 * k3.vy + k4.vy) / 6.0;
+                ns.vz = e.vz + (k1.vz + 2.0 * k2.vz + 2.0 * k3.vz + k4.vz) / 6.0;
+            } else {
+                ns.x = e.x;
+                ns.y = e.y;
+                ns.z = e.z;
+                ns.vx = 0.0_f64;
+                ns.vy = 0.0_f64;
+                ns.vz = 0.0_f64;
+            }
             ns.mass = e.mass;
             ns.radius = e.radius;
             ns.id = e.id;
+            ns.fixed = e.fixed
         }
     }
 }
