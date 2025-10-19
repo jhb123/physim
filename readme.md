@@ -103,10 +103,9 @@ physim -f pipeline.toml
 ## Encoding with FFMPEG
 The following example shows how to use the `stdout` element from the `glrender` plugin.
 ```bash
-physim cube n=100000 seed=1 spin=500 ! star mass=100000.0 x=0.1 y=0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=-0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=0.1 z=0.5 ! star mass=100000 x=0.1 y=-0.1 z=0.5 ! astro theta=1.3 ! verlet ! stdout zoom=1.5 resolution=1080p | ffmpeg -y -f rawvideo -pixel_format bgra -video_size 1920x1080 -framerate 60 -i pipe:0 -vf "scale=in_range=full:out_range=full,format=yuv420p10le" -c:v libx265 -preset slow -pix_fmt yuv420p10le output.mp4
+physim cube n=100000 seed=1 spin=500 ! star mass=100000.0 x=0.1 y=0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=-0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=0.1 z=0.5 ! star mass=100000 x=0.1 y=-0.1 z=0.5 ! astro theta=1.3 ! verlet ! stdout zoom=1.5 resolution=1080p ! global iterations=10 | ffmpeg -y -f rawvideo -pixel_format rgba -video_size 1920x1080 -framerate 60 -i pipe:0 -vf "scale=in_range=full:out_range=full,format=yuv420p10le" -c:v libx265 -preset slow -pix_fmt yuv420p10le output.mp4
 ```
-Add audio with `ffmpeg -i input.mp4 -i input.mp3 -c:v copy -c:a aac -shortest output.mp4`
-
+You can find more information in [ffmpeg](ffmpeg.md)
 
 # Element documentation
 
