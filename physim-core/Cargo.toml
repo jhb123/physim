@@ -7,7 +7,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Library for creating N-Body physics simulations"
-
+readme.workspace = true
 
 [lib]
 name = "physim_core"

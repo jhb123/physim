@@ -2,6 +2,10 @@
 name = "physim-attribute"
 version.workspace = true
 edition = "2024"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Macros for creating physim plugins"
 
 [lib]
 name = "physim_attribute"
