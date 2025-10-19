@@ -1,9 +1,10 @@
 [package]
-name = "physim_attribute"
+name = "physim-attribute"
 version.workspace = true
 edition = "2024"
 
 [lib]
+name = "physim_attribute"
 proc-macro = true
 
 [dependencies]
