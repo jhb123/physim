@@ -2,6 +2,7 @@
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::HashMap, f32::consts::PI, sync::mpsc::Receiver};
 
 use glium::texture::RawImage2d;
@@ -432,11 +433,13 @@ impl MessageClient for GLRenderElement {
 
 #[render_element(
     name = "stdout",
-    blurb = "Render simulation to stdout for further processing by video software"
+    blurb = "Render simulation to stdout as 8bit RGBA pixels for further processing by video software"
 )]
 pub struct StdOutRender {
     inner: Mutex<InnerRenderElement>,
     buffer_size: usize,
+    capture_frame: Option<usize>,
+    counter: AtomicUsize,
 }
 
 struct FrameBuffer {
@@ -503,6 +506,10 @@ impl ElementCreator for StdOutRender {
             .and_then(|v| v.as_u64().map(|x| x as usize))
             .unwrap_or(30);
 
+        let capture_frame = properties
+            .get("frame")
+            .and_then(|v| v.as_u64().map(|x| x as usize));
+
         let shader = RenderPipelineShader::from_str(shader).unwrap_or_default();
 
         Box::new(StdOutRender {
@@ -513,6 +520,8 @@ impl ElementCreator for StdOutRender {
                 running: true,
             }),
             buffer_size,
+            capture_frame,
+            counter: AtomicUsize::new(0),
         })
     }
 }
@@ -618,6 +627,7 @@ impl RenderElement for StdOutRender {
             target.finish().expect("Unlikely. This can fail on mobile");
 
             loop {
+                let current_frame = self.counter.fetch_add(1, Ordering::Relaxed);
                 vertices.clear();
                 match state_recv.recv() {
                     Ok(state) => {
@@ -628,6 +638,12 @@ impl RenderElement for StdOutRender {
                         break;
                     }
                 }
+                if self.capture_frame.is_some()
+                    && !self.capture_frame.is_some_and(|f| f == current_frame)
+                {
+                    continue;
+                }
+
                 let max_rendered = std::cmp::min(vertex_buffer.len(), vertices.len());
                 vertex_buffer.invalidate();
                 if max_rendered > 0 {
@@ -666,6 +682,12 @@ impl RenderElement for StdOutRender {
                         std::process::exit(1)
                     }
                 };
+                if self.capture_frame.is_some()
+                    && self.capture_frame.is_some_and(|f| f == current_frame)
+                {
+                    pixel_buffer.flush();
+                    break;
+                }
             }
         }) {
             Ok(_) => (),
@@ -691,6 +713,11 @@ impl Element for StdOutRender {
             (
                 "buffer_size".to_string(),
                 "Number of frames to buffer before writing".to_string(),
+            ),
+            (
+                "frame".to_string(),
+                "If specified, only one frame will be generated at the timestep specified by frame"
+                    .to_string(),
             ),
         ]))
     }
