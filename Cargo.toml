@@ -10,5 +10,9 @@ license = "MIT"
 repository = "https://github.com/jhb123/physim"
 version = "0.3.0"
 
+[workspace.dependencies]
+physim-core = { path = "physim-core" }
+physim-attribute = { path = "physim-attribute" }
+
 [profile.release]
 debug = true
