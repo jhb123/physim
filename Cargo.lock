@@ -155,8 +155,8 @@ name = "astro"
 version = "0.3.0"
 dependencies = [
  "bumpalo",
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rand",
  "rand_chacha",
  "rand_distr",
@@ -382,8 +382,8 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 name = "debug"
 version = "0.3.0"
 dependencies = [
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rand",
  "rustc_version",
  "serde",
@@ -550,8 +550,8 @@ name = "glrender"
 version = "0.3.0"
 dependencies = [
  "glium",
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rustc_version",
  "serde_json",
 ]
@@ -654,8 +654,8 @@ dependencies = [
 name = "integrators"
 version = "0.3.0"
 dependencies = [
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rustc_version",
  "serde_json",
 ]
@@ -769,8 +769,8 @@ name = "mechanics"
 version = "0.3.0"
 dependencies = [
  "ahash",
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rand",
  "rustc_version",
  "serde",
@@ -1125,6 +1125,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
+name = "physim-attribute"
+version = "0.3.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "physim-core"
 version = "0.3.0"
 dependencies = [
@@ -1140,14 +1148,6 @@ dependencies = [
  "terminal-colorsaurus",
  "toml",
  "yansi",
-]
-
-[[package]]
-name = "physim_attribute"
-version = "0.3.0"
-dependencies = [
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1683,8 +1683,8 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 name = "utilities"
 version = "0.3.0"
 dependencies = [
+ "physim-attribute",
  "physim-core",
- "physim_attribute",
  "rustc_version",
  "serde",
  "serde_json",
