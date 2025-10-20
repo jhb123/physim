@@ -9,3 +9,4 @@ pipeline.toml
 video_configs/
 *.o
 *.dylib
+dist/
