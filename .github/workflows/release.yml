@@ -10,7 +10,18 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-latest
+    name: Build & Package (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - platform: macos
+            os: macos-latest
+          - platform: linux
+            os: ubuntu-latest
+          - platform: windows
+            os: windows-latest
 
     steps:
       - name: Checkout repository
@@ -19,12 +30,14 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Package
-        run: bash ./package.sh
+      - name: Build and Package
+        shell: bash
+        run: |
+          bash ./package.sh ${{ matrix.platform }}
 
       - name: Upload release tarball
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/physim-${{ github.ref_name }}-macos.tar.gz
+          files: dist/physim-${{ github.ref_name }}-${{ matrix.platform }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
