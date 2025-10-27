@@ -7,35 +7,53 @@ set -o pipefail
 # Configuration
 # -------------------------
 # Where to install final binaries/plugins (make sure this is in your PATH)
-INSTALL_DIR="${1:-$HOME/physim}"
+INSTALL_DIR="${1:-$HOME}/physim"
 
-# Rust project root (adjust if needed)
-RUST_PROJECT_DIR="."
-
-# C plugin directory (adjust if needed)
-C_PLUGIN_DIR="c_plugin"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # -------------------------
 # Create install directory
 # -------------------------
+if [[ -d "$INSTALL_DIR" && "$(ls -A "$INSTALL_DIR")" ]]; then
+    echo "The directory '$INSTALL_DIR' already exists and is not empty."
+    read -p "Do you want to overwrite its contents? [y/N]: " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 1
+    fi
+
+    echo "Clearing existing contents in $INSTALL_DIR..."
+    find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 -exec rm -r -- {} +
+fi
+
 mkdir -p "$INSTALL_DIR"
 echo "Installing final binaries/plugins to: $INSTALL_DIR"
+cp -r "$SCRIPT_DIR/physim"/* $INSTALL_DIR
 
 # -------------------------
-# 1. Build Rust project
+# Add INSTALL_DIR to PATH if not already
 # -------------------------
-echo "Building Rust project in release mode..."
-cargo build --release --manifest-path "$RUST_PROJECT_DIR/Cargo.toml" --bin physcan --bin physim --lib
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    SHELL_NAME=$(basename "$SHELL")
+    case "$SHELL_NAME" in
+        bash)
+            SHELL_RC="$HOME/.bashrc"
+            ;;
+        zsh)
+            SHELL_RC="$HOME/.zshrc"
+            ;;
+        *)
+            SHELL_RC="$HOME/.profile"
+            ;;
+    esac
 
-# Copy Rust binaries to install dir
-echo "Copying Rust binaries..."
-# Find all binaries in target/release
-for bin in "$RUST_PROJECT_DIR/target/release/"*; do
-    if [[ -f "$bin" && -x "$bin" ]]; then
-        echo "Installing $(basename "$bin")"
-        cp "$bin" "$INSTALL_DIR/"
-    fi
-done
+    echo "Adding $INSTALL_DIR to PATH in $SHELL_RC"
+    echo "" >> "$SHELL_RC"
+    echo "# Added by Physim installer" >> "$SHELL_RC"
+    echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_RC"
 
-
-echo "✅ Build and install complete. Make sure $INSTALL_DIR is in your PATH."
+    echo "PATH updated! Please restart your terminal or run:"
+    echo "   source $SHELL_RC"
+else
+    echo "$INSTALL_DIR is already in your PATH."
+fi
