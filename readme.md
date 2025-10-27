@@ -48,12 +48,16 @@ The elements which come by default are:
 ```
 
 ## Installation
-You are required to build physim from source. Install Rust, and the install script will install `physim`, `physcan` and the default plugins to `$HOME/physim` 
+### Mac Os
+```bash
+curl -L https://github.com/jhb123/physim/releases/latest/download/physim-macos.tar.gz \
+  -o physim-macos.tar.gz && tar -xzf physim-macos.tar.gz && bash physim-macos/install.sh
 ```
-chmod 755 install.sh
-./install.sh
+### Other platforms
+You are required to build physim from source. Install Rust, and then run
+```bash
+cargo build -r
 ```
-
 # Running a simulation
 `physim` simulations can be configured directly in the CLI. Each element is delimited by `!`, and the properties of the element can be configured as shown in the following example:
 
