@@ -152,7 +152,7 @@ checksum = "175571dd1d178ced59193a6fc02dde1b972eb0bc56c892cde9beeceac5bf0f6b"
 
 [[package]]
 name = "astro"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "bumpalo",
  "physim-attribute",
@@ -380,7 +380,7 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
 name = "debug"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "physim-attribute",
  "physim-core",
@@ -547,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "glrender"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "glium",
  "physim-attribute",
@@ -652,7 +652,7 @@ dependencies = [
 
 [[package]]
 name = "integrators"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "physim-attribute",
  "physim-core",
@@ -766,7 +766,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "mechanics"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "ahash",
  "physim-attribute",
@@ -1126,7 +1126,7 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "physim-attribute"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "quote",
  "syn",
@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "physim-core"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "env_logger",
  "libloading",
@@ -1681,7 +1681,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utilities"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "physim-attribute",
  "physim-core",
