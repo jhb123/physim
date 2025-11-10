@@ -1,4 +1,6 @@
 # Introduction
+<span>![cube_galaxy](img/cube.png)</span>
+
 Physim is a versatile pipeline-based framework for running N-Body simulations. At it's core, Physim is a program which creates a system composed of entities and the state of the system is evolved through modular components at regular timesteps. At each timestep, the state of the system is rendered. Physim's functionality come from plugins. These plugins provide elements which let users customise how:
 - entities are created
 - forces are calculated
@@ -24,4 +26,4 @@ physim global dt=0.01 iterations=1000! plummer n=10000 ! \
 
 If you are interested in studying the universe through simulation, then I'd recommend using more well established software for your domain (e.g. [NEMO](https://github.com/teuben/nemo)). However, if you want to just have fun and render [cool videos](https://youtube.com/playlist?list=PLLBNbi9sF5y4QUUCJiiEdBRob6bNU1Nki&si=K7VPk8XlheiKU7oB), then physim might be suit your needs
 
-The first chapter will focus on how to use physim run simulations and how to render videos. No prior experience with Rust is required for this chapter. The second chapter will describe the basic building blocks of physim and how each type of element works. The third chapter will give an example of how a plugin can be made with Rust. 
+The first chapter will focus on how to use physim run simulations and how to render videos. No prior experience with Rust is required for this chapter. The second chapter will give an example of how a plugin can be made with Rust. 
