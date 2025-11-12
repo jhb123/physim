@@ -18,7 +18,8 @@ register_plugin!(
     "cube",
     "star",
     "plummer",
-    "solar"
+    "solar",
+    "bar"
 );
 
 // make a function that when is called, sets a global bus variable in dynamic library

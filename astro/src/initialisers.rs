@@ -1,7 +1,7 @@
 use core::f64;
 use rand::Rng;
 use rand_distr::Distribution;
-use std::{collections::HashMap, f64::consts::PI, sync::Mutex};
+use std::{collections::HashMap, f64::consts::PI, ops::Div, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{
@@ -526,3 +526,182 @@ impl Element for SolarSystem {
 }
 
 impl MessageClient for SolarSystem {}
+
+#[initialise_state_element(
+    name = "bar",
+    blurb = "Generate a galaxy where stars are randomly placed in a Ferrers bar."
+)]
+#[derive(Debug)]
+/// Ferrers bar https://academic.oup.com/mnras/article/493/2/2676/5739934?login=false
+pub struct Bar {
+    inner: Mutex<InnerBar>,
+}
+
+#[derive(Debug)]
+struct InnerBar {
+    n: u64,
+    seed: u64,
+    spin: f64,
+    spin_power: f64,
+    centre: [f64; 3],
+    semi_major: f64,
+    semi_minor: f64,
+    thickness: f64,
+    ferrers_parameter: f64,
+    mass: f64,
+    angle: f64,
+    id: usize,
+}
+
+impl ElementCreator for Bar {
+    fn create_element(properties: HashMap<String, Value>) -> Box<Self> {
+        let n = properties
+            .get("n")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(100_000);
+        let seed = properties.get("seed").and_then(|v| v.as_u64()).unwrap_or(0);
+        let spin = properties
+            .get("spin")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let spin_power = properties
+            .get("spin_power")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let centre = properties
+            .get("centre")
+            .and_then(|v| {
+                let coords = v.as_array()?;
+                if coords.len() != 3 {
+                    None
+                } else {
+                    let coords: Vec<f64> = coords.iter().flat_map(|x| x.as_f64()).collect();
+                    Some([coords[0], coords[1], coords[2]])
+                }
+            })
+            .unwrap_or([0.0_f64; 3]);
+        let semi_major = properties
+            .get("semi_major")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let semi_minor = properties
+            .get("semi_minor")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let thickness = properties
+            .get("thickness")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let ferrers_parameter = properties
+            .get("ferrers_parameter")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let mass = properties
+            .get("mass")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let angle = properties
+            .get("angle")
+            .and_then(|v| v.as_f64())
+            .and_then(|x| Some(x.to_radians()))
+            .unwrap_or(0.0);
+        let id = properties.get("id").and_then(|id| id.as_u64()).unwrap_or(0);
+        Box::new(Self {
+            inner: Mutex::new(InnerBar {
+                n,
+                seed,
+                spin,
+                spin_power,
+                centre,
+                semi_minor,
+                semi_major,
+                thickness,
+                ferrers_parameter,
+                mass,
+                angle,
+                id: id as usize,
+            }),
+        })
+    }
+}
+
+impl GeneratorElement for Bar {
+    fn create_entities(&self) -> Vec<Entity> {
+        let element = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+
+        let mut rng = ChaCha8Rng::seed_from_u64(element.seed);
+        let entity_mass = element.mass / (element.n as f64);
+        let mut state = Vec::with_capacity(element.n as usize);
+
+        while state.len() < element.n as usize {
+            let x: f64 = rng.random_range(-1.0..1.0) * element.semi_major;
+            let y: f64 = rng.random_range(-1.0..1.0) * element.semi_minor;
+            let z: f64 = rng.random_range(-1.0..1.0) * element.thickness;
+
+            let m2 = x.powi(2) / element.semi_major.powi(2)
+                + y.powi(2) / element.semi_minor.powi(2)
+                + z.powi(2) / element.thickness.powi(2);
+            if m2 > 1.0 {
+                continue;
+            }
+            let rho = (1.0 - m2).powf(element.ferrers_parameter);
+            let u: f64 = rng.random_range(0.0..1.0);
+            if u > rho {
+                continue;
+            }
+            let mut entity = Entity::new2(x, y, z, entity_mass, 0.02);
+
+            let x_no_rotation = entity.x;
+            let y_no_rotation = entity.y;
+
+            entity.x = x_no_rotation * element.angle.cos() - y_no_rotation * element.angle.sin();
+            entity.y = x_no_rotation * element.angle.sin() + y_no_rotation * element.angle.cos();
+
+            let r = (entity.x.powi(2) + entity.y.powi(2)).sqrt();
+            let theta = entity.y.atan2(entity.x);
+            let v_mag = element.spin * r.powf(element.spin_power);
+
+            entity.vx = -theta.sin() * v_mag;
+            entity.vy = theta.cos() * v_mag;
+
+            entity.x += element.centre[0];
+            entity.y += element.centre[1];
+            entity.z += element.centre[2];
+
+            entity.id = element.id;
+            state.push(entity);
+        }
+        state
+    }
+}
+impl Element for Bar {
+    fn get_property_descriptions(
+        &self,
+    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+        Ok(HashMap::from([
+            ("n".to_string(), "Number of stars".to_string()),
+            ("seed".to_string(), "Random seed".to_string()),
+            ("spin".to_string(), "linear scaling factor for rotational velocity".to_string()),
+            ("spin_power".to_string(), "power law for rotational velocity".to_string()),
+            ("semi_major".to_string(), "semi_major axis".to_string()),
+            ("semi_minor".to_string(), "semi_minor axis".to_string()),
+            ("thickness".to_string(), "extent of ellipsoid in z direction".to_string()),
+            ("ferrers_parameter".to_string(), "Higher concentrates more mass at the centre of the ellipsoid. Good values are between 0.0 and 2.0".to_string()),
+
+            (
+                "mass".to_string(),
+                "Total mass of cube. Default is 1.0".to_string(),
+            ),
+            (
+                "centre".to_string(),
+                "Centre (specify in CLI with \\[x,y,z\\])".to_string(),
+            ),
+            (
+                "id".to_string(),
+                "Id assigned to stars in galaxy".to_string(),
+            ),
+        ]))
+    }
+}
+
+impl MessageClient for Bar {}
