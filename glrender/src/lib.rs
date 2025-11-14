@@ -27,7 +27,7 @@ use serde_json::Value;
 register_plugin!("glrender,stdout");
 
 const SHADER_DESC: &str =
-    "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot";
+    "yellowblue, velocity, rgb-velocity, smoke, twinkle, id, orange-blue, hot, psychedelic";
 
 const MAX_BUFFER_SIZE: usize = 10_000_000;
 
@@ -60,6 +60,7 @@ enum RenderPipelineShader {
     Smoke,
     Twinkle,
     Id,
+    Psychedelic,
 }
 
 impl FromStr for RenderPipelineShader {
@@ -75,6 +76,7 @@ impl FromStr for RenderPipelineShader {
             "smoke" => Ok(RenderPipelineShader::Smoke),
             "twinkle" => Ok(RenderPipelineShader::Twinkle),
             "id" => Ok(RenderPipelineShader::Id),
+            "psychedelic" | "psyc" => Ok(RenderPipelineShader::Psychedelic),
             _ => Err(()),
         }
     }
@@ -158,6 +160,11 @@ impl RenderPipelineShader {
             ),
             Self::Hot => (
                 include_str!("velocity/hot.vert"),
+                include_str!("velocity/shader.geom"),
+                include_str!("velocity/shader.frag"),
+            ),
+            Self::Psychedelic => (
+                include_str!("velocity/psychedelic.vert"),
                 include_str!("velocity/shader.geom"),
                 include_str!("velocity/shader.frag"),
             ),
