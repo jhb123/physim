@@ -3,3 +3,6 @@ authors = ["jhb123"]
 language = "en"
 src = "src"
 title = "Physim Manual"
+
+[output.html]
+mathjax-support = true

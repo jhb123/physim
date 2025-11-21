@@ -1,7 +1,7 @@
 use core::f64;
 use rand::Rng;
 use rand_distr::Distribution;
-use std::{collections::HashMap, f64::consts::PI, ops::Div, sync::Mutex};
+use std::{collections::HashMap, f64::consts::PI, sync::Mutex};
 
 use physim_attribute::initialise_state_element;
 use physim_core::{

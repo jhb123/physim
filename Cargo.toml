@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = [ "astro","physim-core","glrender", "physim-attribute", "debug", "integrators", "utilities", "mechanics"]
-default-members = [ "astro","physim-core","glrender", "physim-attribute", "integrators", "utilities", "mechanics"]
+members = [ "astro","physim-core","glrender", "physim-attribute", "debug", "integrators", "utilities", "mechanics" , "example_plugin"]
+default-members = [ "astro","physim-core","glrender", "physim-attribute", "integrators", "utilities", "mechanics", "example_plugin"]
 
 
 [workspace.package]
