@@ -8,7 +8,7 @@ default-members = [ "astro","physim-core","glrender", "physim-attribute", "integ
 authors = ["Joseph Briggs <jhbriggs23@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/jhb123/physim"
-version = "0.4.3"
+version = "0.4.4"
 readme = "readme.md"
 
 [workspace.dependencies]
