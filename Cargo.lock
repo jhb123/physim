@@ -155,8 +155,8 @@ name = "astro"
 version = "0.4.3"
 dependencies = [
  "bumpalo",
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rand",
  "rand_chacha",
  "rand_distr",
@@ -382,8 +382,8 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 name = "debug"
 version = "0.4.3"
 dependencies = [
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rand",
  "rustc_version",
  "serde",
@@ -454,6 +454,16 @@ checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "physim-attribute 0.4.3 (git+https://github.com/jhb123/physim)",
+ "physim-core 0.4.3 (git+https://github.com/jhb123/physim)",
+ "rustc_version",
+ "serde_json",
 ]
 
 [[package]]
@@ -550,8 +560,8 @@ name = "glrender"
 version = "0.4.3"
 dependencies = [
  "glium",
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rustc_version",
  "serde_json",
 ]
@@ -654,8 +664,8 @@ dependencies = [
 name = "integrators"
 version = "0.4.3"
 dependencies = [
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rustc_version",
  "serde_json",
 ]
@@ -769,8 +779,8 @@ name = "mechanics"
 version = "0.4.3"
 dependencies = [
  "ahash",
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rand",
  "rustc_version",
  "serde",
@@ -1133,8 +1143,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "physim-attribute"
+version = "0.4.3"
+source = "git+https://github.com/jhb123/physim#1e4d77f9d4fcfb00b9d448ab2419b96fd1e49f7f"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "physim-core"
 version = "0.4.3"
+dependencies = [
+ "env_logger",
+ "libloading",
+ "log",
+ "once_cell",
+ "rand",
+ "rand_chacha",
+ "rustc_version",
+ "serde",
+ "serde_json",
+ "terminal-colorsaurus",
+ "toml",
+ "yansi",
+]
+
+[[package]]
+name = "physim-core"
+version = "0.4.3"
+source = "git+https://github.com/jhb123/physim#1e4d77f9d4fcfb00b9d448ab2419b96fd1e49f7f"
 dependencies = [
  "env_logger",
  "libloading",
@@ -1683,8 +1721,8 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 name = "utilities"
 version = "0.4.3"
 dependencies = [
- "physim-attribute",
- "physim-core",
+ "physim-attribute 0.4.3",
+ "physim-core 0.4.3",
  "rustc_version",
  "serde",
  "serde_json",

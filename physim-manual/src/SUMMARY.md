@@ -5,8 +5,7 @@
 - [Usage](./usage.md)
 - [Using `stdout` and FFmpeg](./ffmpeg.md)
 # Plugin Author Guide
-- [Introduction]()
-- [The boiler plate]()
-- [Adding behaviour]()
-- [Adding properties]()
+- [Introduction](./plugin_intro.md)
+- [The boiler plate](./boiler_plate.md)
+- [Creating a Transform](./transform.md)
 - [Inter-element communication]()
