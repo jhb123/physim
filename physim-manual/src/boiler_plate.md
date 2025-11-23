@@ -1,15 +1,14 @@
 # The boiler plate
-A physim plugin is a dynamic library. The following Cargo project is a good place to start. To build a `physim` plugin, you will need `physim-core` for the traits and structs. `physim-attribute` provides macros that generate the glue code for physim to load your plugin. `serde_json` is needed for parsing configuration. A `build.rs` and `rustc_version` is needed exposing compiler information to the plugin.
-
+This Cargo project contains the dependencies needed to build a plugin for `physim`. `physim-core` provides traits and types. `physim-attribute` provides macros that generate the code which lets `physim` use the plugin. `serde_json` is used to parse an element's configuration at run time. The plugin needs a `build.rs` script and the `rustc_version` crate to expose compiler information which `physim` checks for compatibility. Because the plugin is a dynamically loaded library, you should specify `crate-type = ["dylib"]`.
 ```toml
 {{#include ../../example_plugin/Cargo.toml}}
 ```
-The build.rs file should contain
+The `build.rs` script should contain
 ```rust
 # build.rs
 {{#include ../../example_plugin/build.rs}}
 ```
-Your plugin project will be laid out like this
+Your plugin project can be laid out like this
 ```
 example_plugin/
 ├── Cargo.toml

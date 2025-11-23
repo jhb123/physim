@@ -12,7 +12,10 @@ use physim_core::{Acceleration, Entity};
 // ANCHOR: element_declaration
 register_plugin!("ex_drag");
 
-#[transform_element(name = "ex_drag", blurb = "Applies a drag proportional to velocity")]
+#[transform_element(
+    name = "ex_drag",
+    blurb = "Applies a drag force which scales with the square of velocity"
+)]
 pub struct Drag {
     alpha: f64,
 }
