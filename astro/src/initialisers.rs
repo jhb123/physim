@@ -700,6 +700,7 @@ impl Element for Bar {
                 "id".to_string(),
                 "Id assigned to stars in galaxy".to_string(),
             ),
+            ("angle".to_string(), "Angle of the semi-major axis in degrees".to_string()),
         ]))
     }
 }
