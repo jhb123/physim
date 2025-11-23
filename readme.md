@@ -15,46 +15,20 @@ An extensible framework for performing N-body simulations.
 </p>
 
 # Overview
-Physim provides a framework for users to run N-body simulations. Users can build pipelines from the command line or from a configuration file. 
+`physim` provides a framework for users to run N-body simulations. Users can build pipelines from the command line or from a configuration file. 
 
-The functionality of physim can be expanded with plugins to add functionality. Developers can make these plugins with `Rust` and there is support for some elements to be written in languages with a `C` ABI. Physim comes with a variety of useful elements such as OpenGL renderers and gravity calculations.
+Functionality can be added to `physim` with plugins. Developers can make these plugins with `Rust` and there is support for some elements to be written in languages with a `C` ABI. `physim` comes with a variety of useful elements which do things like render the simulation with OpenGL and perform gravity calculations on the entities in the simulation.
 
-There are two programs
- - `physim` runs simulations.
- - `physcan` provides documentation for elements.
+Please see the [user manual](https://jhb123.github.io/physim/) for more information.
   
-The elements which come by default are:
-```
-          astro: astro2 transform
-          astro: simple_astro transform
-          astro: solar initialiser
-          astro: star initialiser
-          astro: astro transform
-          astro: plummer initialiser
-          astro: cube initialiser
-       glrender: glrender renderer
-       glrender: stdout renderer
-    integrators: euler integrator
-    integrators: rk4 integrator
-    integrators: verlet integrator
-      mechanics: impulse transform
-      mechanics: shm transform
-      mechanics: collisions transmute
-      utilities: wrapper transmute
-      utilities: bpm transmute
-      utilities: idset transmute
-      utilities: csvsink renderer
-      utilities: bbox transmute
-```
-
 ## Installation
-### Mac Os
+### macOS
 ```bash
 curl -L https://github.com/jhb123/physim/releases/latest/download/physim-macos.tar.gz \
   -o physim-macos.tar.gz && tar -xzf physim-macos.tar.gz && bash physim-macos/install.sh
 ```
 ### Other platforms
-You are required to build physim from source. Install Rust, and then run
+You are required to build `physim` from source. Install Rust, and then run
 ```bash
 cargo build -r
 ```
@@ -64,8 +38,7 @@ cargo build -r
 ```bash
 physim cube n=100000 seed=1 spin=1000 ! star mass=100000.0 radius=0.1 z=0.5 x=0.2 y=0.2 ! star mass=100000.0 radius=0.1 z=0.5 x=-0.2 y=-0.2 ! astro2 theta=1.5 e=0.5 ! verlet ! glrender ! global dt=0.00001 iterations=10000
 ```
-Alternatively, the can be loaded via a file. The pipeline above can be expressed in toml as 
-
+Alternatively, simulations can be configured with a file with `physim -f pipeline.toml`. The pipeline above can be expressed in TOML as 
 ```toml
 [global]
 dt = 0.00001
@@ -100,16 +73,12 @@ radius = 0.1
 
 [[elements.glrender]]
 ```
-and run with
-```
-physim -f pipeline.toml
-```
 ## Encoding with FFMPEG
-The following example shows how to use the `stdout` element from the `glrender` plugin.
+The following example shows how to use the `stdout` element from the `glrender` plugin with FFmpeg to encode a video.
 ```bash
 physim cube n=100000 seed=1 spin=500 ! star mass=100000.0 x=0.1 y=0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=-0.1 radius=0.1 z=0.5 ! star mass=100000.0 x=-0.1 y=0.1 z=0.5 ! star mass=100000 x=0.1 y=-0.1 z=0.5 ! astro theta=1.3 ! verlet ! stdout zoom=1.5 resolution=1080p ! global iterations=10 | ffmpeg -y -f rawvideo -pixel_format rgba -video_size 1920x1080 -framerate 60 -i pipe:0 -vf "scale=in_range=full:out_range=full,format=yuv420p10le" -c:v libx265 -preset slow -pix_fmt yuv420p10le output.mp4
 ```
-You can find more information in [ffmpeg](./physim-manual/src/ffmpeg.md)
+You can find more information in [FFmpeg](./physim-manual/src/ffmpeg.md)
 
 # Element documentation
 
@@ -128,22 +97,19 @@ physcan cube
 
 The debug plugin is for ad-hoc manual testing. It can serve as poorly written documentation of how to use most features of
 physim. It is not built by default as it does not have anything very useful outside of a development context in it. 
-To build it, you can run.
+To build it, run
 ```
 cargo build -p debug
 ```
 
 ## cbindgen
 
-Run `cbindgen --lang c --crate physim-core --output physim.h` to generate a header file.
+Run `cbindgen --lang c --crate physim-core --output physim.h` to generate a header file which can be used to make a plugin in `C`.
 
 ## Git
 
 Commits should follow the [conventional commits
-standard](https://www.conventionalcommits.org/en/v1.0.0/#summary).
-
-The `.gitmessage` file provides guidance on this and it can be set
-as your template with 
+standard](https://www.conventionalcommits.org/en/v1.0.0/#summary). The `.gitmessage` file provides guidance on this and it can be set as your template with 
 ```bash
 $ git config commit.template .gitmessage
 ```
