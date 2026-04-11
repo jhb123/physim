@@ -1,0 +1,50 @@
+# Schwarzschild geodesic simulation — gravitational lensing by a black hole
+#
+# Massless photons follow null geodesics computed from the tensor geodesic equation:
+#   d²xᵘ/dλ² + Γᵘₐᵦ (dxᵃ/dλ)(dxᵝ/dλ) = 0
+#
+# photon_ring  — spawns all N rays simultaneously, all with the same momentum
+#                (perpendicular to the from→to line, pointing toward the origin)
+# photon_wavefront — same geometry but trickles one ray per tick, building up
+#                    a continuously evolving lensed wavefront
+#
+# Coordinate system (glrender): x = screen horizontal, y = screen vertical,
+# z = depth / colour only. Visible world-space range is roughly [-1, 1].
+# b_crit ≈ 2.598·rs ≈ 0.26 for rs=0.1: photons inside this are captured.
+
+[global]
+dt = 0.005
+iterations = 6000
+
+[elements]
+
+# Visual marker for the black hole
+[[elements.star]]
+mass = 1.0
+radius = 0.04
+x = 0.0
+y = 0.0
+z = 0.5
+fixed = true
+
+# All rays spawned at once, moving upward toward the BH.
+[[elements.photon_ring]]
+n = 100
+from = [-0.85, -0.85]
+to   = [ 0.85, -0.85]
+period = 10
+
+
+# Geodesic transform: all BH physics lives here.
+# A = −3·rs·L²/(2r⁴), stable at the event horizon.
+[[elements.schwarzschild_geodesic]]
+rs = 0.1
+
+[[elements.rk4]]
+
+[[elements.void]]
+ylim=2.0
+xlim=2.0
+
+[[elements.glrender]]
+shader = "id"
