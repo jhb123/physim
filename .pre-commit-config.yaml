@@ -1,15 +1,25 @@
+default_install_hook_types: [pre-commit, commit-msg, pre-merge-commit, pre-push]
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0  # Use the ref you want to point at
+    rev: v6.0.0
     hooks:
     -   id: check-toml
     -   id: end-of-file-fixer
     -   id: check-added-large-files
     -   id: check-yaml
--   repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    -   id: check-merge-conflict
+    -   id: check-case-conflict
+    -   id: detect-private-key
+    -   id: trailing-whitespace
+    -   id: no-commit-to-branch
+-   repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
     hooks:
-    - id: codespell
+      -   id: shellcheck
+-   repo: https://github.com/crate-ci/committed
+    rev: v1.1.11
+    hooks:
+      -   id: committed
 -   repo: local
     hooks:
     -   id: cargo-clippy
@@ -26,3 +36,17 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+    -   id: cargo-test
+        name: cargo test
+        description: Run cargo test
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+    -   id: no-merge-commits
+        name: Forbid merge commits
+        entry: bash -c 'echo "Merge commits are not allowed! Learn to rebase!"; exit 1'
+        language: system
+        stages: [pre-merge-commit]
+        always_run: true
