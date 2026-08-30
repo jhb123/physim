@@ -39,10 +39,11 @@ repos:
     -   id: cargo-test
         name: cargo test
         description: Run cargo test
-        entry: cargo fmt --all -- --check
+        entry: cargo test
         language: system
         types: [rust]
         pass_filenames: false
+        always_run: true
         stages: [pre-push]
     -   id: no-merge-commits
         name: Forbid merge commits
