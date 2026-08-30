@@ -3,6 +3,7 @@
 #![feature(vec_into_raw_parts)]
 #![feature(trait_alias)]
 
+mod geodesic;
 mod initialisers;
 pub mod octree;
 pub mod quadtree;
@@ -10,7 +11,6 @@ mod transformers;
 
 use physim_core::{Entity, register_plugin};
 
-// static ELEMENTS: &str = "astro,simple_astro,debug";
 register_plugin!(
     "astro",
     "astro2",
@@ -19,7 +19,10 @@ register_plugin!(
     "star",
     "plummer",
     "solar",
-    "bar"
+    "bar",
+    "photon_ring",
+    "photon_wavefront",
+    "schwarzschild_geodesic"
 );
 
 // make a function that when is called, sets a global bus variable in dynamic library
