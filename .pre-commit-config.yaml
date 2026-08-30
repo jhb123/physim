@@ -12,10 +12,10 @@ repos:
     -   id: detect-private-key
     -   id: trailing-whitespace
     -   id: no-commit-to-branch
--   repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.11.0
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1-1
     hooks:
-      -   id: shellcheck
+    -   id: shellcheck
 -   repo: https://github.com/crate-ci/committed
     rev: v1.1.11
     hooks:
@@ -49,4 +49,11 @@ repos:
         entry: bash -c 'echo "Merge commits are not allowed! Learn to rebase!"; exit 1'
         language: system
         stages: [pre-merge-commit]
+        always_run: true
+    -   id: branch_name
+        name: Branch Namimg
+        description: Ensure consistent branch naming
+        entry: branch_name.sh
+        language: script
+        stages: [pre-push]
         always_run: true

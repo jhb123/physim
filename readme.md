@@ -15,12 +15,12 @@ An extensible framework for performing N-body simulations.
 </p>
 
 # Overview
-`physim` provides a framework for users to run N-body simulations. Users can build pipelines from the command line or from a configuration file. 
+`physim` provides a framework for users to run N-body simulations. Users can build pipelines from the command line or from a configuration file.
 
 Functionality can be added to `physim` with plugins. Developers can make these plugins with `Rust` and there is support for some elements to be written in languages with a `C` ABI. `physim` comes with a variety of useful elements which do things like render the simulation with OpenGL and perform gravity calculations on the entities in the simulation.
 
 Please see the [user manual](https://jhb123.github.io/physim/) for more information.
-  
+
 ## Installation
 ### macOS
 ```bash
@@ -38,7 +38,7 @@ cargo build -r
 ```bash
 physim cube n=100000 seed=1 spin=1000 ! star mass=100000.0 radius=0.1 z=0.5 x=0.2 y=0.2 ! star mass=100000.0 radius=0.1 z=0.5 x=-0.2 y=-0.2 ! astro2 theta=1.5 e=0.5 ! verlet ! glrender ! global dt=0.00001 iterations=10000
 ```
-Alternatively, simulations can be configured with a file with `physim -f pipeline.toml`. The pipeline above can be expressed in TOML as 
+Alternatively, simulations can be configured with a file with `physim -f pipeline.toml`. The pipeline above can be expressed in TOML as
 ```toml
 [global]
 dt = 0.00001
@@ -96,7 +96,7 @@ physcan cube
 ## debug plugin
 
 The debug plugin is for ad-hoc manual testing. It can serve as poorly written documentation of how to use most features of
-physim. It is not built by default as it does not have anything very useful outside of a development context in it. 
+physim. It is not built by default as it does not have anything very useful outside of a development context in it.
 To build it, run
 ```
 cargo build -p debug
@@ -108,16 +108,26 @@ Run `cbindgen --lang c --crate physim-core --output physim.h` to generate a head
 
 ## Git
 
-Commits should follow the [conventional commits
-standard](https://www.conventionalcommits.org/en/v1.0.0/#summary). The `.gitmessage` file provides guidance on this and it can be set as your template with 
+Use `just setup-git` (and install [just](https://github.com/casey/just) and
+[pre-commit](https://pre-commit.com/) if you haven't!) to set up tools which
+we can use to keep the codebase and git history clean.
+- Commits should follow the [conventional commits
+standard](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+- Merge commits are banned.
+- Branch names have either a feature, chore, or fix prefix.
+
+All of those rules are enforced by git hooks. If you need to redo a commit
+message, run `git fix-commit` to reopen the message you were working on
+
+If you have trouble with SSL certificates when the `shellcheck` hook runs
+on mac, try
 ```bash
-$ git config commit.template .gitmessage
+# Check your python3 version first
+python3 --version
+
+# Then run the matching cert install script, e.g. for 3.10:
+open "/Applications/Python 3.10/Install Certificates.command"
 ```
-
-We use the rebase strategy for pull requests.
-
-Use `pre-commit` to keep the codebase free of common style issues. 
-
 
 # Licence
 MIT.
