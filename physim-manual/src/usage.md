@@ -67,8 +67,8 @@ shader="velocity"
 ## From the CLI
 `physim` simulations can be configured directly in the CLI. Each element is delimited by `!`, and the properties of the element can be configured as shown below. The same simulation above can be launched with
 ```bash
-$ physim global dt=0.01 iterations=2500 ! \
-    cube n=10000 seed=2 a=2.0 !  astro theta=0.4 e=0.01 ! \
+$ cargo run -r --bin physim -- global dt=0.01 iterations=2500 ! \
+    cube n=100 seed=2 a=2.0 !  gas ! \
     rk4 ! glrender resolution="1080p" shader="velocity"
 ```
 ## Physcan

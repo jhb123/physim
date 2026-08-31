@@ -1,0 +1,35 @@
+# Lennard-Jones gas, using the python plugin's `gas` element.
+#
+# 300 particles start packed into a small cube (some overlapping), so the
+# short-range repulsion in `gas` immediately flings them apart. They
+# collide, exchange momentum and thermalise, and `bbox` keeps them confined
+# so you can watch gas-like behaviour (pressure against the walls,
+# diffusion) instead of free expansion forever.
+
+[global]
+dt = 0.001
+iterations = 5000
+
+[elements]
+
+[[elements.cube]]
+n = 300
+seed = 1
+size = 0.5
+mass = 100.0
+
+[[elements.gas]]
+epsilon = 1.0
+sigma = 0.08
+cutoff = 2.5
+
+[[elements.bbox]]
+xlim = 1.0
+ylim = 1.0
+zlim = 1.0
+
+[[elements.euler]]
+
+[[elements.glrender]]
+resolution = "720p"
+shader = "velocity"
